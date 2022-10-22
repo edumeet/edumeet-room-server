@@ -39,7 +39,7 @@ const logger = new Logger('Server');
 		honorCipherOrder: true
 	});
 
-	httpsServer.listen(config.listenPort, () =>
+	httpsServer.listen({ port: config.listenPort, host: config.listenHost }, () =>
 		logger.debug('httpsServer.listen() [port: %s]', config.listenPort));
 
 	const socketServer = new IOServer(httpsServer, {
