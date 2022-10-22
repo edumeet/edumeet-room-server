@@ -1,0 +1,13 @@
+node_modules/
+
+/config/**
+!/config/config.example.*
+!/config/README.md
+
+/dist/
+
+/certs/**
+!/certs/edumeet-demo-*
+
+.vscode
+yarn-error.log
