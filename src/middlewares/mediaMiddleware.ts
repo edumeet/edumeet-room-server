@@ -1,6 +1,7 @@
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumer } from '../common/createConsumer';
+import { addProducer } from '../common/handleAudioLevel';
 import { Logger } from '../common/logger';
 import { Middleware } from '../common/middleware';
 import { MiddlewareOptions } from '../common/types';
@@ -57,6 +58,10 @@ export const createMediaMiddleware = ({
 
 					response.id = producer.id;
 					context.handled = true;
+
+					addProducer(producer, peer.router).catch((error) => {
+						logger.error('addProducer() [error: %o]', error);
+					});
 
 					(async () => {
 						for (const consumerPeer of room.getPeers(peer)) {

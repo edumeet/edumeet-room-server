@@ -3,6 +3,7 @@ import { Producer } from 'mediasoup/node/lib/Producer';
 import { Peer } from '../Peer';
 import { RouterData } from '../MediaService';
 import { Router } from 'mediasoup/node/lib/Router';
+import { addProducer } from './handleAudioLevel';
 
 const logger = new Logger('createConsumer');
 
@@ -126,6 +127,12 @@ const checkPipe = async (
 				});
 
 				pipeProducer?.observer.once('close', () => pipePromises.delete(producer.id));
+
+				if (pipeProducer) {
+					addProducer(pipeProducer, consumerRouter).catch((error) => {
+						logger.error('createConsumer() [error: %o]', error);
+					});
+				}
 
 				return resolve();
 			});

@@ -14,6 +14,7 @@ import Room from './Room';
 import { skipIfClosed } from './common/decorators';
 import { List } from './common/list';
 import { Peer } from './Peer';
+import { AudioLevelObserver } from 'mediasoup/node/lib/AudioLevelObserver';
 
 const logger = new Logger('MediaService');
 
@@ -37,6 +38,7 @@ export interface RouterData {
 	workerPid: number;
 	pipePromises: Map<string, Promise<void>>;
 	peers: Map<string, Peer>;
+	audioLevelObserverPromise: Promise<AudioLevelObserver>;
 }
 
 export default class MediaService {
@@ -147,6 +149,19 @@ export default class MediaService {
 		let router = workerData.routersByRoomId.get(room.id);
 
 		if (!router) {
+			// eslint-disable-next-line no-unused-vars
+			let audioLevelObserverResolver!: (value: AudioLevelObserver) => void;
+			// eslint-disable-next-line no-unused-vars
+			let audioLevelObserverRejecter!: (reason?: unknown) => void;
+
+			const audioLevelObserverPromise = new Promise<AudioLevelObserver>((
+				resolve,
+				reject
+			) => {
+				audioLevelObserverResolver = resolve;
+				audioLevelObserverRejecter = reject;
+			});
+
 			const tmpRouter = await worker.createRouter({
 				mediaCodecs: [ {
 					kind: 'audio',
@@ -165,6 +180,7 @@ export default class MediaService {
 						workerPid: worker.pid,
 						pipePromises: new Map<string, Promise<void>>(),
 						peers: new Map<string, Peer>(),
+						audioLevelObserverPromise
 					} as RouterData
 				}
 			});
@@ -185,6 +201,15 @@ export default class MediaService {
 				router.id,
 				worker.pid
 			);
+
+			const audioLevelObserver = await router.createAudioLevelObserver({
+				maxEntries: 1,
+				threshold: -60,
+				interval: 1000
+			}).catch((error) => audioLevelObserverRejecter(error));
+
+			if (audioLevelObserver)
+				audioLevelObserverResolver(audioLevelObserver);
 
 			workerData.routersByRoomId.set(room.id, router);
 
