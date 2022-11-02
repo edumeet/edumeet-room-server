@@ -2,14 +2,14 @@ import EventEmitter from 'events';
 import { Logger } from '../common/logger';
 import { skipIfClosed } from '../common/decorators';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
-import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup/node/lib/WebRtcTransport';
-import { SctpParameters } from 'mediasoup/node/lib/SctpParameters';
 import { Producer, ProducerOptions } from './Producer';
 import { Consumer, ConsumerOptions } from './Consumer';
 import { Router } from './Router';
-import { MediaKind, RtpCapabilities, RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 import { Middleware } from '../common/middleware';
 import { createWebRtcTransportMiddleware } from '../middlewares/webRtcTransportMiddleware';
+import { MediaKind, RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup-client/lib/Transport';
+import { SctpParameters } from 'mediasoup-client/lib/SctpParameters';
 
 const logger = new Logger('WebRtcTransport');
 
@@ -92,12 +92,23 @@ export class WebRtcTransport extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public close() {
+	public close(remoteClose = false) {
 		logger.debug('close()');
 
 		this.closed = true;
 
 		this.connection.pipeline.remove(this.webRtcTransportMiddleware);
+
+		if (!remoteClose) {
+			this.connection.notify({
+				method: 'closeWebRtcTransport',
+				data: {
+					routerId: this.router.id,
+					transportId: this.id,
+				}
+			});
+		}
+
 		this.consumers.forEach((consumer) => consumer.close(true));
 		this.producers.forEach((producer) => producer.close(true));
 

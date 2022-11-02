@@ -1,16 +1,16 @@
 import EventEmitter from 'events';
 import { Logger } from '../common/logger';
 import { skipIfClosed } from '../common/decorators';
-import { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
-import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
 import { Middleware } from '../common/middleware';
 import { createRouterMiddleware } from '../middlewares/routerMiddleware';
 import { Producer } from './Producer';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
+import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
+import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 
 const logger = new Logger('Router');
 
@@ -82,14 +82,22 @@ export class Router extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public close() {
+	public close(remoteClose = false) {
 		logger.debug('close()');
 
 		this.closed = true;
 
 		this.connection.pipeline.remove(this.routerMiddleware);
-		this.webRtcTransports.forEach((transport) => transport.close());
-		this.pipeTransports.forEach((transport) => transport.close());
+
+		if (!remoteClose) {
+			this.connection.notify({
+				method: 'closeRouter',
+				data: { routerId: this.id }
+			});
+		}
+
+		this.webRtcTransports.forEach((transport) => transport.close(true));
+		this.pipeTransports.forEach((transport) => transport.close(true));
 
 		this.emit('close');
 	}
@@ -179,9 +187,7 @@ export class Router extends EventEmitter {
 			srtpParameters,
 		} = await this.connection.request({
 			method: 'createPipeTransport',
-			data: {
-				routerId: this.id,
-			}
+			data: { routerId: this.id }
 		}) as PipeTransportOptions;
 
 		const transport = new PipeTransport({

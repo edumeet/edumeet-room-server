@@ -33,6 +33,8 @@ export default class MediaService {
 		logger.debug('close()');
 
 		this.closed = true;
+
+		this.mediaNodes.items.forEach((mediaNode) => mediaNode.close());
 	}
 
 	@skipIfClosed
@@ -59,6 +61,15 @@ export default class MediaService {
 		if (!mediaNode)
 			throw new Error('no media nodes available');
 
-		return mediaNode.getRouter(room.id);
+		const router = await mediaNode.getRouter(room.id);
+
+		if (!room.parentClosed)
+			room.addRouter(router);
+		else {
+			router.close();
+			throw new Error('room closed');
+		}
+
+		return router;
 	}
 }

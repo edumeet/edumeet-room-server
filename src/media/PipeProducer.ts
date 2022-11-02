@@ -3,9 +3,9 @@ import { Logger } from '../common/logger';
 import { skipIfClosed } from '../common/decorators';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { Router } from './Router';
-import { MediaKind, RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 import { Middleware } from '../common/middleware';
 import { createPipeProducerMiddleware } from '../middlewares/pipeProducerMiddleware';
+import { MediaKind, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 
 const logger = new Logger('PipeProducer');
 

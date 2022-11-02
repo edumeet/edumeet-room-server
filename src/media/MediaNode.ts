@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { skipIfClosed } from '../common/decorators';
 import { Logger } from '../common/logger';
 import { RouterData } from '../MediaService';
 import { Peer } from '../Peer';
@@ -15,6 +16,7 @@ interface MediaNodeOptions {
 
 export default class MediaNode {
 	public id: string;
+	public closed = false;
 	public connectionString: string;
 	public connection?: MediaNodeConnection;
 
@@ -29,6 +31,17 @@ export default class MediaNode {
 
 		this.id = id;
 		this.connectionString = connectionString;
+	}
+
+	@skipIfClosed
+	public close() {
+		logger.debug('close()');
+
+		this.closed = true;
+
+		this.routers.forEach((router) => router.close());
+		this.connection?.close();
+		this.routers.clear();
 	}
 
 	public async getRouter(roomId: string): Promise<Router> {

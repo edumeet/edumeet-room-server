@@ -8,14 +8,14 @@ import { Pipeline } from './common/middleware';
 import { userRoles } from './common/authorization';
 import { Role } from './common/types';
 import { skipIfClosed } from './common/decorators';
-import { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
 import { RouterData } from './MediaService';
-import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
 import { List } from './common/list';
 import { Router } from './media/Router';
 import { WebRtcTransport } from './media/WebRtcTransport';
 import { Consumer } from './media/Consumer';
 import { Producer } from './media/Producer';
+import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
+import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
 
 const logger = new Logger('Peer');
 

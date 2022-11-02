@@ -2,11 +2,11 @@ import EventEmitter from 'events';
 import { Logger } from '../common/logger';
 import { skipIfClosed } from '../common/decorators';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
-import { MediaKind, RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 import { Router } from './Router';
-import { ProducerScore } from 'mediasoup/node/lib/Producer';
 import { Middleware } from '../common/middleware';
 import { createProducerMiddleware } from '../middlewares/producerMiddleware';
+import { MediaKind, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { ProducerScore } from '../common/types';
 
 const logger = new Logger('Producer');
 

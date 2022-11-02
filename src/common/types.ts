@@ -34,3 +34,31 @@ export interface Role {
 	level: number;
 	promotable: boolean;
 }
+
+export type ProducerScore = {
+	ssrc: number;
+	rid?: string;
+	score: number;
+};
+
+export type ConsumerScore = {
+	score: number;
+	producerScore: number;
+	producerScores: number[];
+};
+
+export type ConsumerLayers = {
+	spatialLayer: number;
+	temporalLayer?: number;
+};
+
+export type SrtpParameters = {
+	cryptoSuite: SrtpCryptoSuite;
+	keyBase64: string;
+};
+
+export type SrtpCryptoSuite =
+	| 'AEAD_AES_256_GCM'
+	| 'AEAD_AES_128_GCM'
+	| 'AES_CM_128_HMAC_SHA1_80'
+	| 'AES_CM_128_HMAC_SHA1_32';

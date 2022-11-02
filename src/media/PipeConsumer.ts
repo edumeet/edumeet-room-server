@@ -2,10 +2,10 @@ import EventEmitter from 'events';
 import { Logger } from '../common/logger';
 import { skipIfClosed } from '../common/decorators';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
-import { MediaKind, RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 import { Router } from './Router';
 import { Middleware } from '../common/middleware';
 import { createPipeConsumerMiddleware } from '../middlewares/pipeConsumerMiddleware';
+import { MediaKind, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 
 const logger = new Logger('PipeConsumer');
 
