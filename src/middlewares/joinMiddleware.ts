@@ -3,7 +3,7 @@ import {
 	Permission,
 } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { createConsumer } from '../common/createConsumer';
+import { createConsumer } from '../common/consuming';
 import { Logger } from '../common/logger';
 import { Middleware } from '../common/middleware';
 import { MiddlewareOptions } from '../common/types';

@@ -1,9 +1,8 @@
 import { Logger } from './logger';
-import { Producer } from 'mediasoup/node/lib/Producer';
 import { Peer } from '../Peer';
 import { RouterData } from '../MediaService';
-import { Router } from 'mediasoup/node/lib/Router';
-import { addProducer } from './handleAudioLevel';
+import { Producer } from '../media/Producer';
+import { Router } from '../media/Router';
 
 const logger = new Logger('createConsumer');
 
@@ -18,12 +17,20 @@ export const createConsumer = async (
 	if (
 		!producerRouter ||
 		!consumerRouter ||
-		!consumerPeer.rtpCapabilities ||
-		!producerRouter.canConsume({
-			producerId: producer.id,
-			rtpCapabilities: consumerPeer.rtpCapabilities
-		})
+		!consumerPeer.rtpCapabilities
 	)
+		return logger.warn(
+			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
+			producerPeer.id,
+			producer.id
+		);
+
+	const canConsume = await producerRouter.canConsume({
+		producerId: producer.id,
+		rtpCapabilities: consumerPeer.rtpCapabilities
+	});
+
+	if (!canConsume)
 		return logger.warn(
 			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
 			producerPeer.id,
@@ -42,15 +49,14 @@ export const createConsumer = async (
 
 		const consumer = await consumingTransport.consume({
 			producerId: producer.id,
-			rtpCapabilities: consumerPeer.rtpCapabilities,
-			paused: producer.kind === 'video'
+			rtpCapabilities: consumerPeer.rtpCapabilities
 		});
 
 		if (consumerPeer.closed)
 			return consumer.close();
 
 		consumerPeer.consumers.set(consumer.id, consumer);
-		consumer.observer.once('close', () => {
+		consumer.once('close', () => {
 			consumer.removeAllListeners();
 			consumerPeer.consumers.delete(consumer.id);
 
@@ -121,18 +127,14 @@ const checkPipe = async (
 				if (consumerRouter.closed || producerRouter.closed)
 					return reject('problem with router');
 
-				const { pipeProducer } = await producerRouter.pipeToRouter({
+				const {
+					pipeProducer,
+				} = await producerRouter.pipeToRouter({
 					producerId: producer.id,
 					router: consumerRouter
 				});
 
-				pipeProducer?.observer.once('close', () => pipePromises.delete(producer.id));
-
-				if (pipeProducer) {
-					addProducer(pipeProducer, consumerRouter).catch((error) => {
-						logger.error('createConsumer() [error: %o]', error);
-					});
-				}
+				pipeProducer?.once('close', () => pipePromises.delete(producer.id));
 
 				return resolve();
 			});

@@ -6,14 +6,16 @@ import { SocketMessage } from './signaling/SignalingInterface';
 import { signingkey } from './common/token';
 import { Pipeline } from './common/middleware';
 import { userRoles } from './common/authorization';
-import { Router } from 'mediasoup/node/lib/Router';
-import { WebRtcTransport } from 'mediasoup/node/lib/WebRtcTransport';
-import { Consumer } from 'mediasoup/node/lib/Consumer';
-import { Producer } from 'mediasoup/node/lib/Producer';
 import { Role } from './common/types';
 import { skipIfClosed } from './common/decorators';
 import { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
 import { RouterData } from './MediaService';
+import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
+import { List } from './common/list';
+import { Router } from './media/Router';
+import { WebRtcTransport } from './media/WebRtcTransport';
+import { Consumer } from './media/Consumer';
+import { Producer } from './media/Producer';
 
 const logger = new Logger('Peer');
 
@@ -57,13 +59,14 @@ export class Peer extends EventEmitter {
 	public id: string;
 	public closed = false;
 	public roles: Role[] = [ userRoles.NORMAL ];
-	public connections: BaseConnection[] = [];
+	public connections = List<BaseConnection>();
 	public displayName: string;
 	public picture?: string;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	public routerId?: string;
 	public rtpCapabilities?: RtpCapabilities;
+	public sctpCapabilities?: SctpCapabilities;
 	#router?: Router;
 	public transports = new Map<string, WebRtcTransport>();
 	public consumers = new Map<string, Consumer>();
@@ -100,7 +103,7 @@ export class Peer extends EventEmitter {
 
 		this.closed = true;
 
-		this.connections.forEach((c) => c.close());
+		this.connections.items.forEach((c) => c.close());
 		this.producers.forEach((p) => p.close());
 		this.consumers.forEach((c) => c.close());
 		this.transports.forEach((t) => t.close());
@@ -111,7 +114,7 @@ export class Peer extends EventEmitter {
 			peers.delete(this.id);
 		}
 
-		this.connections = [];
+		this.connections.clear();
 		this.producers.clear();
 		this.consumers.clear();
 		this.transports.clear();
@@ -162,16 +165,10 @@ export class Peer extends EventEmitter {
 	}
 
 	@skipIfClosed
-	private addConnection(connection: BaseConnection): void {
+	public addConnection(connection: BaseConnection): void {
 		logger.debug('addConnection()');
 
-		this.connections.push(connection);
-		this.connections.sort((a, b) => {
-			if (a.priority > b.priority) return 1;
-			if (a.priority < b.priority) return -1;
-
-			return 0;
-		});
+		this.connections.add(connection);
 
 		connection.on('notification', async (notification) => {
 			try {
@@ -217,7 +214,7 @@ export class Peer extends EventEmitter {
 		});
 
 		connection.once('close', () => {
-			this.connections = this.connections.filter((c) => c.id !== connection.id);
+			this.connections.remove(connection);
 
 			if (this.connections.length === 0)
 				this.close();
@@ -233,7 +230,7 @@ export class Peer extends EventEmitter {
 	public async notify(notification: SocketMessage): Promise<void> {
 		logger.debug('notify() [peerId: %s, method: %s]', this.id, notification.method);
 
-		for (const connection of this.connections) {
+		for (const connection of this.connections.items) {
 			try {
 				return await connection.notify(notification);
 			} catch (error) {
@@ -248,7 +245,7 @@ export class Peer extends EventEmitter {
 	public async request(request: SocketMessage): Promise<unknown> {
 		logger.debug('request() [peerId: %s, method: %s]', this.id, request.method);
 
-		for (const connection of this.connections) {
+		for (const connection of this.connections.items) {
 			try {
 				return await connection.request(request);
 			} catch (error) {

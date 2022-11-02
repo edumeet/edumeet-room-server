@@ -1,4 +1,3 @@
-import config from '../../config/config.json';
 import { thisSession } from '../common/checkSessionId';
 import { Logger } from '../common/logger';
 import { Middleware } from '../common/middleware';
@@ -37,36 +36,36 @@ export const createInitialMediaMiddleware = ({
 			}
 
 			case 'createWebRtcTransport': {
-				const { forceTcp, producing, consuming } = message.data;
+				const {
+					forceTcp,
+					producing,
+					consuming,
+					sctpCapabilities,
+				} = message.data;
 
-				const webRtcTransportOptions = {
-					...config.mediasoup.webRtcTransport,
-					enableTcp: true,
-					enableUdp: !forceTcp,
-					preferUdp: !forceTcp,
-					appData: { producing, consuming }
-				};
+				const transport = await peer.router.createWebRtcTransport({
+					forceTcp,
+					producing,
+					consuming,
+					sctpCapabilities,
+					appData: {
+						producing,
+						consuming,
+					}
+				});
 
-				const transport = await peer.router?.createWebRtcTransport(
-					webRtcTransportOptions
-				);
+				if (!transport)
+					throw new Error('transport not found');
 
 				peer.transports.set(transport.id, transport);
-				transport.observer.once('close', () => peer.transports.delete(transport.id));
+				transport.once('close', () => peer.transports.delete(transport.id));
 
 				response.id = transport.id;
 				response.iceParameters = transport.iceParameters;
 				response.iceCandidates = transport.iceCandidates;
 				response.dtlsParameters = transport.dtlsParameters;
+				response.sctpParameters = transport.sctpParameters;
 				context.handled = true;
-
-				const { maxIncomingBitrate } = config.mediasoup.webRtcTransport;
-				
-				if (maxIncomingBitrate) {
-					(async () => {
-						await transport.setMaxIncomingBitrate(maxIncomingBitrate);
-					})().catch();
-				}
 
 				break;
 			}

@@ -33,7 +33,5 @@ export abstract class BaseConnection
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public abstract request(request: SocketMessage): Promise<unknown>;
 	public abstract close(): void;
-	public abstract get type(): string;
 	public abstract get id(): string;
-	public abstract get priority(): number;
 }

@@ -1,7 +1,6 @@
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { createConsumer } from '../common/createConsumer';
-import { addProducer } from '../common/handleAudioLevel';
+import { createConsumer } from '../common/consuming';
 import { Logger } from '../common/logger';
 import { Middleware } from '../common/middleware';
 import { MiddlewareOptions } from '../common/types';
@@ -49,7 +48,7 @@ export const createMediaMiddleware = ({
 					const producer = await transport.produce({ kind, rtpParameters, appData });
 
 					peer.producers.set(producer.id, producer);
-					producer.observer.once('close', () => peer.producers.delete(producer.id));
+					producer.once('close', () => peer.producers.delete(producer.id));
 
 					producer.on('score', (score) => peer.notify({
 						method: 'producerScore',
@@ -58,10 +57,6 @@ export const createMediaMiddleware = ({
 
 					response.id = producer.id;
 					context.handled = true;
-
-					addProducer(producer, peer.router).catch((error) => {
-						logger.error('addProducer() [error: %o]', error);
-					});
 
 					(async () => {
 						for (const consumerPeer of room.getPeers(peer)) {
@@ -72,8 +67,6 @@ export const createMediaMiddleware = ({
 					throw new Error('produce failed');
 				}
 
-				// TODO: Add into the audioLevelObserver
-
 				break;
 			}
 
@@ -83,8 +76,6 @@ export const createMediaMiddleware = ({
 
 				if (!producer)
 					throw new Error(`producer with id "${producerId}" not found`);
-
-				// TODO: remove from audioLevelObserver.
 
 				producer.close();
 				context.handled = true;

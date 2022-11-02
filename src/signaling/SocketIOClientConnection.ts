@@ -1,6 +1,6 @@
 import { BaseConnection } from './BaseConnection';
 import { SocketMessage } from './SignalingInterface';
-import { Socket } from 'socket.io';
+import { io, Socket } from 'socket.io-client';
 import { Logger } from '../common/logger';
 import { SocketTimeoutError } from '../common/SocketTimeoutError';
 import { skipIfClosed } from '../common/decorators';
@@ -26,9 +26,20 @@ interface ServerClientEvents {
 	/* eslint-enable no-unused-vars */
 }
 
-const logger = new Logger('SocketIOConnection');
+const logger = new Logger('SocketIOClientConnection');
 
-export class SocketIOConnection extends BaseConnection {
+export class SocketIOClientConnection extends BaseConnection {
+	public static create({ url }: { url: string}): SocketIOClientConnection {
+		logger.debug('create() [url:%s]', url);
+	
+		const socket = io(url, {
+			transports: [ 'websocket', 'polling' ],
+			rejectUnauthorized: false,
+		});
+	
+		return new SocketIOClientConnection(socket);
+	}
+
 	public closed = false;
 	private socket: Socket<ClientServerEvents, ServerClientEvents>;
 
@@ -48,7 +59,7 @@ export class SocketIOConnection extends BaseConnection {
 		this.closed = true;
 
 		if (this.socket.connected)
-			this.socket.disconnect(true);
+			this.socket.disconnect();
 
 		this.socket.removeAllListeners();
 
@@ -99,6 +110,12 @@ export class SocketIOConnection extends BaseConnection {
 
 	private handleSocket(): void {
 		logger.debug('handleSocket()');
+
+		this.socket.on('connect', () => {
+			logger.debug('handleSocket() connected');
+
+			this.emit('connect');
+		});
 
 		// TODO: reconnect logic here
 		this.socket.once('disconnect', () => {

@@ -12,7 +12,9 @@ export default class ServerManager {
 	public static async create(): Promise<ServerManager> {
 		logger.debug('create()');
 
-		const mediaService = await MediaService.create();
+		// const mediaService = await MediaService.create();
+
+		const mediaService = new MediaService();
 
 		return new ServerManager({ mediaService });
 	}

@@ -1,17 +1,12 @@
 {
-	"listenPort": "443",
+	"listenPort": "8443",
 	"listenHost": "0.0.0.0",
 	"tls": {
 		"cert": "./certs/edumeet-demo-cert.pem",
 		"key": "./certs/edumeet-demo-key.pem"
 	},
-	"mediasoup" : {
-		"webRtcTransport" : {
-			"listenIps" : [{
-				"ip": "192.168.50.244",
-				"announcedIp" : ""
-			}],
-			"maxIncomingBitrate" : 5000000
-		}
-	}
+	"mediaNodes": [{
+		"hostname": "localhost",
+		"port": 3001
+	}]
 }

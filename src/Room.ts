@@ -23,13 +23,12 @@ import { createLobbyPeerMiddleware } from './middlewares/lobbyPeerMiddleware';
 import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { List } from './common/list';
-import { Router } from 'mediasoup/node/lib/Router';
 import { skipIfClosed } from './common/decorators';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
 import { MiddlewareOptions } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
-import { handleAudioLevel } from './common/handleAudioLevel';
+import { Router } from './media/Router';
 
 const logger = new Logger('Room');
 
@@ -139,7 +138,6 @@ export default class Room extends EventEmitter {
 		if (this.routers.has(router)) return;
 
 		this.routers.add(router);
-		handleAudioLevel(router);
 	}
 
 	@skipIfClosed
