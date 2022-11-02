@@ -133,8 +133,6 @@ export class Router extends EventEmitter {
 	@skipIfClosed
 	public async createWebRtcTransport({
 		forceTcp,
-		producing,
-		consuming,
 		sctpCapabilities,
 		appData = {}
 	}: CreateWebRtcTransportOptions): Promise<WebRtcTransport> {
@@ -151,8 +149,6 @@ export class Router extends EventEmitter {
 			data: {
 				routerId: this.id,
 				forceTcp,
-				producing,
-				consuming,
 				sctpCapabilities,
 			}
 		}) as WebRtcTransportOptions;

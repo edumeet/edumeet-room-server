@@ -45,8 +45,6 @@ export const createInitialMediaMiddleware = ({
 
 				const transport = await peer.router.createWebRtcTransport({
 					forceTcp,
-					producing,
-					consuming,
 					sctpCapabilities,
 					appData: {
 						producing,
