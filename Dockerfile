@@ -10,6 +10,9 @@ RUN yarn install
 
 COPY . .
 
+# Lets make sure we have a valid config before we build
+RUN cp config/config.example.json config/config.json
+
 RUN yarn run build
 
 EXPOSE ${8443}
