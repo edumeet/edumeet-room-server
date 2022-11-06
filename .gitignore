@@ -1,8 +1,7 @@
 node_modules/
 
 /config/**
-!/config/config.example.*
-!/config/README.md
+!/config/config.example.json
 
 /dist/
 

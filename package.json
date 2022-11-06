@@ -6,7 +6,9 @@
 	"author": "Håvar Aambø Fosstveit <havar@fosstveit.net>",
 	"license": "MIT",
 	"scripts": {
+		"build": "tsc",
 		"start": "tsc && node dist/src/server.js",
+		"prodstart": "node dist/src/server.js",
 		"lint": "eslint . --ext .ts",
 		"connect": "node connect.js"
 	},
