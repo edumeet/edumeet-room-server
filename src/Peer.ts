@@ -8,7 +8,6 @@ import { Pipeline } from './common/middleware';
 import { userRoles } from './common/authorization';
 import { Role } from './common/types';
 import { skipIfClosed } from './common/decorators';
-import { RouterData } from './MediaService';
 import { List } from './common/list';
 import { Router } from './media/Router';
 import { WebRtcTransport } from './media/WebRtcTransport';
@@ -108,12 +107,6 @@ export class Peer extends EventEmitter {
 		this.consumers.forEach((c) => c.close());
 		this.transports.forEach((t) => t.close());
 
-		if (this.router) {
-			const { peers } = this.router.appData.serverData as RouterData;
-
-			peers.delete(this.id);
-		}
-
 		this.connections.clear();
 		this.producers.clear();
 		this.consumers.clear();
@@ -138,10 +131,7 @@ export class Peer extends EventEmitter {
 	public set router(router: Router | undefined) {
 		if (!router) return;
 
-		const { peers } = router.appData.serverData as RouterData;
-
 		this.#router = router;
-		peers.set(this.id, this);
 	}
 
 	@skipIfClosed

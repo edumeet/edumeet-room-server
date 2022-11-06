@@ -113,7 +113,7 @@ const checkPipe = async (
 	producerRouter: Router
 ): Promise<void> => {
 	if (consumerRouter !== producerRouter) {
-		const { pipePromises } = consumerRouter.appData.serverData as RouterData;
+		const { pipePromises } = consumerRouter.appData as unknown as RouterData;
 
 		let pipePromise = pipePromises.get(producer.id);
 

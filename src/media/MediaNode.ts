@@ -1,13 +1,16 @@
 import { randomUUID } from 'crypto';
 import { skipIfClosed } from '../common/decorators';
 import { Logger } from '../common/logger';
-import { RouterData } from '../MediaService';
-import { Peer } from '../Peer';
 import { SocketIOClientConnection } from '../signaling/SocketIOClientConnection';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 
 const logger = new Logger('MediaNode');
+
+interface GetRouterOptions {
+	roomId: string;
+	appData?: Record<string, unknown>;
+}
 
 interface MediaNodeOptions {
 	id: string;
@@ -44,7 +47,7 @@ export default class MediaNode {
 		this.routers.clear();
 	}
 
-	public async getRouter(roomId: string): Promise<Router> {
+	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
 
 		const requestUUID = randomUUID();
@@ -75,13 +78,7 @@ export default class MediaNode {
 				connection: this.connection,
 				id,
 				rtpCapabilities,
-				appData: {
-					serverData: {
-						roomId,
-						pipePromises: new Map<string, Promise<void>>(),
-						peers: new Map<string, Peer>(),
-					} as RouterData
-				}
+				appData
 			});
 
 			this.routers.set(id, router);

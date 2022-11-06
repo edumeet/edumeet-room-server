@@ -25,7 +25,7 @@ export const createInitialMediaMiddleware = ({
 		if (!thisSession(room, message))
 			return next();
 
-		if (!peer.router) peer.router = await mediaService.getRouter(room);
+		if (!peer.router) peer.router = await mediaService.getRouter(room, peer);
 
 		switch (message.method) {
 			case 'getRouterRtpCapabilities': {

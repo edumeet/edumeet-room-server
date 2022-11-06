@@ -15,7 +15,6 @@ let index = 0;
 export interface RouterData {
 	roomId: string;
 	pipePromises: Map<string, Promise<void>>;
-	peers: Map<string, Peer>;
 }
 
 export default class MediaService {
@@ -50,8 +49,8 @@ export default class MediaService {
 	}
 
 	@skipIfClosed
-	public async getRouter(room: Room): Promise<Router> {
-		logger.debug('getRouter() [roomId: %s]', room.id);
+	public async getRouter(room: Room, peer: Peer): Promise<Router> {
+		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
 		const mediaNode = this.mediaNodes.items[index];
 
@@ -61,7 +60,13 @@ export default class MediaService {
 		if (!mediaNode)
 			throw new Error('no media nodes available');
 
-		const router = await mediaNode.getRouter(room.id);
+		const router = await mediaNode.getRouter({
+			roomId: room.id,
+			appData: {
+				roomId: room.id,
+				pipePromises: new Map<string, Promise<void>>(),
+			}
+		});
 
 		if (!room.parentClosed)
 			room.addRouter(router);
