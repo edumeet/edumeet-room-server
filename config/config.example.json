@@ -7,6 +7,9 @@
 	},
 	"mediaNodes": [{
 		"hostname": "localhost",
-		"port": 3001
+		"port": 3001,
+		"secret": "some-secret-that-is-shared-with-the-media-node",
+		"latitude": 63.430481,
+		"longitude": 10.394964
 	}]
 }

@@ -11,6 +11,7 @@ import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
 import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('Router');
 
@@ -23,6 +24,7 @@ interface CreateWebRtcTransportOptions {
 }
 
 interface CreatePipeTransportOptions {
+	enableSrtp?: boolean;
 	appData?: Record<string, unknown>;
 }
 
@@ -32,6 +34,7 @@ export interface RouterOptions {
 }
 
 interface InternalRouterOptions extends RouterOptions {
+	mediaNode: MediaNode;
 	connection: MediaNodeConnection;
 	appData?: Record<string, unknown>;
 }
@@ -47,6 +50,7 @@ export declare interface Router {
 
 export class Router extends EventEmitter {
 	public closed = false;
+	public mediaNode: MediaNode;
 	public connection: MediaNodeConnection;
 	public id: string;
 	public rtpCapabilities: RtpCapabilities;
@@ -62,6 +66,7 @@ export class Router extends EventEmitter {
 	private routerMiddleware: Middleware<MediaNodeConnectionContext>;
 
 	constructor({
+		mediaNode,
 		connection,
 		id,
 		rtpCapabilities,
@@ -71,6 +76,7 @@ export class Router extends EventEmitter {
 
 		super();
 
+		this.mediaNode = mediaNode;
 		this.connection = connection;
 		this.id = id;
 		this.rtpCapabilities = rtpCapabilities;
@@ -172,6 +178,7 @@ export class Router extends EventEmitter {
 
 	@skipIfClosed
 	public async createPipeTransport({
+		enableSrtp,
 		appData = {}
 	}: CreatePipeTransportOptions = { appData: {} }): Promise<PipeTransport> {
 		logger.debug('createPipeTransport()');
@@ -183,7 +190,7 @@ export class Router extends EventEmitter {
 			srtpParameters,
 		} = await this.connection.request({
 			method: 'createPipeTransport',
-			data: { routerId: this.id }
+			data: { routerId: this.id, enableSrtp }
 		}) as PipeTransportOptions;
 
 		const transport = new PipeTransport({
@@ -222,6 +229,11 @@ export class Router extends EventEmitter {
 		let localPipeTransport: PipeTransport;
 		let remotePipeTransport: PipeTransport;
 
+		let internal = false;
+
+		if (this.mediaNode === router.mediaNode)
+			internal = true;
+
 		if (pipeTransportPairPromise) {
 			pipeTransportPair = await pipeTransportPairPromise;
 			localPipeTransport = pipeTransportPair[this.id];
@@ -229,8 +241,8 @@ export class Router extends EventEmitter {
 		} else {
 			pipeTransportPairPromise = new Promise((resolve, reject) => {
 				Promise.all([
-					this.createPipeTransport(),
-					router.createPipeTransport()
+					this.createPipeTransport({ enableSrtp: !internal }),
+					router.createPipeTransport({ enableSrtp: !internal })
 				])
 					.then((pipeTransports) => {
 						localPipeTransport = pipeTransports[0];

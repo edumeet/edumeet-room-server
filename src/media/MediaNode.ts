@@ -71,6 +71,7 @@ export default class MediaNode {
 
 		if (!router) {
 			router = new Router({
+				mediaNode: this,
 				connection: this.connection,
 				id,
 				rtpCapabilities,

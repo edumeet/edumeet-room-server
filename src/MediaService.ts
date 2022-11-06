@@ -41,10 +41,10 @@ export default class MediaService {
 	private loadMediaNodes(): void {
 		logger.debug('loadMediaNodes()');
 
-		for (const { hostname, port } of config.mediaNodes) {
+		for (const { hostname, port, secret } of config.mediaNodes) {
 			this.mediaNodes.add(new MediaNode({
 				id: randomUUID(),
-				connectionString: `wss://${hostname}:${port}`,
+				connectionString: `wss://${hostname}:${port}?${secret ? `secret=${secret}` : ''}`,
 			}));
 		}
 	}
