@@ -24,7 +24,7 @@ interface CreateWebRtcTransportOptions {
 }
 
 interface CreatePipeTransportOptions {
-	enableSrtp?: boolean;
+	internal?: boolean;
 	appData?: Record<string, unknown>;
 }
 
@@ -178,7 +178,7 @@ export class Router extends EventEmitter {
 
 	@skipIfClosed
 	public async createPipeTransport({
-		enableSrtp,
+		internal,
 		appData = {}
 	}: CreatePipeTransportOptions = { appData: {} }): Promise<PipeTransport> {
 		logger.debug('createPipeTransport()');
@@ -190,7 +190,7 @@ export class Router extends EventEmitter {
 			srtpParameters,
 		} = await this.connection.request({
 			method: 'createPipeTransport',
-			data: { routerId: this.id, enableSrtp }
+			data: { routerId: this.id, internal }
 		}) as PipeTransportOptions;
 
 		const transport = new PipeTransport({
@@ -241,8 +241,8 @@ export class Router extends EventEmitter {
 		} else {
 			pipeTransportPairPromise = new Promise((resolve, reject) => {
 				Promise.all([
-					this.createPipeTransport({ enableSrtp: !internal }),
-					router.createPipeTransport({ enableSrtp: !internal })
+					this.createPipeTransport({ internal }),
+					router.createPipeTransport({ internal })
 				])
 					.then((pipeTransports) => {
 						localPipeTransport = pipeTransports[0];
