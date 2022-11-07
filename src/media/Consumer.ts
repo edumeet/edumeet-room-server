@@ -148,7 +148,7 @@ export class Consumer extends EventEmitter {
 	public async pause(): Promise<void> {
 		logger.debug('pause()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'pauseConsumer',
 			data: {
 				routerId: this.router.id,
@@ -163,7 +163,7 @@ export class Consumer extends EventEmitter {
 	public async resume(): Promise<void> {
 		logger.debug('resume()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'resumeConsumer',
 			data: {
 				routerId: this.router.id,
@@ -184,7 +184,7 @@ export class Consumer extends EventEmitter {
 	}): Promise<void> {
 		logger.debug('setPreferredLayers()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'setConsumerPreferredLayers',
 			data: {
 				routerId: this.router.id,
@@ -199,7 +199,7 @@ export class Consumer extends EventEmitter {
 	public async setPriority(priority: number): Promise<void> {
 		logger.debug('setPriority()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'setConsumerPriority',
 			data: {
 				routerId: this.router.id,
@@ -213,7 +213,7 @@ export class Consumer extends EventEmitter {
 	public async requestKeyFrame(): Promise<void> {
 		logger.debug('requestKeyFrame()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'requestConsumerKeyFrame',
 			data: {
 				routerId: this.router.id,

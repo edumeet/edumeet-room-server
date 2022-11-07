@@ -124,13 +124,31 @@ export class WebRtcTransport extends EventEmitter {
 		this.connection.pipeline.use(this.webRtcTransportMiddleware);
 	}
 
+	public addProducer(producer: Producer): void {
+		logger.debug('addProducer()');
+
+		this.producers.set(producer.id, producer);
+		this.router.producers.set(producer.id, producer);
+		producer.once('close', () => {
+			this.producers.delete(producer.id);
+			this.router.producers.delete(producer.id);
+		});
+	}
+
+	public addConsumer(consumer: Consumer): void {
+		logger.debug('addConsumer()');
+
+		this.consumers.set(consumer.id, consumer);
+		consumer.once('close', () => this.consumers.delete(consumer.id));
+	}
+
 	@skipIfClosed
 	public async connect({
 		dtlsParameters
 	}: { dtlsParameters: DtlsParameters }) {
 		logger.debug('connect()');
 
-		return this.connection.notify({
+		await this.connection.request({
 			method: 'connectWebRtcTransport',
 			data: {
 				routerId: this.router.id,
@@ -141,23 +159,27 @@ export class WebRtcTransport extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public async restartIce() {
+	public async restartIce(): Promise<unknown> {
 		logger.debug('restartIce()');
 
-		return this.connection.request({
+		const { iceParameters } = await this.connection.request({
 			method: 'restartIce',
 			data: {
 				routerId: this.router.id,
 				transportId: this.id,
 			}
-		});
+		}) as { iceParameters: IceParameters };
+
+		this.iceParameters = iceParameters;
+
+		return iceParameters;
 	}
 
 	@skipIfClosed
 	public async setMaxIncomingBitrate(bitrate: number): Promise<void> {
 		logger.debug('setMaxIncomingBitrate()');
 
-		return this.connection.notify({
+		await this.connection.request({
 			method: 'setMaxIncomingBitrate',
 			data: {
 				routerId: this.router.id,

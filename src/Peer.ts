@@ -217,12 +217,12 @@ export class Peer extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public async notify(notification: SocketMessage): Promise<void> {
+	public notify(notification: SocketMessage): void {
 		logger.debug('notify() [peerId: %s, method: %s]', this.id, notification.method);
 
 		for (const connection of this.connections.items) {
 			try {
-				return await connection.notify(notification);
+				return connection.notify(notification);
 			} catch (error) {
 				logger.error('notify() [error: %o]', error);
 			}

@@ -71,7 +71,7 @@ export class SocketIOClientConnection extends BaseConnection {
 	}
 
 	@skipIfClosed
-	public async notify(notification: SocketMessage): Promise<void> {
+	public notify(notification: SocketMessage): void {
 		logger.debug('notification() [notification: %o]', notification);
 
 		this.socket.emit('notification', notification);

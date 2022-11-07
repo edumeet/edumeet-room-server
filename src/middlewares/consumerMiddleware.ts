@@ -23,6 +23,20 @@ export const createConsumerMiddleware = ({
 			consumer.id === message.data.consumerId
 		) {
 			switch (message.method) {
+				case 'consumerPaused': {
+					consumer.paused = true;
+					context.handled = true;
+
+					break;
+				}
+
+				case 'consumerResumed': {
+					consumer.paused = false;
+					context.handled = true;
+
+					break;
+				}
+
 				case 'consumerClosed': {
 					consumer.close(true);
 					context.handled = true;
@@ -30,14 +44,14 @@ export const createConsumerMiddleware = ({
 					break;
 				}
 
-				case 'consumerPaused': {
+				case 'consumerProducerPaused': {
 					consumer.setProducerPaused();
 					context.handled = true;
 
 					break;
 				}
 
-				case 'consumerResumed': {
+				case 'consumerProducerResumed': {
 					consumer.setProducerResumed();
 					context.handled = true;
 

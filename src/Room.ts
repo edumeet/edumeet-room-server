@@ -103,7 +103,7 @@ export default class Room extends EventEmitter {
 		}
 
 		this.rooms.items.forEach((r) => r.close());
-		this.routers.items.forEach((r) => r.close());
+		this.routers.items.forEach((r) => r.closeConnection());
 
 		this.pendingPeers.clear();
 		this.peers.clear();

@@ -101,7 +101,7 @@ export class PipeProducer extends EventEmitter {
 	public async pause(): Promise<void> {
 		logger.debug('pause()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'pausePipeProducer',
 			data: {
 				routerId: this.router.id,
@@ -114,7 +114,7 @@ export class PipeProducer extends EventEmitter {
 	public async resume(): Promise<void> {
 		logger.debug('resume()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'resumePipeProducer',
 			data: {
 				routerId: this.router.id,

@@ -1,6 +1,6 @@
-import { randomUUID } from 'crypto';
 import { skipIfClosed } from '../common/decorators';
 import { Logger } from '../common/logger';
+import { createMediaNodeMiddleware } from '../middlewares/mediaNodeMiddleware';
 import { SocketIOClientConnection } from '../signaling/SocketIOClientConnection';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
@@ -14,26 +14,32 @@ interface GetRouterOptions {
 
 interface MediaNodeOptions {
 	id: string;
-	connectionString: string;
+	hostname: string;
+	port: number;
+	secret: string;
 }
 
 export default class MediaNode {
 	public id: string;
 	public closed = false;
-	public connectionString: string;
-	public connection?: MediaNodeConnection;
-
-	private pendingRequests = new Map<string, string>();
+	public hostname: string;
+	public port: number;
+	#secret: string;
+	public roomConnections: Map<string, MediaNodeConnection> = new Map();
 	public routers: Map<string, Router> = new Map();
 
 	constructor({
 		id,
-		connectionString
+		hostname,
+		port,
+		secret
 	}: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		this.id = id;
-		this.connectionString = connectionString;
+		this.hostname = hostname;
+		this.port = port;
+		this.#secret = secret;
 	}
 
 	@skipIfClosed
@@ -42,32 +48,34 @@ export default class MediaNode {
 
 		this.closed = true;
 
-		this.routers.forEach((router) => router.close());
-		this.connection?.close();
+		this.routers.forEach((router) => router.closeConnection());
 		this.routers.clear();
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
 
-		const requestUUID = randomUUID();
+		let connection = this.roomConnections.get(roomId);
 
-		this.pendingRequests.set(requestUUID, roomId);
+		if (!connection) {
+			const socket = SocketIOClientConnection.create({
+				url: `wss://${this.hostname}:${this.port}?roomId=${roomId}${this.#secret ? `&secret=${this.#secret}` : ''}`,
+			});
 
-		if (!this.connection) {
-			const socket = SocketIOClientConnection.create({ url: this.connectionString });
-
-			this.connection = new MediaNodeConnection({ connection: socket });
+			connection = new MediaNodeConnection({ connection: socket });
+			this.roomConnections.set(roomId, connection);
+			connection.once('close', () => this.roomConnections.delete(roomId));
+			connection.pipeline.use(createMediaNodeMiddleware({ mediaNode: this }));
 		}
 
-		await this.connection.ready;
+		await connection.ready;
 
 		const {
 			id,
 			rtpCapabilities
-		} = await this.connection.request({
+		} = await connection.request({
 			method: 'getRouter',
-			data: { roomId }
+			data: {}
 		}) as RouterOptions;
 
 		let router = this.routers.get(id);
@@ -75,28 +83,22 @@ export default class MediaNode {
 		if (!router) {
 			router = new Router({
 				mediaNode: this,
-				connection: this.connection,
+				connection,
 				id,
 				rtpCapabilities,
 				appData
 			});
 
-			this.routers.set(id, router);
-			router.once('close', () => {
-				this.routers.delete(id);
-
-				if (
-					this.routers.size === 0 &&
-					this.pendingRequests.size === 0
-				) {
-					this.connection?.close();
-					delete this.connection;
-				}
-			});
+			this.addRouter(router);
 		}
 
-		this.pendingRequests.delete(requestUUID);
-
 		return router;
+	}
+
+	public addRouter(router: Router) {
+		logger.debug('addRouter() [routerId: %s]', router.id);
+
+		this.routers.set(router.id, router);
+		router.once('close', () => this.routers.delete(router.id));
 	}
 }

@@ -1,6 +1,8 @@
 import { Logger } from '../common/logger';
 import { Middleware } from '../common/middleware';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
+import { PipeConsumer } from '../media/PipeConsumer';
+import { PipeProducer } from '../media/PipeProducer';
 import { PipeTransport } from '../media/PipeTransport';
 
 const logger = new Logger('PipeTransportMiddleware');
@@ -15,6 +17,7 @@ export const createPipeTransportMiddleware = ({
 		next
 	) => {
 		const {
+			connection,
 			message,
 		} = context;
 
@@ -25,6 +28,54 @@ export const createPipeTransportMiddleware = ({
 			switch (message.method) {
 				case 'pipeTransportClosed': {
 					pipeTransport.close();
+					context.handled = true;
+
+					break;
+				}
+
+				case 'newPipeProducer': {
+					const {
+						pipeProducerId: id,
+						kind,
+						rtpParameters,
+						paused,
+					} = message.data;
+
+					const pipeProducer = new PipeProducer({
+						router: pipeTransport.router,
+						connection,
+						id,
+						kind,
+						paused,
+						rtpParameters,
+					});
+
+					pipeTransport.addPipeProducer(pipeProducer);
+					context.handled = true;
+
+					break;
+				}
+
+				case 'newPipeConsumer': {
+					const {
+						pipeConsumerId: id,
+						producerId,
+						kind,
+						producerPaused,
+						rtpParameters,
+					} = message.data;
+
+					const pipeConsumer = new PipeConsumer({
+						router: pipeTransport.router,
+						connection,
+						id,
+						producerId,
+						kind,
+						producerPaused,
+						rtpParameters,
+					});
+
+					pipeTransport.addPipeConsumer(pipeConsumer);
 					context.handled = true;
 
 					break;

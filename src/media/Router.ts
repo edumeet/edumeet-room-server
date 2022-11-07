@@ -88,6 +88,13 @@ export class Router extends EventEmitter {
 	}
 
 	@skipIfClosed
+	public closeConnection() {
+		logger.debug('closeConnection()');
+
+		this.connection.close();
+	}
+
+	@skipIfClosed
 	public close(remoteClose = false) {
 		logger.debug('close()');
 
@@ -112,9 +119,23 @@ export class Router extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.on('close', () => this.close());
+		this.connection.on('close', () => this.close(true));
 
 		this.connection.pipeline.use(this.routerMiddleware);
+	}
+
+	public addWebRtcTransport(transport: WebRtcTransport): void {
+		logger.debug('addWebRtcTransport()');
+
+		this.webRtcTransports.set(transport.id, transport);
+		transport.once('close', () => this.webRtcTransports.delete(transport.id));
+	}
+
+	public addPipeTransport(transport: PipeTransport): void {
+		logger.debug('addPipeTransport()');
+
+		this.pipeTransports.set(transport.id, transport);
+		transport.once('close', () => this.pipeTransports.delete(transport.id));
 	}
 
 	@skipIfClosed

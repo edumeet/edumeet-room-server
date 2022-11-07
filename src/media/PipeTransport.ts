@@ -119,6 +119,24 @@ export class PipeTransport extends EventEmitter {
 		this.connection.pipeline.use(this.pipeTransportMiddleware);
 	}
 
+	public addPipeProducer(pipeProducer: PipeProducer): void {
+		logger.debug('addPipeProducer()');
+
+		this.pipeProducers.set(pipeProducer.id, pipeProducer);
+		this.router.pipeProducers.set(pipeProducer.id, pipeProducer);
+		pipeProducer.once('close', () => {
+			this.pipeProducers.delete(pipeProducer.id);
+			this.router.pipeProducers.delete(pipeProducer.id);
+		});
+	}
+
+	public addPipeConsumer(pipeConsumer: PipeConsumer): void {
+		logger.debug('addPipeConsumer()');
+
+		this.pipeConsumers.set(pipeConsumer.id, pipeConsumer);
+		pipeConsumer.once('close', () => this.pipeConsumers.delete(pipeConsumer.id));
+	}
+
 	@skipIfClosed
 	public async connect({
 		ip,
@@ -127,7 +145,7 @@ export class PipeTransport extends EventEmitter {
 	}: { ip: string; port: number; srtpParameters: SrtpParameters }): Promise<void> {
 		logger.debug('connect()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'connectPipeTransport',
 			data: {
 				routerId: this.router.id,

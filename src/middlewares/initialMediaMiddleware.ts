@@ -29,7 +29,7 @@ export const createInitialMediaMiddleware = ({
 
 		switch (message.method) {
 			case 'getRouterRtpCapabilities': {
-				response.routerRtpCapabilities = peer.router?.rtpCapabilities;
+				response.routerRtpCapabilities = peer.router.rtpCapabilities;
 				context.handled = true;
 
 				break;

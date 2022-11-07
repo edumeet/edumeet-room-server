@@ -113,7 +113,7 @@ export class Producer extends EventEmitter {
 	public async pause(): Promise<void> {
 		logger.debug('pause()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'pauseProducer',
 			data: {
 				routerId: this.router.id,
@@ -128,7 +128,7 @@ export class Producer extends EventEmitter {
 	public async resume(): Promise<void> {
 		logger.debug('resume()');
 
-		await this.connection.notify({
+		await this.connection.request({
 			method: 'resumeProducer',
 			data: {
 				routerId: this.router.id,

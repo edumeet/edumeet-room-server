@@ -43,7 +43,9 @@ export default class MediaService {
 		for (const { hostname, port, secret } of config.mediaNodes) {
 			this.mediaNodes.add(new MediaNode({
 				id: randomUUID(),
-				connectionString: `wss://${hostname}:${port}?${secret ? `secret=${secret}` : ''}`,
+				hostname,
+				port,
+				secret,
 			}));
 		}
 	}
