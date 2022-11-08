@@ -1,12 +1,10 @@
 import config from '../config/config.json';
-import { Logger } from './common/logger';
 import Room from './Room';
-import { skipIfClosed } from './common/decorators';
-import { List } from './common/list';
 import { Peer } from './Peer';
 import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
+import { List, Logger, skipIfClosed } from 'edumeet-common';
 
 const logger = new Logger('MediaService');
 

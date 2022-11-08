@@ -5,9 +5,8 @@ import fs from 'fs';
 import https from 'https';
 import ServerManager from './ServerManager';
 import { Server as IOServer } from 'socket.io';
-import { Logger } from './common/logger';
-import { SocketIOConnection } from './signaling/SocketIOConnection';
 import { interactiveServer } from './interactiveServer';
+import { IOServerConnection, Logger } from 'edumeet-common';
 
 const logger = new Logger('Server');
 
@@ -68,7 +67,7 @@ const logger = new Logger('Server');
 			return socket.disconnect(true);
 		}
 
-		const socketConnection = new SocketIOConnection(socket);
+		const socketConnection = new IOServerConnection(socket);
 
 		try {
 			serverManager.handleConnection(

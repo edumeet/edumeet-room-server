@@ -1,12 +1,10 @@
 import EventEmitter from 'events';
-import { Logger } from '../common/logger';
-import { skipIfClosed } from '../common/decorators';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { Router } from './Router';
-import { Middleware } from '../common/middleware';
 import { createProducerMiddleware } from '../middlewares/producerMiddleware';
 import { MediaKind, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { ProducerScore } from '../common/types';
+import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
 
 const logger = new Logger('Producer');
 

@@ -1,10 +1,7 @@
 import EventEmitter from 'events';
-import { Logger } from '../common/logger';
-import { skipIfClosed } from '../common/decorators';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
-import { Middleware } from '../common/middleware';
 import { createRouterMiddleware } from '../middlewares/routerMiddleware';
 import { Producer } from './Producer';
 import { PipeProducer } from './PipeProducer';
@@ -12,6 +9,7 @@ import { PipeConsumer } from './PipeConsumer';
 import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 import MediaNode from './MediaNode';
+import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
 
 const logger = new Logger('Router');
 

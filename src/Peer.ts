@@ -1,20 +1,24 @@
 import EventEmitter from 'events';
-import { Logger } from './common/logger';
 import jwt from 'jsonwebtoken';
-import { BaseConnection, InboundRequest } from './signaling/BaseConnection';
-import { SocketMessage } from './signaling/SignalingInterface';
 import { signingkey } from './common/token';
-import { Pipeline } from './common/middleware';
 import { userRoles } from './common/authorization';
 import { Role } from './common/types';
-import { skipIfClosed } from './common/decorators';
-import { List } from './common/list';
 import { Router } from './media/Router';
 import { WebRtcTransport } from './media/WebRtcTransport';
 import { Consumer } from './media/Consumer';
 import { Producer } from './media/Producer';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
+import {
+	BaseConnection,
+	InboundNotification,
+	InboundRequest,
+	List,
+	Logger,
+	Pipeline,
+	skipIfClosed,
+	SocketMessage
+} from 'edumeet-common';
 
 const logger = new Logger('Peer');
 
@@ -46,7 +50,7 @@ export interface PeerContext {
 /* eslint-disable no-unused-vars */
 export declare interface Peer {
 	on(event: 'close', listener: () => void): this;
-	on(event: 'notification', listener: (notification: SocketMessage) => void): this;
+	on(event: 'notification', listener: InboundNotification): this;
 	on(event: 'request', listener: InboundRequest): this;
 
 	on(event: 'gotRole', listener: (newRole: Role) => void): this;

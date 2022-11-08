@@ -1,10 +1,8 @@
-import { skipIfClosed } from './common/decorators';
-import { Logger } from './common/logger';
+import { BaseConnection, Logger, skipIfClosed } from 'edumeet-common';
 import { verifyPeer } from './common/token';
 import MediaService from './MediaService';
 import { Peer } from './Peer';
 import Room from './Room';
-import { BaseConnection } from './signaling/BaseConnection';
 
 const logger = new Logger('ServerManager');
 

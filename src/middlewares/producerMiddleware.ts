@@ -1,5 +1,4 @@
-import { Logger } from '../common/logger';
-import { Middleware } from '../common/middleware';
+import { Logger, Middleware } from 'edumeet-common';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
 import { Producer } from '../media/Producer';
 

@@ -1,5 +1,5 @@
+import { SocketMessage } from 'edumeet-common';
 import Room from '../Room';
-import { SocketMessage } from '../signaling/SignalingInterface';
 
 export const thisSession = (
 	room: Room,

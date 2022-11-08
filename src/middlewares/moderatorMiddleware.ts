@@ -1,9 +1,8 @@
-import { Logger } from '../common/logger';
 import { hasPermission, Permission, userRoles } from '../common/authorization';
-import { Middleware } from '../common/middleware';
 import { PeerContext } from '../Peer';
 import { MiddlewareOptions } from '../common/types';
 import { thisSession } from '../common/checkSessionId';
+import { Logger, Middleware } from 'edumeet-common';
 
 const logger = new Logger('ModeratorMiddleware');
 

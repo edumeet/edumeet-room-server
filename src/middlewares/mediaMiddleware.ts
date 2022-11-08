@@ -1,8 +1,7 @@
+import { Logger, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumer } from '../common/consuming';
-import { Logger } from '../common/logger';
-import { Middleware } from '../common/middleware';
 import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
 

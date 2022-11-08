@@ -1,6 +1,4 @@
 import EventEmitter from 'events';
-import { Logger } from './common/logger';
-import { Middleware } from './common/middleware';
 import MediaService from './MediaService';
 import { createMediaMiddleware } from './middlewares/mediaMiddleware';
 import { Peer, PeerContext } from './Peer';
@@ -22,13 +20,12 @@ import { createFileMiddleware } from './middlewares/fileMiddleware';
 import { createLobbyPeerMiddleware } from './middlewares/lobbyPeerMiddleware';
 import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
-import { List } from './common/list';
-import { skipIfClosed } from './common/decorators';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
 import { MiddlewareOptions } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
+import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 
 const logger = new Logger('Room');
 

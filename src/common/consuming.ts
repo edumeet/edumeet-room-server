@@ -1,8 +1,8 @@
-import { Logger } from './logger';
 import { Peer } from '../Peer';
 import { RouterData } from '../MediaService';
 import { Producer } from '../media/Producer';
 import { Router } from '../media/Router';
+import { Logger } from 'edumeet-common';
 
 const logger = new Logger('createConsumer');
 

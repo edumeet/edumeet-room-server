@@ -1,7 +1,5 @@
-import { skipIfClosed } from '../common/decorators';
-import { Logger } from '../common/logger';
+import { IOClientConnection, Logger, skipIfClosed } from 'edumeet-common';
 import { createMediaNodeMiddleware } from '../middlewares/mediaNodeMiddleware';
-import { SocketIOClientConnection } from '../signaling/SocketIOClientConnection';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 
@@ -58,7 +56,7 @@ export default class MediaNode {
 		let connection = this.roomConnections.get(roomId);
 
 		if (!connection) {
-			const socket = SocketIOClientConnection.create({
+			const socket = IOClientConnection.create({
 				url: `wss://${this.hostname}:${this.port}?roomId=${roomId}${this.#secret ? `&secret=${this.#secret}` : ''}`,
 			});
 

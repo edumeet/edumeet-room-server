@@ -1,9 +1,5 @@
 import EventEmitter from 'events';
-import { Logger } from '../common/logger';
-import { BaseConnection, InboundRequest } from '../signaling/BaseConnection';
-import { SocketMessage } from '../signaling/SignalingInterface';
-import { Pipeline } from '../common/middleware';
-import { skipIfClosed } from '../common/decorators';
+import { BaseConnection, InboundNotification, InboundRequest, Logger, Pipeline, skipIfClosed, SocketMessage } from 'edumeet-common';
 
 const logger = new Logger('MediaNodeConnection');
 
@@ -21,7 +17,7 @@ export interface MediaNodeConnectionContext {
 /* eslint-disable no-unused-vars */
 export declare interface MediaNodeConnection {
 	on(event: 'close', listener: () => void): this;
-	on(event: 'notification', listener: (notification: SocketMessage) => void): this;
+	on(event: 'notification', listener: InboundNotification): this;
 	on(event: 'request', listener: InboundRequest): this;
 }
 /* eslint-enable no-unused-vars */
