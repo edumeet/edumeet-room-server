@@ -1,8 +1,6 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
-import { PipeTransport } from '../media/PipeTransport';
 import { Router } from '../media/Router';
-import { WebRtcTransport } from '../media/WebRtcTransport';
 
 const logger = new Logger('RouterMiddleware');
 
@@ -16,7 +14,6 @@ export const createRouterMiddleware = ({
 		next
 	) => {
 		const {
-			connection,
 			message,
 		} = context;
 
@@ -24,54 +21,6 @@ export const createRouterMiddleware = ({
 			switch (message.method) {
 				case 'routerClosed': {
 					router.close();
-					context.handled = true;
-
-					break;
-				}
-
-				case 'newPipeTransport': {
-					const {
-						pipeTransportId: id,
-						ip,
-						port,
-						srtpParameters
-					} = message.data;
-
-					const transport = new PipeTransport({
-						router,
-						connection,
-						id,
-						ip,
-						port,
-						srtpParameters,
-					});
-
-					router.addPipeTransport(transport);
-					context.handled = true;
-
-					break;
-				}
-
-				case 'newWebRtcTransport': {
-					const {
-						transportId: id,
-						iceParameters,
-						iceCandidates,
-						dtlsParameters,
-						sctpParameters
-					} = message.data;
-
-					const transport = new WebRtcTransport({
-						router,
-						connection,
-						id,
-						iceParameters,
-						iceCandidates,
-						dtlsParameters,
-						sctpParameters,
-					});
-
-					router.addWebRtcTransport(transport);
 					context.handled = true;
 
 					break;

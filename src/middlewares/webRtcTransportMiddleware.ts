@@ -1,7 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { Consumer } from '../media/Consumer';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
-import { Producer } from '../media/Producer';
 import { WebRtcTransport } from '../media/WebRtcTransport';
 
 const logger = new Logger('WebRtcTransportMiddleware');
@@ -16,7 +14,6 @@ export const createWebRtcTransportMiddleware = ({
 		next
 	) => {
 		const {
-			connection,
 			message,
 		} = context;
 
@@ -27,67 +24,6 @@ export const createWebRtcTransportMiddleware = ({
 			switch (message.method) {
 				case 'webRtcTransportClosed': {
 					webRtcTransport.close();
-					context.handled = true;
-
-					break;
-				}
-
-				case 'restartedIce': {
-					const {
-						iceParameters
-					} = message.data;
-
-					webRtcTransport.iceParameters = iceParameters;
-					context.handled = true;
-
-					break;
-				}
-
-				case 'newProducer': {
-					const {
-						producerId: id,
-						kind,
-						rtpParameters,
-						paused,
-					} = message.data;
-
-					const producer = new Producer({
-						router: webRtcTransport.router,
-						connection,
-						id,
-						kind,
-						paused,
-						rtpParameters,
-					});
-
-					webRtcTransport.addProducer(producer);
-					context.handled = true;
-
-					break;
-				}
-
-				case 'newConsumer': {
-					const {
-						consumerId: id,
-						producerId,
-						kind,
-						paused,
-						producerPaused,
-						rtpParameters,
-					} = message.data;
-
-					const consumer = new Consumer({
-						router: webRtcTransport.router,
-						connection,
-						id,
-						producerId,
-						kind,
-						paused,
-						producerPaused,
-						rtpParameters,
-					});
-
-					webRtcTransport.addConsumer(consumer);
 					context.handled = true;
 
 					break;

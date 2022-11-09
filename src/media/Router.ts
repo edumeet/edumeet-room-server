@@ -86,13 +86,6 @@ export class Router extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public closeConnection() {
-		logger.debug('closeConnection()');
-
-		this.connection.close();
-	}
-
-	@skipIfClosed
 	public close(remoteClose = false) {
 		logger.debug('close()');
 
@@ -117,23 +110,9 @@ export class Router extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.on('close', () => this.close(true));
+		this.connection.once('close', () => this.close(true));
 
 		this.connection.pipeline.use(this.routerMiddleware);
-	}
-
-	public addWebRtcTransport(transport: WebRtcTransport): void {
-		logger.debug('addWebRtcTransport()');
-
-		this.webRtcTransports.set(transport.id, transport);
-		transport.once('close', () => this.webRtcTransports.delete(transport.id));
-	}
-
-	public addPipeTransport(transport: PipeTransport): void {
-		logger.debug('addPipeTransport()');
-
-		this.pipeTransports.set(transport.id, transport);
-		transport.once('close', () => this.pipeTransports.delete(transport.id));
 	}
 
 	@skipIfClosed
@@ -241,6 +220,9 @@ export class Router extends EventEmitter {
 		const producer: Producer | PipeProducer | undefined =
 			this.producers.get(producerId) ?? this.pipeProducers.get(producerId);
 
+		if (!producer)
+			throw new Error('producer not found');
+
 		const pipeTransportPairKey = router.id;
 
 		let pipeTransportPairPromise = this.routerPipePromises.get(router.id);
@@ -336,13 +318,13 @@ export class Router extends EventEmitter {
 			});
 
 			// Ensure that the producer has not been closed in the meanwhile.
-			if (producer?.closed)
+			if (producer.closed)
 				throw new Error('original Producer closed');
 
 			// Ensure that producer.paused has not changed in the meanwhile and, if
 			// so, sync the pipeProducer.
 			if (pipeProducer.paused !== producer?.paused) {
-				if (producer?.paused)
+				if (producer.paused)
 					await pipeProducer.pause();
 				else
 					await pipeProducer.resume();

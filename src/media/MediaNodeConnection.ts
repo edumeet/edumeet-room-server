@@ -8,7 +8,6 @@ interface MediaNodeConnectionOptions {
 }
 
 export interface MediaNodeConnectionContext {
-	connection: MediaNodeConnection;
 	message: SocketMessage;
 	response: Record<string, unknown>;
 	handled: boolean;
@@ -64,7 +63,6 @@ export class MediaNodeConnection extends EventEmitter {
 
 			try {
 				const context = {
-					connection: this,
 					message: notification,
 					response: {},
 					handled: false,
@@ -82,7 +80,6 @@ export class MediaNodeConnection extends EventEmitter {
 		this.connection.on('request', async (request, respond, reject) => {
 			try {
 				const context = {
-					connection: this,
 					message: request,
 					response: {},
 					handled: false,
@@ -112,7 +109,7 @@ export class MediaNodeConnection extends EventEmitter {
 		logger.debug('notify() [method: %s]', notification.method);
 
 		try {
-			return this.connection.notify(notification);
+			this.connection.notify(notification);
 		} catch (error) {
 			logger.error('notify() [error: %o]', error);
 		}

@@ -32,6 +32,7 @@ export default class MediaService {
 		this.closed = true;
 
 		this.mediaNodes.items.forEach((mediaNode) => mediaNode.close());
+		this.mediaNodes.clear();
 	}
 
 	@skipIfClosed

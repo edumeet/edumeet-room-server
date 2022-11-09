@@ -105,7 +105,7 @@ export class Consumer extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.on('close', () => this.close());
+		this.connection.once('close', () => this.close());
 
 		this.connection.pipeline.use(this.consumerMiddleware);
 	}

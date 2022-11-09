@@ -7,16 +7,6 @@ import Room from './Room';
 const logger = new Logger('ServerManager');
 
 export default class ServerManager {
-	public static async create(): Promise<ServerManager> {
-		logger.debug('create()');
-
-		// const mediaService = await MediaService.create();
-
-		const mediaService = new MediaService();
-
-		return new ServerManager({ mediaService });
-	}
-
 	public closed = false;
 	public peers = new Map<string, Peer>();
 	public rooms = new Map<string, Room>();
@@ -76,7 +66,6 @@ export default class ServerManager {
 		}
 
 		let room = this.rooms.get(roomId);
-		let newRoom = false;
 
 		if (!room) {
 			logger.debug(
@@ -89,7 +78,6 @@ export default class ServerManager {
 				mediaService: this.mediaService
 			});
 
-			newRoom = true;
 			this.rooms.set(roomId, room);
 
 			room.once('close', () => {
@@ -113,16 +101,7 @@ export default class ServerManager {
 			this.peers.delete(peerId);
 		});
 
-		try {
-			room.addPeer(peer);
-		} catch (error) {
-			peer.close();
-
-			if (newRoom)
-				room.close();
-
-			throw error;
-		}
+		room.addPeer(peer);
 
 		// At this point we have a valid Peer that is waiting in the Join dialog.
 		// Register middleware to handle the Peer actually joining the room. For

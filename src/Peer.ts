@@ -76,7 +76,7 @@ export class Peer extends EventEmitter {
 	public producers = new Map<string, Producer>();
 	public roomId: string;
 	public pipeline = Pipeline<PeerContext>();
-	private token: string;
+	public readonly token: string;
 
 	constructor({
 		id,

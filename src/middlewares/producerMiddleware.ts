@@ -22,20 +22,6 @@ export const createProducerMiddleware = ({
 			producer.id === message.data.producerId
 		) {
 			switch (message.method) {
-				case 'producerPaused': {
-					producer.paused = true;
-					context.handled = true;
-
-					break;
-				}
-
-				case 'producerResumed': {
-					producer.paused = false;
-					context.handled = true;
-
-					break;
-				}
-
 				case 'producerClosed': {
 					producer.close(true);
 					context.handled = true;

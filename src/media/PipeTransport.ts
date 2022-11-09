@@ -112,27 +112,9 @@ export class PipeTransport extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.on('close', () => this.close());
+		this.connection.once('close', () => this.close());
 
 		this.connection.pipeline.use(this.pipeTransportMiddleware);
-	}
-
-	public addPipeProducer(pipeProducer: PipeProducer): void {
-		logger.debug('addPipeProducer()');
-
-		this.pipeProducers.set(pipeProducer.id, pipeProducer);
-		this.router.pipeProducers.set(pipeProducer.id, pipeProducer);
-		pipeProducer.once('close', () => {
-			this.pipeProducers.delete(pipeProducer.id);
-			this.router.pipeProducers.delete(pipeProducer.id);
-		});
-	}
-
-	public addPipeConsumer(pipeConsumer: PipeConsumer): void {
-		logger.debug('addPipeConsumer()');
-
-		this.pipeConsumers.set(pipeConsumer.id, pipeConsumer);
-		pipeConsumer.once('close', () => this.pipeConsumers.delete(pipeConsumer.id));
 	}
 
 	@skipIfClosed

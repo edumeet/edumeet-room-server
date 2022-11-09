@@ -22,20 +22,6 @@ export const createPipeProducerMiddleware = ({
 			pipeProducer.id === message.data.pipeProducerId
 		) {
 			switch (message.method) {
-				case 'pipeProducerPaused': {
-					pipeProducer.paused = true;
-					context.handled = true;
-
-					break;
-				}
-
-				case 'pipeProducerResumed': {
-					pipeProducer.paused = false;
-					context.handled = true;
-
-					break;
-				}
-
 				case 'pipeProducerClosed': {
 					pipeProducer.close(true);
 					context.handled = true;

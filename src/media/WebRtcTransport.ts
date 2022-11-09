@@ -117,27 +117,9 @@ export class WebRtcTransport extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.on('close', () => this.close());
+		this.connection.once('close', () => this.close());
 
 		this.connection.pipeline.use(this.webRtcTransportMiddleware);
-	}
-
-	public addProducer(producer: Producer): void {
-		logger.debug('addProducer()');
-
-		this.producers.set(producer.id, producer);
-		this.router.producers.set(producer.id, producer);
-		producer.once('close', () => {
-			this.producers.delete(producer.id);
-			this.router.producers.delete(producer.id);
-		});
-	}
-
-	public addConsumer(consumer: Consumer): void {
-		logger.debug('addConsumer()');
-
-		this.consumers.set(consumer.id, consumer);
-		consumer.once('close', () => this.consumers.delete(consumer.id));
 	}
 
 	@skipIfClosed
