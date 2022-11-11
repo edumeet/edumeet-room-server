@@ -27,5 +27,6 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'yarn'
     - run: yarn install --frozen-lockfile
+    - run: cp config/config.example.json config/config.json
     - run: yarn build
     - run: yarn test
