@@ -288,7 +288,7 @@ describe('Router', () => {
 				router: router2,
 			});
 		} catch (error) {
-			expect((error as Error).message).toBe('producer not found');
+			expect((error as Error).message).toBe('Producer not found');
 		}
 
 		router1.producers.set(producerId, producer);
@@ -300,10 +300,10 @@ describe('Router', () => {
 
 		expect(router1.routerPipePromises.has(router2.id)).toBe(true);
 		expect(router2.routerPipePromises.has(router1.id)).toBe(true);
-		expect(pipeProducer.id).toBe(producerId);
-		expect(pipeConsumer.id).toBe(pipeConsumerId);
-		expect(pipeConsumer.router).toBe(router1);
-		expect(pipeProducer.router).toBe(router2);
+		expect(pipeProducer?.id).toBe(producerId);
+		expect(pipeConsumer?.id).toBe(pipeConsumerId);
+		expect(pipeConsumer?.router).toBe(router1);
+		expect(pipeProducer?.router).toBe(router2);
 		expect(router1.pipeProducers.has(producerId)).toBe(false);
 		expect(router2.pipeProducers.has(producerId)).toBe(true);
 		expect(router1.pipeTransports.has(transportId)).toBe(true);
@@ -402,7 +402,7 @@ describe('Router', () => {
 				router: router3,
 			});
 		} catch (error) {
-			expect((error as Error).message).toBe('producer not found');
+			expect((error as Error).message).toBe('Producer not found');
 		}
 
 		router1.producers.set(producerId, producer);
@@ -414,10 +414,10 @@ describe('Router', () => {
 
 		expect(router1.routerPipePromises.has(router3.id)).toBe(true);
 		expect(router3.routerPipePromises.has(router1.id)).toBe(true);
-		expect(pipeProducer.id).toBe(producerId);
-		expect(pipeConsumer.id).toBe(pipeConsumerId);
-		expect(pipeConsumer.router).toBe(router1);
-		expect(pipeProducer.router).toBe(router3);
+		expect(pipeProducer?.id).toBe(producerId);
+		expect(pipeConsumer?.id).toBe(pipeConsumerId);
+		expect(pipeConsumer?.router).toBe(router1);
+		expect(pipeProducer?.router).toBe(router3);
 		expect(router1.pipeProducers.has(producerId)).toBe(false);
 		expect(router3.pipeProducers.has(producerId)).toBe(true);
 		expect(router1.pipeTransports.has(transportId)).toBe(true);

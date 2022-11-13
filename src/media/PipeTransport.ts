@@ -7,6 +7,9 @@ import { createPipeTransportMiddleware } from '../middlewares/pipeTransportMiddl
 import { MediaKind, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../common/types';
 import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
+import { PipeDataProducer, PipeDataProducerOptions } from './PipeDataProducer';
+import { PipeDataConsumer, PipeDataConsumerOptions } from './PipeDataConsumer';
 
 const logger = new Logger('PipeTransport');
 
@@ -18,8 +21,21 @@ interface PipeProduceOptions {
 	appData?: Record<string, unknown>;
 }
 
+interface PipeDataProduceOptions {
+	dataProducerId: string;
+	sctpStreamParameters: SctpStreamParameters;
+	label?: string;
+	protocol?: string;
+	appData?: Record<string, unknown>;
+}
+
 interface PipeConsumeOptions {
 	producerId: string;
+	appData?: Record<string, unknown>;
+}
+
+interface PipeDataConsumeOptions {
+	dataProducerId: string;
 	appData?: Record<string, unknown>;
 }
 
@@ -53,6 +69,9 @@ export class PipeTransport extends EventEmitter {
 
 	public pipeConsumers: Map<string, PipeConsumer> = new Map();
 	public pipeProducers: Map<string, PipeProducer> = new Map();
+
+	public pipeDataConsumers: Map<string, PipeDataConsumer> = new Map();
+	public pipeDataProducers: Map<string, PipeDataProducer> = new Map();
 
 	private pipeTransportMiddleware: Middleware<MediaNodeConnectionContext>;
 
@@ -112,7 +131,7 @@ export class PipeTransport extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close());
+		this.connection.once('close', () => this.close(true));
 
 		this.connection.pipeline.use(this.pipeTransportMiddleware);
 	}
@@ -215,5 +234,85 @@ export class PipeTransport extends EventEmitter {
 		pipeConsumer.once('close', () => this.pipeConsumers.delete(id));
 
 		return pipeConsumer;
+	}
+
+	@skipIfClosed
+	public async produceData({
+		dataProducerId,
+		sctpStreamParameters,
+		label,
+		protocol,
+		appData = {}
+	}: PipeDataProduceOptions): Promise<PipeDataProducer> {
+		logger.debug('produceData()');
+
+		const { id } = await this.connection.request({
+			method: 'createPipeDataProducer',
+			data: {
+				routerId: this.router.id,
+				pipeTransportId: this.id,
+				dataProducerId,
+				sctpStreamParameters,
+				label,
+				protocol,
+			}
+		}) as PipeDataProducerOptions;
+
+		const pipeDataProducer = new PipeDataProducer({
+			router: this.router,
+			connection: this.connection,
+			id,
+			sctpStreamParameters,
+			label,
+			protocol,
+			appData,
+		});
+
+		this.pipeDataProducers.set(pipeDataProducer.id, pipeDataProducer);
+		this.router.pipeDataProducers.set(pipeDataProducer.id, pipeDataProducer);
+		pipeDataProducer.once('close', () => {
+			this.pipeDataProducers.delete(pipeDataProducer.id);
+			this.router.pipeDataProducers.delete(pipeDataProducer.id);
+		});
+
+		return pipeDataProducer;
+	}
+
+	@skipIfClosed
+	public async consumeData({
+		dataProducerId,
+		appData = {}
+	}: PipeDataConsumeOptions): Promise<PipeDataConsumer> {
+		logger.debug('consumeData()');
+
+		const {
+			id,
+			sctpStreamParameters,
+			label,
+			protocol,
+		} = await this.connection.request({
+			method: 'createPipeDataConsumer',
+			data: {
+				routerId: this.router.id,
+				pipeTransportId: this.id,
+				dataProducerId,
+			}
+		}) as PipeDataConsumerOptions;
+
+		const pipeDataConsumer = new PipeDataConsumer({
+			router: this.router,
+			connection: this.connection,
+			id,
+			dataProducerId,
+			sctpStreamParameters,
+			label,
+			protocol,
+			appData,
+		});
+
+		this.pipeDataConsumers.set(pipeDataConsumer.id, pipeDataConsumer);
+		pipeDataConsumer.once('close', () => this.pipeDataConsumers.delete(id));
+
+		return pipeDataConsumer;
 	}
 }
