@@ -4,7 +4,7 @@ import {
 	Permission,
 } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { createConsumer } from '../common/consuming';
+import { createConsumer, createDataConsumer } from '../common/consuming';
 import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
 
@@ -59,42 +59,33 @@ export const createJoinMiddleware = ({
 				response.lobbyPeers = lobbyPeers;
 				response.locked = room.locked;
 
-				if (peer.router) {
-					for (const joinedPeer of room.getPeers(peer)) {
-						if (
-							joinedPeer.router &&
-							peer.router !== joinedPeer.router
-						) {
-							for (const producer of peer.producers.values()) {
-								if (
-									!producer.closed &&
-									!joinedPeer.router.closed &&
-									!peer.router
-								) {
-									await joinedPeer.router.pipeToRouter({
-										producerId: producer.id,
-										router: peer.router,
-									});
-								}
-							}
-						}
-					}
-				}
-
 				room.joinPeer(peer);
 				context.handled = true;
 
-				(async () => {
-					for (const joinedPeer of room.getPeers(peer)) {
-						for (const producer of joinedPeer.producers.values()) {
-							const { appData: { sessionId } } = producer;
-
-							// We only want to consume producers in the same session
-							if (!producer.closed && sessionId === room.sessionId)
-								await createConsumer(peer, joinedPeer, producer);
+				Promise.all([
+					(async () => {
+						for (const joinedPeer of room.getPeers(peer)) {
+							for (const producer of joinedPeer.producers.values()) {
+								const { appData: { sessionId } } = producer;
+	
+								// We only want to consume producers in the same session
+								if (!producer.closed && sessionId === room.sessionId)
+									await createConsumer(peer, joinedPeer, producer);
+							}
 						}
-					}
-				})();
+					})(),
+					(async () => {
+						for (const joinedPeer of room.getPeers(peer)) {
+							for (const dataProducer of joinedPeer.dataProducers.values()) {
+								const { appData: { sessionId } } = dataProducer;
+	
+								// We only want to consume dataProducers in the same session
+								if (!dataProducer.closed && sessionId === room.sessionId)
+									await createDataConsumer(peer, joinedPeer, dataProducer);
+							}
+						}
+					})()
+				]);
 
 				break;
 			}

@@ -3,13 +3,16 @@ import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConn
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
 import { createRouterMiddleware } from '../middlewares/routerMiddleware';
-import { Producer } from './Producer';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
 import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 import MediaNode from './MediaNode';
 import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { PipeDataProducer } from './PipeDataProducer';
+import { PipeDataConsumer } from './PipeDataConsumer';
+import { Producer } from './Producer';
+import { DataProducer } from './DataProducer';
 
 const logger = new Logger('Router');
 
@@ -29,6 +32,13 @@ interface CreatePipeTransportOptions {
 export interface RouterOptions {
 	id: string;
 	rtpCapabilities: RtpCapabilities;
+}
+
+export interface PipeToRouterResult {
+	pipeConsumer?: PipeConsumer;
+	pipeProducer?: PipeProducer;
+	pipeDataConsumer?: PipeDataConsumer;
+	pipeDataProducer?: PipeDataProducer;
 }
 
 interface InternalRouterOptions extends RouterOptions {
@@ -57,6 +67,8 @@ export class Router extends EventEmitter {
 	public pipeTransports: Map<string, PipeTransport> = new Map();
 	public producers: Map<string, Producer> = new Map();
 	public pipeProducers: Map<string, PipeProducer> = new Map();
+	public dataProducers: Map<string, DataProducer> = new Map();
+	public pipeDataProducers: Map<string, PipeDataProducer> = new Map();
 
 	// Mapped by remote routerId
 	public routerPipePromises = new Map<string, Promise<PipeTransportPair>>();
@@ -210,18 +222,38 @@ export class Router extends EventEmitter {
 	@skipIfClosed
 	public async pipeToRouter({
 		producerId,
+		dataProducerId,
 		router
 	}: {
-		producerId: string;
+		producerId?: string;
+		dataProducerId?: string;
 		router: Router;
-	}): Promise<{ pipeConsumer: PipeConsumer, pipeProducer: PipeProducer }> {
+	}): Promise<PipeToRouterResult> {
 		logger.debug('pipeToRouter()');
 
-		const producer: Producer | PipeProducer | undefined =
-			this.producers.get(producerId) ?? this.pipeProducers.get(producerId);
+		if (!producerId && !dataProducerId)
+			throw new Error('missing producerId or dataProducerId');
+		if (producerId && dataProducerId)
+			throw new Error('both producerId and dataProducerId given');
 
-		if (!producer)
-			throw new Error('producer not found');
+		let producer: Producer | PipeProducer | undefined;
+		let dataProducer: DataProducer | PipeDataProducer | undefined;
+
+		if (producerId) {
+			producer =
+				this.producers.get(producerId) ??
+				this.pipeProducers.get(producerId);
+
+			if (!producer)
+				throw new TypeError('Producer not found');
+		} else if (dataProducerId) {
+			dataProducer =
+				this.dataProducers.get(dataProducerId) ??
+				this.pipeDataProducers.get(dataProducerId);
+
+			if (!dataProducer)
+				throw new TypeError('DataProducer not found');
+		}
 
 		const pipeTransportPairKey = router.id;
 
@@ -299,58 +331,105 @@ export class Router extends EventEmitter {
 			await pipeTransportPairPromise;
 		}
 
-		let pipeConsumer: PipeConsumer | undefined;
-		let pipeProducer: PipeProducer | undefined;
+		if (producer) {
+			let pipeConsumer: PipeConsumer | undefined;
+			let pipeProducer: PipeProducer | undefined;
 
-		try {
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			pipeConsumer = await localPipeTransport!.consume({
-				producerId
-			});
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				pipeConsumer = await localPipeTransport!.consume({
+					producerId: producer.id
+				});
 
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			pipeProducer = await remotePipeTransport!.produce({
-				producerId,
-				kind: pipeConsumer.kind,
-				rtpParameters: pipeConsumer.rtpParameters,
-				paused: pipeConsumer.producerPaused,
-				appData: producer?.appData
-			});
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				pipeProducer = await remotePipeTransport!.produce({
+					producerId: producer.id,
+					kind: pipeConsumer.kind,
+					rtpParameters: pipeConsumer.rtpParameters,
+					paused: pipeConsumer.producerPaused,
+					appData: producer.appData
+				});
 
-			// Ensure that the producer has not been closed in the meanwhile.
-			if (producer.closed)
-				throw new Error('original Producer closed');
+				// Ensure that the producer has not been closed in the meanwhile.
+				if (producer.closed)
+					throw new Error('original Producer closed');
 
-			// Ensure that producer.paused has not changed in the meanwhile and, if
-			// so, sync the pipeProducer.
-			if (pipeProducer.paused !== producer?.paused) {
-				if (producer.paused)
-					await pipeProducer.pause();
-				else
-					await pipeProducer.resume();
+				// Ensure that producer.paused has not changed in the meanwhile and, if
+				// so, sync the pipeProducer.
+				if (pipeProducer.paused !== producer.paused) {
+					if (producer.paused)
+						await pipeProducer.pause();
+					else
+						await pipeProducer.resume();
+				}
+
+				// Pipe events from the pipe Consumer to the pipe Producer.
+				pipeConsumer.once('close', () => pipeProducer?.close());
+				pipeConsumer.on('producerpause', async () => await pipeProducer?.pause());
+				pipeConsumer.on('producerresume', async () => await pipeProducer?.resume());
+
+				// Pipe events from the pipe Producer to the pipe Consumer.
+				pipeProducer.once('close', () => pipeConsumer?.close());
+
+				return { pipeConsumer, pipeProducer };
+			} catch (error) {
+				logger.error(
+					'pipeToRouter() | error creating pipe Consumer/Producer pair:%o',
+					error);
+
+				if (pipeConsumer)
+					pipeConsumer.close();
+
+				if (pipeProducer)
+					pipeProducer.close();
+
+				throw error;
 			}
+		} else if (dataProducer) {
+			let pipeDataConsumer: PipeDataConsumer | undefined;
+			let pipeDataProducer: PipeDataProducer | undefined;
 
-			// Pipe events from the pipe Consumer to the pipe Producer.
-			pipeConsumer.once('close', () => pipeProducer?.close());
-			pipeConsumer.on('producerpause', async () => await pipeProducer?.pause());
-			pipeConsumer.on('producerresume', async () => await pipeProducer?.resume());
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				pipeDataConsumer = await localPipeTransport!.consumeData({
+					dataProducerId: dataProducer.id
+				});
 
-			// Pipe events from the pipe Producer to the pipe Consumer.
-			pipeProducer.once('close', () => pipeConsumer?.close());
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				pipeDataProducer = await remotePipeTransport!.produceData({
+					dataProducerId: dataProducer.id,
+					sctpStreamParameters: pipeDataConsumer.sctpStreamParameters,
+					label: pipeDataConsumer.label,
+					protocol: pipeDataConsumer.protocol,
+					appData: dataProducer?.appData
+				});
 
-			return { pipeConsumer, pipeProducer };
-		} catch (error) {
-			logger.error(
-				'pipeToRouter() | error creating pipe Consumer/Producer pair:%o',
-				error);
+				// Ensure that the dataProducer has not been closed in the meanwhile.
+				if (dataProducer.closed)
+					throw new Error('original DataProducer closed');
 
-			if (pipeConsumer)
-				pipeConsumer.close();
+				// Pipe events from the pipe Consumer to the pipe DataProducer.
+				pipeDataConsumer.once('close', () => pipeDataProducer?.close());
 
-			if (pipeProducer)
-				pipeProducer.close();
+				// Pipe events from the pipe DataProducer to the pipe Consumer.
+				pipeDataProducer.once('close', () => pipeDataConsumer?.close());
 
-			throw error;
+				return { pipeDataConsumer, pipeDataProducer };
+			} catch (error) {
+				logger.error(
+					'pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o',
+					error);
+
+				if (pipeDataConsumer)
+					pipeDataConsumer.close();
+
+				if (pipeDataProducer)
+					pipeDataProducer.close();
+
+				throw error;
+			}
+		} else {
+			throw new Error('Internal error');
 		}
 	}
 

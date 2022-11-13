@@ -11,7 +11,8 @@
 		"prodstart": "node dist/src/server.js",
 		"lint": "eslint . --ext .ts",
 		"connect": "node connect.js",
-		"test": "jest --coverage",
+		"test": "jest",
+		"test:coverage": "jest --coverage",
 		"test:watch": "jest --watch"
 	},
 	"devDependencies": {

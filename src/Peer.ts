@@ -19,6 +19,8 @@ import {
 	skipIfClosed,
 	SocketMessage
 } from 'edumeet-common';
+import { DataProducer } from './media/DataProducer';
+import { DataConsumer } from './media/DataConsumer';
 
 const logger = new Logger('Peer');
 
@@ -74,6 +76,8 @@ export class Peer extends EventEmitter {
 	public transports = new Map<string, WebRtcTransport>();
 	public consumers = new Map<string, Consumer>();
 	public producers = new Map<string, Producer>();
+	public dataConsumers = new Map<string, DataConsumer>();
+	public dataProducers = new Map<string, DataProducer>();
 	public roomId: string;
 	public pipeline = Pipeline<PeerContext>();
 	public readonly token: string;
@@ -134,6 +138,8 @@ export class Peer extends EventEmitter {
 
 	public set router(router: Router | undefined) {
 		if (!router) return;
+
+		router.once('close', () => (this.#router = undefined));
 
 		this.#router = router;
 	}

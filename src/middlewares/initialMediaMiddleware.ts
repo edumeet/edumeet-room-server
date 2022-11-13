@@ -55,7 +55,14 @@ export const createInitialMediaMiddleware = ({
 					throw new Error('transport not found');
 
 				peer.transports.set(transport.id, transport);
-				transport.once('close', () => peer.transports.delete(transport.id));
+				transport.once('close', () => {
+					peer.transports.delete(transport.id);
+
+					peer.notify({
+						method: 'transportClosed',
+						data: { transportId: transport.id }
+					});
+				});
 
 				response.id = transport.id;
 				response.iceParameters = transport.iceParameters;
