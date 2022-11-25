@@ -42,6 +42,7 @@ export default class Room extends EventEmitter {
 	public sessionId = randomUUID();
 	public closed = false;
 	public locked = false;
+	public readonly creationTimestamp = Date.now();
 	
 	public parent?: Room;
 	public routers = List<Router>();
@@ -204,6 +205,7 @@ export default class Room extends EventEmitter {
 			method: 'roomReady',
 			data: {
 				sessionId: this.sessionId,
+				creationTimestamp: this.creationTimestamp,
 				roles: peer.roles.map((role) => role.id),
 				roomPermissions,
 				userRoles,
