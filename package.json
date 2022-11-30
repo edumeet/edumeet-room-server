@@ -12,7 +12,7 @@
 		"lint": "eslint . --ext .ts",
 		"connect": "node connect.js",
 		"test": "jest",
-		"test:coverage": "jest --coverage",
+		"test:coverage": "jest --coverage --coverageDirectory coverage",
 		"test:watch": "jest --watch"
 	},
 	"devDependencies": {
