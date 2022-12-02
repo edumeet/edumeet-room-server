@@ -1,10 +1,9 @@
-import { Pipeline } from 'edumeet-common';
 import 'jest';
 import MediaService from '../../src/MediaService';
-import { Peer, PeerContext } from '../../src/Peer';
+import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
-
+import { userRoles } from '../../src/common/authorization'
 
 describe('Room', () => {
 	let room1: Room;
@@ -25,13 +24,6 @@ describe('Room', () => {
 	const roomName2 = 'testRoomName2';
 	const roomName3 = 'testRoomName3';
 
-	const router = {
-		mediaNode: jest.fn(),
-		connection: jest.fn(),
-		id: jest.fn(),
-		rtpCapabilities: jest.fn(),
-		appData: {}
-	} as unknown as Router
 
 
 	beforeEach(() => {
@@ -74,32 +66,120 @@ describe('Room', () => {
 		expect(spyEmit).toHaveBeenCalledTimes(1);
 	});
 
-	it('addPeer()', () => {
-		const peer = new Peer({
+	describe('Router', () => {
+		let router: Router;
+		let spyClose: jest.SpyInstance;
+		let spyAdd: jest.SpyInstance
+
+		beforeEach(() => {
+			router = {
+				mediaNode: jest.fn(),
+				connection: jest.fn(),
+				id: jest.fn(),
+				rtpCapabilities: jest.fn(),
+				appData: {},
+				close: jest.fn()
+			} as unknown as Router
+			spyClose = jest.spyOn(router, 'close')
+			spyAdd = jest.spyOn(room1.routers, 'add')
+		})
+
+	it('close() - should close router', () => {
+		room1.addRouter(router);
+		room1.close()
+		expect(spyClose).toHaveBeenCalled()
+	})
+
+	it('addRouter() - should have one router', () => {
+		expect(room1.routers.length).toBe(0)
+		room1.addRouter(router);
+		expect(room1.routers.length).toBe(1)
+		expect(spyAdd).toHaveBeenCalled()
+	})
+
+	it('pushRouter() - should not add same router twice', () => {
+		room1.addRouter(router)
+		room1['pushRouter'](router)
+		expect(spyAdd.mock.calls.length).toBe(1)
+	})
+
+	})
+	
+	
+
+	describe('Peers', () => {
+		let peer1: Peer;
+		let peer2: Peer;
+
+		beforeEach(() => {
+		  peer1 = new Peer({
 			id: 'test',
 			roomId: roomId1,
+		  })
+		peer2 = new Peer({
+			id: 'test2',
+			roomId: roomId1,
+			});
 		});
 
+	it('close() - remove pending peer', () => {
+		room1.addPeer(peer1)
+		const spyClose = jest.spyOn(peer1, 'close')
+		room1.close();
+		expect(spyClose).toHaveBeenCalled()
+	})
+	
+	it('close() - remove peer', () => {
+		room1['joinPeer'](peer1)
+		const spyClose = jest.spyOn(peer1, 'close')
+		room1.close();
+		expect(spyClose).toHaveBeenCalled()
+	})
+	
+	it('close() - remove lobbyPeer', () => {
+		room1['parkPeer'](peer1)
+		const spyClose = jest.spyOn(peer1, 'close')
+		room1.close();
+		expect(spyClose).toHaveBeenCalled()
+	})
+	
+	it('addPeer()', () => {
 		const spyAllowPeer = jest.spyOn(Room.prototype as any, 'allowPeer');
-
-		room1.addPeer(peer);
+		
+		room1.addPeer(peer1);
+		
 		expect(spyAllowPeer).toHaveBeenCalled();
+	});
+	
+	it('addPeer() - room locked', () => {
+		room1.locked = true;
+
+		const spyParkPeer = jest.spyOn(Room.prototype as any, 'parkPeer');
+
+		room1.addPeer(peer1);
+		expect(spyParkPeer).toHaveBeenCalled();
+	});
+	
+	it('addPeer() - room locked, promote peer to admin', () => {
+		room1.locked = true;
+
+		const spyPromotePeer = jest.spyOn(Room.prototype as any, 'promotePeer');
+		room1.addPeer(peer1);
+		peer1.addRole(userRoles.ADMIN)
+		
+		expect(spyPromotePeer).toHaveBeenCalled();
 	});
 
 	it('allowPeer()', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
 
 		const joinMiddleware = room1['joinMiddleware'];
 		const initialMediaMiddleware = room1['initialMediaMiddleware'];
-		const spyPipeline = jest.spyOn(peer.pipeline, 'use');
-		const spyNotify = jest.spyOn(peer, 'notify');
+		const spyPipeline = jest.spyOn(peer1.pipeline, 'use');
+		const spyNotify = jest.spyOn(peer1, 'notify');
 
-		room1['allowPeer'](peer);
+		room1['allowPeer'](peer1);
 
-		expect(spyAddPendingPeer).toHaveBeenCalledWith(peer);
+		expect(spyAddPendingPeer).toHaveBeenCalledWith(peer1);
 
 		expect(spyAddPeer).not.toHaveBeenCalled();
 		expect(spyAddLobbyPeer).not.toHaveBeenCalled();
@@ -109,7 +189,7 @@ describe('Room', () => {
 		expect(spyRemoveLobbyPeer).not.toHaveBeenCalled();
 
 		expect(room1.pendingPeers.length).toBe(1);
-		expect(room1.pendingPeers.items[0]).toBe(peer);
+		expect(room1.pendingPeers.items[0]).toBe(peer1);
 		expect(room1.peers.length).toBe(0);
 		expect(room1.lobbyPeers.length).toBe(0);
 
@@ -118,17 +198,12 @@ describe('Room', () => {
 	});
 
 	it('parkPeer()', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
 		const lobbyPeerMiddleware = room1['lobbyPeerMiddleware'];
-		const spyPipeline = jest.spyOn(peer.pipeline, 'use');
-		const spyNotify = jest.spyOn(peer, 'notify');
+		const spyPipeline = jest.spyOn(peer1.pipeline, 'use');
+		const spyNotify = jest.spyOn(peer1, 'notify');
 
-		room1['parkPeer'](peer);
-		expect(spyAddLobbyPeer).toHaveBeenCalledWith(peer);
+		room1['parkPeer'](peer1);
+		expect(spyAddLobbyPeer).toHaveBeenCalledWith(peer1);
 
 		expect(spyAddPeer).not.toHaveBeenCalled();
 		expect(spyAddPendingPeer).not.toHaveBeenCalled();
@@ -138,7 +213,7 @@ describe('Room', () => {
 		expect(spyRemoveLobbyPeer).not.toHaveBeenCalled();
 
 		expect(room1.lobbyPeers.length).toBe(1);
-		expect(room1.lobbyPeers.items[0]).toBe(peer);
+		expect(room1.lobbyPeers.items[0]).toBe(peer1);
 		expect(room1.peers.length).toBe(0);
 		expect(room1.pendingPeers.length).toBe(0);
 
@@ -147,19 +222,14 @@ describe('Room', () => {
 	});
 
 	it('joinPeer()', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
 		const joinMiddleware = room1['joinMiddleware'];
 		const peerMiddlewares = room1['peerMiddlewares'];
 
-		const spyPipelineRemove = jest.spyOn(peer.pipeline, 'remove');
-		const spyPipelineUse = jest.spyOn(peer.pipeline, 'use');
+		const spyPipelineRemove = jest.spyOn(peer1.pipeline, 'remove');
+		const spyPipelineUse = jest.spyOn(peer1.pipeline, 'use');
 
-		room1['joinPeer'](peer);
-		expect(spyAddPeer).toHaveBeenCalledWith(peer);
+		room1['joinPeer'](peer1);
+		expect(spyAddPeer).toHaveBeenCalledWith(peer1);
 		expect(spyRemovePendingPeer).toHaveBeenCalled();
 
 		expect(spyAddLobbyPeer).not.toHaveBeenCalled();
@@ -169,29 +239,24 @@ describe('Room', () => {
 		expect(spyRemoveLobbyPeer).not.toHaveBeenCalled();
 
 		expect(room1.peers.length).toBe(1);
-		expect(room1.peers.items[0]).toBe(peer);
+		expect(room1.peers.items[0]).toBe(peer1);
 		expect(room1.lobbyPeers.length).toBe(0);
 		expect(room1.pendingPeers.length).toBe(0);
 
 		expect(spyPipelineRemove).toHaveBeenCalledWith(joinMiddleware);
 		expect(spyPipelineUse).toHaveBeenCalledWith(...peerMiddlewares);
 		expect(spyNotifyPeers).toHaveBeenCalledWith('newPeer', {
-			...peer.peerInfo
-		}, peer);
+			...peer1.peerInfo
+		}, peer1);
 	});
 
 	it('promotePeer()', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
 		const lobbyPeerMiddleware = room1['lobbyPeerMiddleware'];
 		const spyAllowPeer = jest.spyOn(Room.prototype as any, 'allowPeer');
-		const spyPipelineRemove = jest.spyOn(peer.pipeline, 'remove');
+		const spyPipelineRemove = jest.spyOn(peer1.pipeline, 'remove');
 
-		room1['parkPeer'](peer);
-		room1['promotePeer'](peer);
+		room1['parkPeer'](peer1);
+		room1['promotePeer'](peer1);
 
 		expect(spyRemoveLobbyPeer).toHaveBeenCalled();
 		
@@ -200,193 +265,133 @@ describe('Room', () => {
 		expect(spyRemovePendingPeer).not.toHaveBeenCalled();
 
 		expect(room1.pendingPeers.length).toBe(1);
-		expect(room1.pendingPeers.items[0]).toBe(peer);
+		expect(room1.pendingPeers.items[0]).toBe(peer1);
 		expect(room1.lobbyPeers.length).toBe(0);
 		expect(room1.peers.length).toBe(0);
 
 		expect(spyPipelineRemove).toHaveBeenCalledWith(lobbyPeerMiddleware);
 		expect(spyAllowPeer).toHaveBeenCalled();
-		expect(spyNotifyPeers).toHaveBeenCalledWith('lobby:promotedPeer', { peerId: peer.id }, peer);
+		expect(spyNotifyPeers).toHaveBeenCalledWith('lobby:promotedPeer', { peerId: peer1.id }, peer1);
 	});
 
-	it('removePeer() - pending peer', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
+	it('promoteAllPeers()', () => {
+		room1['parkPeer'](peer1)
+		room1.joinPeer(peer2)
+		
+		expect(room1.lobbyPeers.length).toBe(1)
+		expect(room1.peers.length).toBe(1)
+		room1.promoteAllPeers()
 
-		room1['allowPeer'](peer);
-		room1.removePeer(peer);
+		expect(room1.pendingPeers.length).toBe(1)
+	})
+
+	it('removePeer() - pending peer', () => {
+		room1['allowPeer'](peer1);
+		room1.removePeer(peer1);
 		expect(room1.pendingPeers.length).toBe(0);
 	});
 
 	it('removePeer() - joined peer', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
-		room1.joinPeer(peer);
-		room1.removePeer(peer);
+		room1.joinPeer(peer1);
+		room1.removePeer(peer1);
 		expect(room1.peers.length).toBe(0);
-		expect(spyNotifyPeers).toHaveBeenCalledWith('peerClosed', { peerId: peer.id }, peer);
+		expect(spyNotifyPeers).toHaveBeenCalledWith('peerClosed', { peerId: peer1.id }, peer1);
 	});
 
 	it('removePeer() - lobby peer', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
-		room1['parkPeer'](peer);
-		room1.removePeer(peer);
+		room1['parkPeer'](peer1);
+		room1.removePeer(peer1);
 		expect(room1.peers.length).toBe(0);
-		expect(spyNotifyPeers).toHaveBeenCalledWith('lobby:peerClosed', { peerId: peer.id }, peer);
+		expect(spyNotifyPeers).toHaveBeenCalledWith('lobby:peerClosed', { peerId: peer1.id }, peer1);
 	});
 
 	it('removePeer() - last peer leaves', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
-		room1.joinPeer(peer);
-		room1.removePeer(peer);
+		room1.joinPeer(peer1);
+		room1.removePeer(peer1);
 		expect(room1.closed).toBe(true);
 	});
 
 	it('removePeer() - peer leaves, peer still there', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
 
-		const peer2 = new Peer({
-			id: 'test2',
-			roomId: roomId1,
-		});
-
-		room1['allowPeer'](peer);
+		room1['allowPeer'](peer1);
 		room1['allowPeer'](peer2);
-		room1.removePeer(peer);
+		room1.removePeer(peer1);
 		expect(room1.closed).toBe(false);
 		room1.removePeer(peer2);
 		expect(room1.closed).toBe(true);
 	});
 
 	it('removePeer() - peer leaves, have pending peer', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
 		const pendingPeer = new Peer({
 			id: 'test2',
 			roomId: roomId1,
 		});
 
 		room1.joinPeer(pendingPeer);
-		room1['allowPeer'](peer);
-		room1.removePeer(peer);
+		room1['allowPeer'](peer1);
+		room1.removePeer(peer1);
 		expect(room1.closed).toBe(false);
 	});
 
 	it('removePeer() - peer leaves, peer in lobby', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
 		const lobbyPeer = new Peer({
 			id: 'test2',
 			roomId: roomId1,
 		});
 
-		room1.joinPeer(peer);
+		room1.joinPeer(peer1);
 		room1['parkPeer'](lobbyPeer);
-		room1.removePeer(peer);
+		room1.removePeer(peer1);
+		expect(room1.closed).toBe(false);
+	});
+	
+	it('removePeer() - peer leaves, peer in lobby', () => {
+		const lobbyPeer = new Peer({
+			id: 'test2',
+			roomId: roomId1,
+		});
+
+		room1.joinPeer(peer1);
+		room1['parkPeer'](lobbyPeer);
+		room1.removePeer(peer1);
 		expect(room1.closed).toBe(false);
 	});
 
 	it('getPeers() - joined peers', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
 		const peer2 = new Peer({
 			id: 'test2',
 			roomId: roomId1,
 		});
 
-		room1.joinPeer(peer);
+		room1.joinPeer(peer1);
 		room1.joinPeer(peer2);
-		expect(room1.getPeers()).toEqual([ peer, peer2 ]);
+		expect(room1.getPeers()).toEqual([ peer1, peer2 ]);
 	});
 
 	it('getPeers() - exclude peer', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
 
-		const peer2 = new Peer({
-			id: 'test2',
-			roomId: roomId1,
-		});
-
-		room1.joinPeer(peer);
+		room1.joinPeer(peer1);
 		room1.joinPeer(peer2);
-		expect(room1.getPeers(peer)).toEqual([ peer2 ]);
+		expect(room1.getPeers(peer1)).toEqual([ peer2 ]);
 	});
 
 	it('getPeers() - lobby peers', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
-		const peer2 = new Peer({
-			id: 'test2',
-			roomId: roomId1,
-		});
-
-		room1.joinPeer(peer);
+		room1.joinPeer(peer1);
 		room1['parkPeer'](peer2);
-		expect(room1.getPeers()).toEqual([ peer ]);
+		expect(room1.getPeers()).toEqual([ peer1 ]);
 	});
 
 	it('getPeers() - pending peers', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
-		const peer2 = new Peer({
-			id: 'test2',
-			roomId: roomId1,
-		});
-
-		room1.joinPeer(peer);
+		room1.joinPeer(peer1);
 		room1['allowPeer'](peer2);
-		expect(room1.getPeers()).toEqual([ peer ]);
+		expect(room1.getPeers()).toEqual([ peer1 ]);
 	});
-
+	
 	it('notifyPeers() - all peers', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
-		const peer2 = new Peer({
-			id: 'test2',
-			roomId: roomId1,
-		});
-
-		room1.joinPeer(peer);
+		room1.joinPeer(peer1);
 		room1.joinPeer(peer2);
 
-		const spyNotify1 = jest.spyOn(peer, 'notify');
+		const spyNotify1 = jest.spyOn(peer1, 'notify');
 		const spyNotify2 = jest.spyOn(peer2, 'notify');
 
 		expect(room1.peers.length).toBe(2);
@@ -404,23 +409,13 @@ describe('Room', () => {
 	});
 
 	it('notifyPeers() - exclude peer', () => {
-		const peer = new Peer({
-			id: 'test',
-			roomId: roomId1,
-		});
-
-		const peer2 = new Peer({
-			id: 'test2',
-			roomId: roomId1,
-		});
-
-		room1.joinPeer(peer);
+		room1.joinPeer(peer1);
 		room1.joinPeer(peer2);
 
-		const spyNotify1 = jest.spyOn(peer, 'notify');
+		const spyNotify1 = jest.spyOn(peer1, 'notify');
 		const spyNotify2 = jest.spyOn(peer2, 'notify');
 
-		room1.notifyPeers('test', { test: 'test' }, peer);
+		room1.notifyPeers('test', { test: 'test' }, peer1);
 
 		expect(spyNotify1).not.toHaveBeenCalled();
 		expect(spyNotify2).toHaveBeenCalledWith({
@@ -428,11 +423,6 @@ describe('Room', () => {
 			data: { test: 'test' },
 		});
 	});
-	
-	it('addRouter() - should have one router', () => {
-		expect(room1.routers.length).toBe(0)
-		room1.addRouter(router);
-		expect(room1.routers.length).toBe(1)
 	})
 
 	describe('Multiple rooms', () => {
@@ -469,10 +459,10 @@ describe('Room', () => {
 		expect(room1.rooms.length).toBe(1);
 		})
 	
-		it('Should remove room when it closes', () => {
+	it('close() - Parent Should remove child room when it calls close()', () => {
 		room1.addRoom(room2)
-		expect(spyRemoveRoom).not.toHaveBeenCalled()
 		room2.close()
+
 		expect(spyRemoveRoom).toHaveBeenCalled()
 		})
 	});
