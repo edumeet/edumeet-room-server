@@ -6,6 +6,8 @@ import { Peer } from '../../src/Peer';
 import { Producer } from '../../src/media/Producer';
 import { Consumer } from '../../src/media/Consumer';
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
+import { Router } from '../../src/media/Router';
+import EventEmitter from 'events';
 
 describe('Peer', () => {
 	let connection: BaseConnection;
@@ -178,5 +180,39 @@ describe('Peer', () => {
 
 		expect(peer.connections.length).toBe(0);
 		expect(spyClose).toHaveBeenCalled();
+	});
+
+	describe('router', () => {
+		let router: Router;
+
+		beforeEach(() => {
+			router = {
+				close: jest.fn(),
+				once: jest.fn()
+			} as unknown as Router;
+		});
+
+		it('getter should return undefined when no router', () => {
+			expect(peer.router).toBe(undefined);
+		});
+
+		it('getter should return router when set', () => {
+			peer.router = router;
+			expect(peer.router).toEqual(router);
+		});
+
+		it('should not throw on undefined as argument', () => {
+			expect(() => { peer.router = undefined; }).not.toThrow();
+		});
+
+		it('should set router to undefined on close event', () => {
+			const emitRouter = new EventEmitter();
+
+			peer.router = emitRouter as Router;
+			expect(peer.router).toBe(emitRouter);
+			emitRouter.emit('close');
+		
+			expect(peer.router).toBe(undefined);
+		});
 	});
 });
