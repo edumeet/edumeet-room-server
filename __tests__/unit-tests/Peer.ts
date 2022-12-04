@@ -3,6 +3,9 @@ import 'jest';
 import { Socket } from 'socket.io';
 import { userRoles } from '../../src/common/authorization';
 import { Peer } from '../../src/Peer';
+import { Producer } from '../../src/media/Producer';
+import { Consumer } from '../../src/media/Consumer';
+import { WebRtcTransport } from '../../src/media/WebRtcTransport';
 
 describe('Peer', () => {
 	let connection: BaseConnection;
@@ -65,6 +68,42 @@ describe('Peer', () => {
 		expect(peer.consumers.size).toBe(0);
 		expect(peer.transports.size).toBe(0);
 		expect(spyEmit).toHaveBeenCalledTimes(1);
+	});
+
+	it('close() - should close producers', async () => {
+		const producerToClose = {
+			id: 1,
+			close: jest.fn()
+		} as unknown as Producer;
+		const spyCloseProducer = jest.spyOn(producerToClose, 'close');
+
+		peer.producers.set(producerToClose.id, producerToClose);
+		peer.close();
+		expect(spyCloseProducer).toHaveBeenCalled();
+	});
+
+	it('close() - should close consumers', async () => {
+		const consumerToClose = {
+			id: 'id',
+			close: jest.fn()
+		} as unknown as Consumer;
+		const spyCloseConsumer = jest.spyOn(consumerToClose, 'close');
+
+		peer.consumers.set(consumerToClose.id, consumerToClose);
+		peer.close();
+		expect(spyCloseConsumer).toHaveBeenCalled();
+	});
+
+	it('close() - should close transports', async () => {
+		const transportToClose = {
+			id: 'id',
+			close: jest.fn()
+		} as unknown as WebRtcTransport;
+		const spyCloseTransport = jest.spyOn(transportToClose, 'close');
+
+		peer.transports.set(transportToClose.id, transportToClose);
+		peer.close();
+		expect(spyCloseTransport).toHaveBeenCalled();
 	});
 
 	it('set raisedHand()', () => {
