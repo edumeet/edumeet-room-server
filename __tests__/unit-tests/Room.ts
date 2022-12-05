@@ -1,7 +1,6 @@
-import { Pipeline } from 'edumeet-common';
 import 'jest';
 import MediaService from '../../src/MediaService';
-import { Peer, PeerContext } from '../../src/Peer';
+import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 
 describe('Room', () => {
@@ -61,6 +60,7 @@ describe('Room', () => {
 			roomId: roomId,
 		});
 
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const spyAllowPeer = jest.spyOn(Room.prototype as any, 'allowPeer');
 
 		room.addPeer(peer);
@@ -168,6 +168,7 @@ describe('Room', () => {
 		});
 
 		const lobbyPeerMiddleware = room['lobbyPeerMiddleware'];
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const spyAllowPeer = jest.spyOn(Room.prototype as any, 'allowPeer');
 		const spyPipelineRemove = jest.spyOn(peer.pipeline, 'remove');
 

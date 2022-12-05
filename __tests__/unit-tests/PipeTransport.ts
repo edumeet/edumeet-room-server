@@ -66,17 +66,18 @@ describe('PipeTransport', () => {
 
 		pipeTransport.connection.notify = jest.fn(({ method, data }) => {
 			return ({
-				'closePipeTransport': ()=> {
+				'closePipeTransport': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
 					expect(data.pipeTransportId).toBe(pipeTransportId);
 				},
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		pipeTransport.close();
 		expect(pipeTransport.connection.notify).toBeCalledTimes(1);
 		expect(pipeTransport.closed).toBe(true);
-		expect(pipeTransport.connection.pipeline.remove).toHaveBeenCalledWith(pipeTransportMiddleware);
+		expect(pipeTransport.connection.pipeline.remove).
+			toHaveBeenCalledWith(pipeTransportMiddleware);
 	});
 
 	it('connect()', async () => {
@@ -89,7 +90,7 @@ describe('PipeTransport', () => {
 					expect(data.port).toBe(port);
 					expect(data.srtpParameters).toBe(srtpParameters);
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		await pipeTransport.connect({ ip, port, srtpParameters });
@@ -112,7 +113,7 @@ describe('PipeTransport', () => {
 
 					return { id: producerId };
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const pipeProducer = await pipeTransport.produce({
@@ -146,7 +147,7 @@ describe('PipeTransport', () => {
 						rtpParameters,
 					};
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const pipeConsumer = await pipeTransport.consume({
