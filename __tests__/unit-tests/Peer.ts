@@ -216,8 +216,8 @@ describe('Peer', () => {
 	});
 
 	describe('Connections', () => {
-		let DEBUG_MSG_ADD_CONNECTION: string;
-		let REJECT_MESSAGE_SERVER_ERROR: string;
+		const DEBUG_MSG_ADD_CONNECTION = 'addConnection()';
+		const REJECT_MESSAGE_SERVER_ERROR = 'Server error';
 		let pipelineWithMiddleware: Pipeline<PeerContext>;
 		let pipelineWithoutMiddleware: Pipeline<PeerContext>;
 		let mockRequest: jest.SpyInstance; 
@@ -226,11 +226,6 @@ describe('Peer', () => {
 		let spyPipelineExecute: jest.SpyInstance;
 		let spyRequest: jest.SpyInstance;
 		let mockSocketMessage: SocketMessage;
-
-		beforeAll(() => {
-			DEBUG_MSG_ADD_CONNECTION = 'addConnection()';
-			REJECT_MESSAGE_SERVER_ERROR = 'Server error';
-		});
 		
 		beforeEach(() => {
 			mockSocketMessage = {
