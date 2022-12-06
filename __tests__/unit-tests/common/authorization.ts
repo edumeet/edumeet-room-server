@@ -1,7 +1,7 @@
 import 'jest';
 import { Peer } from '../../../src/Peer';
 import Room from '../../../src/Room';
-import { Access, hasAccess, hasPermission, isAllowed, isAllowedBecauseMissing, Permission, promoteOnHostJoin, userRoles } from '../../../src/common/authorization';
+import { Access, hasAccess, hasPermission, isAllowed, isAllowedBecauseMissing, Permission, permittedProducer, promoteOnHostJoin, userRoles } from '../../../src/common/authorization';
 import { List } from 'edumeet-common';
 
 describe('authorization', () => {
@@ -10,7 +10,7 @@ describe('authorization', () => {
 	let fakePeerNormal: Peer;
 	let fakePeerAdmin: Peer;
 
-	beforeEach(() => {
+	beforeAll(() => {
 		fakeRoom = { 
 			locked: false, 
 		} as unknown as Room;
@@ -25,10 +25,6 @@ describe('authorization', () => {
 		} as unknown as Peer;
 	});
 
-	afterEach(() => {
-		jest.clearAllMocks();
-	});
-
 	describe('hasPermission()', () => {
 		it('hasPermission() - NORMAL should be able to share screen', () => {
 			const expected = true;
@@ -37,7 +33,7 @@ describe('authorization', () => {
 			expect(actual).toBe(expected);
 		});
 	
-		it('hasPermission() - missing role should not be able to share screen', () => {
+		it('hasPermission() - NO ROLE should not be able to share screen', () => {
 			const expected = false;
 			const actual = hasPermission(fakeRoom, fakePeerNoRole, Permission.SHARE_SCREEN);
 
@@ -92,7 +88,6 @@ describe('authorization', () => {
 	
 	describe('isAllowedBecauseMissing()', () => {
 		let fakeRoomWithLobby: Room;
-		let fakeLobbyList: List<Peer>;
 		let lobbyPeer: Peer;
 
 		beforeEach(() => {
@@ -102,7 +97,6 @@ describe('authorization', () => {
 				peers: { items: [] }, 
 				pendingPeers: { items: [] } 
 			} as unknown as Room;
-			fakeLobbyList = [] as unknown as List<Peer>;
 		});
 		it('NORMAL should be allowed when peer in lobby', () => {
 			const expected = true;
@@ -116,6 +110,8 @@ describe('authorization', () => {
 		});
 	
 		it('NORMAL should not be allowed when lobby is empty', () => {
+			const fakeLobbyList = [] as unknown as List<Peer>;
+
 			fakeRoomWithLobby.lobbyPeers = fakeLobbyList;
 		
 			const expected = true;
@@ -135,6 +131,28 @@ describe('authorization', () => {
 			const actual = promoteOnHostJoin(fakeRoom, fakePeerNormal);
 
 			expect(actual).toBe(expected);
+		});
+	});
+
+	describe('permittedProducer()', () => {
+		it('Should throw on invalid source type', () => {
+			expect(() => permittedProducer('illegal', fakeRoom, fakePeerNormal)).toThrowError();
+		});
+
+		it('Should not throw on valid source type', () => {
+			const legalSourceTypes = [ 'mic', 'webcam', 'screen', 'screenaudio', 'extravideo' ];
+
+			for (const s of legalSourceTypes) {
+				expect(() => permittedProducer(s, fakeRoom, fakePeerNormal)).not.toThrow();
+			}
+		});
+
+		it('Should throw when not allowed to share', () => {
+			const sourceTypes = [ 'mic', 'screenaudio', 'webcam', 'screen', 'extravideo' ];
+
+			for (const s of sourceTypes) {
+				expect(() => permittedProducer(s, fakeRoom, fakePeerNoRole)).toThrowError();
+			}
 		});
 	});
 });
