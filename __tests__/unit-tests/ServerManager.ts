@@ -155,14 +155,19 @@ describe('ServerManager', () => {
 			expect(serverManager.rooms.get(roomId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)?.roomId).toBe(roomId1);
-		});-
+		}); 
 		
 		it('should close peer connections when closing servermanager', () => {
-      		const peer1 = serverManager.peers.get(peerId1)!;
-      		const spyClose: jest.SpyInstance = jest.spyOn(peer1, "close");
-      		serverManager.close();
-      		expect(spyClose).toHaveBeenCalled();
-    	});
+			const peer1 = serverManager.peers.get(peerId1);
+
+			expect(peer1).toBeTruthy();
+			if (peer1) {
+				const spyClose: jest.SpyInstance = jest.spyOn(peer1, 'close');
+
+				serverManager.close();
+				expect(spyClose).toHaveBeenCalled();
+			}
+		});
 		
 		describe('second peer', () => {
 			beforeEach(() => {
