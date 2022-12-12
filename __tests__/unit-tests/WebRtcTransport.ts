@@ -70,17 +70,18 @@ describe('WebRtcTransport', () => {
 
 		webRtcTransport.connection.notify = jest.fn(({ method, data }) => {
 			return ({
-				'closeWebRtcTransport': ()=> {
+				'closeWebRtcTransport': () => {
 					expect(data.routerId).toBe(webRtcTransport.router.id);
 					expect(data.transportId).toBe(transportId);
 				},
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		webRtcTransport.close();
 		expect(webRtcTransport.connection.notify).toBeCalledTimes(1);
 		expect(webRtcTransport.closed).toBe(true);
-		expect(webRtcTransport.connection.pipeline.remove).toHaveBeenCalledWith(webRtcTransportMiddleware);
+		expect(webRtcTransport.connection.pipeline.remove).
+			toHaveBeenCalledWith(webRtcTransportMiddleware);
 	});
 
 	it('connect()', async () => {
@@ -91,7 +92,7 @@ describe('WebRtcTransport', () => {
 					expect(data.transportId).toBe(transportId);
 					expect(data.dtlsParameters).toBe(dtlsParameters);
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		await webRtcTransport.connect({ dtlsParameters });
@@ -113,7 +114,7 @@ describe('WebRtcTransport', () => {
 
 					return { id: producerId };
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const producer = await webRtcTransport.produce({
@@ -150,7 +151,7 @@ describe('WebRtcTransport', () => {
 						rtpParameters,
 					};
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const pipeConsumer = await webRtcTransport.consume({

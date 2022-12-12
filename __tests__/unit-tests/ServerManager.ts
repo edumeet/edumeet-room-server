@@ -36,6 +36,7 @@ describe('ServerManager', () => {
 		expect(serverManager.rooms.size).toBe(0);
 
 		const spy = jest.spyOn(serverManager.mediaService, 'close');
+
 		serverManager.close();
 		expect(spy).not.toHaveBeenCalled();
 	});
@@ -83,10 +84,21 @@ describe('ServerManager', () => {
 		});
 
 		it('first peer tries to join different room', () => {
-			const peer = serverManager.peers.get(peerId1)!;
+			const peer = serverManager.peers.get(peerId1);
+
+			if (!peer) {
+				throw new Error('Peer was undefined');
+			}
+
 			const peerToken = peer.token;
 
-			serverManager.handleConnection(connection1, peerId1, roomId2, displayName, peerToken);
+			serverManager.handleConnection(
+				connection1, 
+				peerId1, 
+				roomId2, 
+				displayName, 
+				peerToken
+			);
 			expect(serverManager.peers.size).toBe(1);
 			expect(serverManager.rooms.size).toBe(1);
 			expect(serverManager.rooms.get(roomId1)).toBeUndefined();
@@ -114,14 +126,28 @@ describe('ServerManager', () => {
 		});
 
 		it('peer with valid token', () => {
-			const peer = serverManager.peers.get(peerId1)!;
+			const peer = serverManager.peers.get(peerId1);
+
+			if (!peer) {
+				throw new Error('Peer was undefined');
+			}
 			const spyClose: jest.SpyInstance = jest.spyOn(peer, 'close');
+
 			spyConnectionClose = jest.spyOn(connection1, 'close');
 			const peerToken = peer.token;
 	
-			// Try to join with a second peer with the same peerId and correct token should work,
-			// and should end up with one peer in one room still
-			serverManager.handleConnection(connection1, peerId1, roomId1, displayName, peerToken);
+			/**
+			 * Try to join with a second peer
+			 * Same peerId and correct token should work
+			 * Should end up with one peer in one room
+			 */
+			serverManager.handleConnection(
+				connection1, 
+				peerId1, 
+				roomId1, 
+				displayName, 
+				peerToken
+			);
 			expect(spyClose).toHaveBeenCalled();
 			expect(spyConnectionClose).toHaveBeenCalled();
 			expect(serverManager.peers.size).toBe(1);
@@ -129,14 +155,19 @@ describe('ServerManager', () => {
 			expect(serverManager.rooms.get(roomId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)?.roomId).toBe(roomId1);
-		});-
+		}); 
 		
 		it('should close peer connections when closing servermanager', () => {
-      		const peer1 = serverManager.peers.get(peerId1)!;
-      		const spyClose: jest.SpyInstance = jest.spyOn(peer1, "close");
-      		serverManager.close();
-      		expect(spyClose).toHaveBeenCalled();
-    	});
+			const peer1 = serverManager.peers.get(peerId1);
+
+			expect(peer1).toBeTruthy();
+			if (peer1) {
+				const spyClose: jest.SpyInstance = jest.spyOn(peer1, 'close');
+
+				serverManager.close();
+				expect(spyClose).toHaveBeenCalled();
+			}
+		});
 		
 		describe('second peer', () => {
 			beforeEach(() => {
@@ -145,8 +176,11 @@ describe('ServerManager', () => {
 			});
 
 			it('second peer joins', () => {
-				// Try to join with a second peer with a different peerId and no token should work,
-				// and should end up with two peers in one room
+				/**
+				 * Try to join with a second peer
+				 * A different peerId and no token should work
+				 * Should end up with two peers in one room
+				 */
 				expect(serverManager.peers.size).toBe(2);
 				expect(serverManager.rooms.size).toBe(1);
 				expect(serverManager.rooms.get(roomId1)).toBeDefined();
@@ -164,11 +198,18 @@ describe('ServerManager', () => {
 				expect(serverManager.peers.get(peerId3)).toBeDefined();
 				expect(serverManager.peers.get(peerId3)?.roomId).toBe(roomId2);
 		
-				const peer1 = serverManager.peers.get(peerId1)!;
-				const peer2 = serverManager.peers.get(peerId2)!;
-				const peer3 = serverManager.peers.get(peerId3)!;
+				const peer1 = serverManager.peers.get(peerId1);
+				const peer2 = serverManager.peers.get(peerId2);
+				const peer3 = serverManager.peers.get(peerId3);
+				
+				if (!peer1 || !peer2 || !peer3) {
+					throw new Error('Peer was undefined');
+				}
 		
-				// One of the peers in the first room leaves, should end up with two peers in two rooms
+				/**
+				 * One of the peers in the first room leaves
+				 * Should end up with two peers in two rooms
+				 */
 				peer1.close();
 		
 				expect(serverManager.peers.size).toBe(2);

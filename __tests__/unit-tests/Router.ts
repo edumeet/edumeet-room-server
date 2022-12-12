@@ -110,24 +110,24 @@ describe('Router', () => {
 	it('canConsume()', async () => {
 		const producerId = 'testProducerId';
 		const rtpCapabilities = {
-			codecs: [{
+			codecs: [ {
 				kind: 'audio',
 				mimeType: 'audio/opus',
 				clockRate: 48000,
 				channels: 2,
-			}],
+			} ],
 		} as RtpCapabilities;
 
 		router1.connection.request = jest.fn(async ({ method, data }) => {
 			return ({
-				'canConsume': ()=> {
+				'canConsume': () => {
 					expect(data.routerId).toBe(router1.id);
 					expect(data.producerId).toBe(producerId);
 					expect(data.rtpCapabilities).toBe(rtpCapabilities);
 
 					return { canConsume: true };
 				},
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const canConsume = await router1.canConsume({
@@ -144,7 +144,7 @@ describe('Router', () => {
 
 		router1.connection.request = jest.fn(async ({ method, data }) => {
 			return ({
-				'createWebRtcTransport': ()=> {
+				'createWebRtcTransport': () => {
 					expect(data.routerId).toBe(router1.id);
 					expect(data.forceTcp).toBe(false);
 					expect(data.sctpCapabilities).toBe(sctpCapabilities);
@@ -157,7 +157,7 @@ describe('Router', () => {
 						sctpParameters: {},
 					};
 				},
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const transport = await router1.createWebRtcTransport({
@@ -174,7 +174,7 @@ describe('Router', () => {
 
 		router1.connection.request = jest.fn(async ({ method, data }) => {
 			return ({
-				'createPipeTransport': ()=> {
+				'createPipeTransport': () => {
 					expect(data.routerId).toBe(router1.id);
 					expect(data.internal).toBe(false);
 
@@ -185,7 +185,7 @@ describe('Router', () => {
 						srtpParameters: {},
 					};
 				},
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const transport = await router1.createPipeTransport({
@@ -237,7 +237,7 @@ describe('Router', () => {
 						rtpParameters,
 					};
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		router2.connection.request = jest.fn(async ({ method, data }) => {
@@ -270,7 +270,7 @@ describe('Router', () => {
 
 					return { id: producerId };
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const producer = new Producer({
@@ -283,7 +283,7 @@ describe('Router', () => {
 		});
 
 		try {
-			const { pipeProducer, pipeConsumer } = await router1.pipeToRouter({
+			await router1.pipeToRouter({
 				producerId,
 				router: router2,
 			});
@@ -351,7 +351,7 @@ describe('Router', () => {
 						rtpParameters,
 					};
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		router3.connection.request = jest.fn(async ({ method, data }) => {
@@ -384,7 +384,7 @@ describe('Router', () => {
 
 					return { id: producerId };
 				}
-			} [method] ?? (() => expect(true).toBe(false)))();
+			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const producer = new Producer({
@@ -397,7 +397,7 @@ describe('Router', () => {
 		});
 
 		try {
-			const { pipeProducer, pipeConsumer } = await router1.pipeToRouter({
+			await router1.pipeToRouter({
 				producerId,
 				router: router3,
 			});
