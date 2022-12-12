@@ -57,6 +57,10 @@ describe('Consumer', () => {
 		spyRequest = jest.spyOn(consumer.connection, 'request');
 	});
 
+	afterAll(() => {
+		jest.clearAllMocks();
+	});
+
 	it('constructor - AppData should be optional', () => {
 		const newConsumer = new Consumer({
 			id: consumerId,

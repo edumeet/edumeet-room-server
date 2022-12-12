@@ -40,6 +40,10 @@ describe('Consumer', () => {
 		spyNotify = jest.spyOn(dataConsumer.connection, 'notify');
 	});
 
+	afterEach(() => {
+		jest.clearAllMocks();
+	});
+
 	it('constructor - AppData, label and protocol should be optional', () => {
 		const newConsumer = new DataConsumer({
 			id: dataConsumerId,
