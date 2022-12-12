@@ -155,8 +155,15 @@ describe('ServerManager', () => {
 			expect(serverManager.rooms.get(roomId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)?.roomId).toBe(roomId1);
-		});
-
+		});-
+		
+		it('should close peer connections when closing servermanager', () => {
+      		const peer1 = serverManager.peers.get(peerId1)!;
+      		const spyClose: jest.SpyInstance = jest.spyOn(peer1, "close");
+      		serverManager.close();
+      		expect(spyClose).toHaveBeenCalled();
+    	});
+		
 		describe('second peer', () => {
 			beforeEach(() => {
 				// Second client joins, should end up with two peers in one room

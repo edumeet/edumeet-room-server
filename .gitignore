@@ -11,3 +11,5 @@
 
 .vscode
 yarn-error.log
+
+*.code-workspace
