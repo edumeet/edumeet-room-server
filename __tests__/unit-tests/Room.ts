@@ -15,7 +15,6 @@ describe('Room', () => {
 	let spyRemovePendingPeer: jest.SpyInstance;
 	let spyAddLobbyPeer: jest.SpyInstance;
 	let spyRemoveLobbyPeer: jest.SpyInstance;
-	let spyAddRoom: jest.SpyInstance;
 	let spyRemoveRoom: jest.SpyInstance;
 	const roomId1 = 'testRoom1';
 	const roomId2 = 'testRoom2';
@@ -39,7 +38,6 @@ describe('Room', () => {
 		spyRemovePendingPeer = jest.spyOn(room1.pendingPeers, 'remove');
 		spyAddLobbyPeer = jest.spyOn(room1.lobbyPeers, 'add');
 		spyRemoveLobbyPeer = jest.spyOn(room1.lobbyPeers, 'remove');
-		spyAddRoom = jest.spyOn(room1.rooms, 'add');
 
 		spyRemoveRoom = jest.spyOn(room1.rooms, 'remove');
 	});
@@ -144,6 +142,7 @@ describe('Room', () => {
 		});
 
 		it('addPeer()', () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const spyAllowPeer = jest.spyOn(Room.prototype as any, 'allowPeer');
 
 			room1.addPeer(peer1);
@@ -154,6 +153,7 @@ describe('Room', () => {
 		it('addPeer() - room locked', () => {
 			room1.locked = true;
 
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const spyParkPeer = jest.spyOn(Room.prototype as any, 'parkPeer');
 
 			room1.addPeer(peer1);
@@ -163,6 +163,7 @@ describe('Room', () => {
 		it('addPeer() - room locked, promote peer to admin', () => {
 			room1.locked = true;
 
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const spyPromotePeer = jest.spyOn(Room.prototype as any, 'promotePeer');
 
 			room1.addPeer(peer1);
@@ -253,6 +254,7 @@ describe('Room', () => {
 
 		it('promotePeer()', () => {
 			const lobbyPeerMiddleware = room1['lobbyPeerMiddleware'];
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const spyAllowPeer = jest.spyOn(Room.prototype as any, 'allowPeer');
 			const spyPipelineRemove = jest.spyOn(peer1.pipeline, 'remove');
 
@@ -359,11 +361,6 @@ describe('Room', () => {
 		});
 
 		it('getPeers() - joined peers', () => {
-			const peer2 = new Peer({
-				id: 'test2',
-				roomId: roomId1,
-			});
-
 			room1.joinPeer(peer1);
 			room1.joinPeer(peer2);
 			expect(room1.getPeers()).toEqual([ peer1, peer2 ]);
