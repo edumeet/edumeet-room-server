@@ -1,7 +1,7 @@
 import { SocketMessage } from 'edumeet-common';
 import 'jest';
 import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
-import { EventEmitter } from 'stream';
+import { EventEmitter } from 'events';
 import { DataConsumer } from '../../../src/media/DataConsumer';
 import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 import { Router } from '../../../src/media/Router';

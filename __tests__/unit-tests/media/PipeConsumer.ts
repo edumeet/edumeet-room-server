@@ -1,6 +1,6 @@
 import 'jest';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
-import { EventEmitter } from 'stream';
+import { EventEmitter } from 'events';
 import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
 import { Router } from '../../../src/media/Router';
@@ -64,6 +64,12 @@ describe('PipeConsumer', () => {
 		pipeConsumer.close(REMOTE_CLOSE);
 
 		expect(spyConnectionNotify).not.toHaveBeenCalled();
+	});
+
+	it('Should close pieconsumer on connection close event', () => {
+		expect(pipeConsumer.closed).toBe(false);
+		mockConnection.emit('close');
+		expect(pipeConsumer.closed).toBe(true);
 	});
 	
 	it('setProducerPaused() - Should emit producerpause', () => {

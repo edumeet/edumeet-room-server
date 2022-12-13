@@ -1,6 +1,6 @@
 import 'jest';
 import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
-import { EventEmitter } from 'stream';
+import { EventEmitter } from 'events';
 import { DataProducer } from '../../../src/media/DataProducer';
 import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 import { Router } from '../../../src/media/Router';
