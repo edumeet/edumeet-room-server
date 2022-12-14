@@ -2,7 +2,7 @@ import 'jest';
 import { Peer } from '../../../src/Peer';
 import Room from '../../../src/Room';
 import { Access, hasAccess, hasPermission, isAllowed, isAllowedBecauseMissing, Permission, permittedProducer, promoteOnHostJoin, userRoles } from '../../../src/common/authorization';
-import { List } from 'edumeet-common';
+import { List, MediaSourceType } from 'edumeet-common';
 
 describe('authorization', () => {
 	let fakeRoom: Room;
@@ -140,7 +140,7 @@ describe('authorization', () => {
 		});
 
 		it('Should not throw on valid source type', () => {
-			const legalSourceTypes = [ 'mic', 'webcam', 'screen', 'screenaudio', 'extravideo' ];
+			const legalSourceTypes = Object.values(MediaSourceType); 
 
 			for (const s of legalSourceTypes) {
 				expect(() => permittedProducer(s, fakeRoom, fakePeerNormal)).not.toThrow();
@@ -148,9 +148,9 @@ describe('authorization', () => {
 		});
 
 		it('Should throw when not allowed to share', () => {
-			const sourceTypes = [ 'mic', 'screenaudio', 'webcam', 'screen', 'extravideo' ];
+			const legalSourceTypes = Object.values(MediaSourceType); 
 
-			for (const s of sourceTypes) {
+			for (const s of legalSourceTypes) {
 				expect(() => permittedProducer(s, fakeRoom, fakePeerNoRole)).toThrowError();
 			}
 		});
