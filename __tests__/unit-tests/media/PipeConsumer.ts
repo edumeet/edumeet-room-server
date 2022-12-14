@@ -66,7 +66,7 @@ describe('PipeConsumer', () => {
 		expect(spyConnectionNotify).not.toHaveBeenCalled();
 	});
 
-	it('Should close pieconsumer on connection close event', () => {
+	it('Should close pipeConsumer on connection close event', () => {
 		expect(pipeConsumer.closed).toBe(false);
 		mockConnection.emit('close');
 		expect(pipeConsumer.closed).toBe(true);
