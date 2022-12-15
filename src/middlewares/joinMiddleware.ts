@@ -71,8 +71,11 @@ export const createJoinMiddleware = ({
 								const { appData: { sessionId } } = producer;
 	
 								// We only want to consume producers in the same session
-								if (!producer.closed && sessionId === room.sessionId)
-									await createConsumer(peer, joinedPeer, producer);
+								if (!producer.closed && sessionId === room.sessionId) {
+									// Avoid to create video consumer if a peer is in audio-only mode
+									if (producer.kind === 'audio' || (producer.kind === 'video' && !peer.audioOnly))
+										await createConsumer(peer, joinedPeer, producer);
+								}
 							}
 						}
 					})(),
