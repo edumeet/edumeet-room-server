@@ -19,7 +19,7 @@ jest.mock('edumeet-common', () => {
 
 import 'jest';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
-import { EventEmitter } from 'stream';
+import { EventEmitter } from 'events';
 import { createConsumer, createDataConsumer } from '../../../src/common/consuming';
 import { Consumer } from '../../../src/media/Consumer';
 import { DataConsumer } from '../../../src/media/DataConsumer';
