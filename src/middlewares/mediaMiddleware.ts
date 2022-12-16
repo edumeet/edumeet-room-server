@@ -67,7 +67,9 @@ export const createMediaMiddleware = ({
 
 				(async () => {
 					for (const consumerPeer of room.getPeers(peer)) {
-						await createConsumer(consumerPeer, peer, producer);
+						// Avoid to create video consumer if a peer is in audio-only mode
+						if (producer.kind === 'audio' || (producer.kind === 'video' && !consumerPeer.audioOnly))
+							await createConsumer(consumerPeer, peer, producer);
 					}
 				})();
 
