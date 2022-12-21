@@ -13,7 +13,8 @@
 		"connect": "node connect.js",
 		"test": "jest",
 		"test:coverage": "jest --coverage --coverageDirectory coverage",
-		"test:watch": "jest --watch"
+		"test:watch": "jest --watch",
+		"prepare": "husky install"
 	},
 	"devDependencies": {
 		"@tsconfig/node18": "^1.0.1",
@@ -24,6 +25,7 @@
 		"@typescript-eslint/eslint-plugin": "^5.42.0",
 		"@typescript-eslint/parser": "^5.42.0",
 		"eslint": "^8.26.0",
+		"husky": "^8.0.2",
 		"jest": "^29.3.1",
 		"mediasoup-client": "^3.6.58",
 		"ts-jest": "^29.0.3",
