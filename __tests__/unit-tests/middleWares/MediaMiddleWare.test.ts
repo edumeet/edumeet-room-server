@@ -1,6 +1,5 @@
 import MediaService from '../../../src/MediaService';
 import { ChatMessage, FileMessage } from '../../../src/common/types';
-import { createJoinMiddleware } from '../../../src/middlewares/joinMiddleware';
 import Room from '../../../src/Room';
 import { SocketMessage } from 'edumeet-common';
 import { Peer } from '../../../src/Peer';
