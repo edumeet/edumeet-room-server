@@ -6,6 +6,7 @@ import { PipeConsumer } from '../../../src/media/PipeConsumer';
 import { Router } from '../../../src/media/Router';
 
 import * as PipeConsumerMiddleware from '../../../src/middlewares/pipeConsumerMiddleware';
+import { MediaKind } from 'edumeet-common';
 
 class MockMediaNodeConnection extends EventEmitter {
 	pipeline = { use: jest.fn(), remove: jest.fn() };
@@ -33,7 +34,7 @@ describe('PipeConsumer', () => {
 			router: fakeRouter,
 			connection: mockConnection,
 			producerId: PRODUCER_ID,
-			kind: 'video',
+			kind: MediaKind.VIDEO,
 			producerPaused: false,
 			rtpParameters: fakeRtpParameters
 		});
