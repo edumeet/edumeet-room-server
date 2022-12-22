@@ -135,10 +135,6 @@ describe('authorization', () => {
 	});
 
 	describe('permittedProducer()', () => {
-		it('Should throw on invalid source type', () => {
-			expect(() => permittedProducer('illegal', fakeRoom, fakePeerNormal)).toThrowError();
-		});
-
 		it('Should not throw on valid source type', () => {
 			const legalSourceTypes = Object.values(MediaSourceType); 
 
