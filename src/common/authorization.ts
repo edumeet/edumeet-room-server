@@ -3,6 +3,8 @@ import Room from '../Room';
 import { Role } from './types';
 import { MediaSourceType } from 'edumeet-common';
 
+export type MediaSourceType = typeof MediaSourceType[keyof typeof MediaSourceType]
+
 export const userRoles: Record<string, Role> = {
 	// These can be changed, id must be unique.
 
@@ -175,7 +177,7 @@ export const permittedPeers = (
 	);
 };
 
-export const permittedProducer = (source: string, room: Room, peer: Peer) => {
+export const permittedProducer = (source: MediaSourceType, room: Room, peer: Peer) => {
 	if (
 		!source ||
 		!Object.values(MediaSourceType)
