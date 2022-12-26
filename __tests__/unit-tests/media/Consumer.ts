@@ -1,8 +1,7 @@
-import { SocketMessage } from 'edumeet-common';
+import { MediaKind, SocketMessage } from 'edumeet-common';
 import 'jest';
-import { MediaKind, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { ConsumerLayers, ConsumerScore } from '../../../src/common/types';
-
 import { Consumer } from '../../../src/media/Consumer';
 import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 import { Router } from '../../../src/media/Router';
@@ -15,7 +14,6 @@ describe('Consumer', () => {
 	let fakeRouter: Router;
 	let fakeConnection: MediaNodeConnection;
 	let fakeAppData: Record<string, unknown>;
-	let mediaKind: MediaKind;
 	let fakeRtpParameters: RtpParameters;
 	let consumer: Consumer;
 	let spyEmit: jest.SpyInstance;
@@ -39,12 +37,11 @@ describe('Consumer', () => {
 			} } as unknown as MediaNodeConnection;
 		fakeRtpParameters = {} as unknown as RtpParameters;
 		fakeAppData = { 'fake': 'fake' };
-		mediaKind = 'video';
 		paused = false;
 		producerPaused = false;
 		consumer = new Consumer({
 			id: consumerId,
-			kind: mediaKind,
+			kind: MediaKind.VIDEO,
 			paused: paused,
 			producerPaused: producerPaused,
 			rtpParameters: fakeRtpParameters,
@@ -64,7 +61,7 @@ describe('Consumer', () => {
 	it('constructor - AppData should be optional', () => {
 		const newConsumer = new Consumer({
 			id: consumerId,
-			kind: mediaKind,
+			kind: MediaKind.VIDEO,
 			paused: paused,
 			producerPaused: producerPaused,
 			rtpParameters: fakeRtpParameters,

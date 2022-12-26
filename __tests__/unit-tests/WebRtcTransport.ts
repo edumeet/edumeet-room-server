@@ -6,6 +6,7 @@ import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParamete
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
 import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup-client/lib/Transport';
 import { SctpParameters } from 'mediasoup-client/lib/SctpParameters';
+import { MediaKind } from 'edumeet-common';
 
 describe('WebRtcTransport', () => {
 	let webRtcTransport: WebRtcTransport;
@@ -108,7 +109,7 @@ describe('WebRtcTransport', () => {
 				'produce': () => {
 					expect(data.routerId).toBe(webRtcTransport.router.id);
 					expect(data.transportId).toBe(transportId);
-					expect(data.kind).toBe('audio');
+					expect(data.kind).toBe(MediaKind.AUDIO);
 					expect(data.paused).toBe(false);
 					expect(data.rtpParameters).toBe(rtpParameters);
 
@@ -118,7 +119,7 @@ describe('WebRtcTransport', () => {
 		});
 
 		const producer = await webRtcTransport.produce({
-			kind: 'audio',
+			kind: MediaKind.AUDIO,
 			paused: false,
 			rtpParameters,
 		});
@@ -146,7 +147,7 @@ describe('WebRtcTransport', () => {
 
 					return {
 						id: consumerId,
-						kind: 'audio',
+						kind: MediaKind.AUDIO,
 						producerPaused: false,
 						rtpParameters,
 					};
