@@ -40,6 +40,8 @@ export interface PeerInfo {
 	roles: number[];
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
+	escapeMeeting: boolean;
+	escapeMeetingTimestamp?: number;
 }
 
 export interface PeerContext {
@@ -69,6 +71,8 @@ export class Peer extends EventEmitter {
 	public picture?: string;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
+	#escapeMeeting = false;
+	public escapeMeetingTimestamp?: number;
 	public routerId?: string;
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
@@ -130,6 +134,15 @@ export class Peer extends EventEmitter {
 	public set raisedHand(value: boolean) {
 		this.#raisedHand = value;
 		this.raisedHandTimestamp = Date.now();
+	}
+
+	public get escapeMeeting(): boolean {
+		return this.#escapeMeeting;
+	}
+
+	public set escapeMeeting(value: boolean) {
+		this.#escapeMeeting = value;
+		this.escapeMeetingTimestamp = Date.now();
 	}
 
 	public get router(): Router | undefined {
@@ -267,6 +280,8 @@ export class Peer extends EventEmitter {
 			picture: this.picture,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
+			escapeMeeting: this.escapeMeeting,
+			escapeMeetingTimestamp: this.escapeMeetingTimestamp,
 			roles: this.roles.map((role) => role.id),
 		};
 	}
