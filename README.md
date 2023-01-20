@@ -19,14 +19,14 @@ $ docker build . -t user/edumeet-room-server
 $ docker run -v $(pwd)/config:/usr/src/app/dist/config -p 8443:8443 -d user/edumeet-room-server
 ```
 
-### Running the server manually
+### Running the service manually
 
 ```bash
 $ yarn install
 $ yarn start
 ```
 
-To run the server you need to have Node.js version 18 or higher installed. Alternatively you can get some debug output by running it like this:
+To run the service you need to have Node.js version 18 or higher installed. Alternatively you can get some debug output by running it like this:
 
 ```bash
 $ DEBUG=edumeet-room-server:* yarn start
