@@ -265,6 +265,26 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
+	public escapeMeeting() {
+		let escape = true;
+		let i = 0;
+
+		while (escape && i < this.peers.items.length) {
+			const peer = this.peers.items[i];
+
+			if (!peer.escapeMeeting) {
+				escape = false;
+			}
+
+			i += 1;
+		}
+
+		if (escape) {
+			this.close();
+		}
+	}
+
+	@skipIfClosed
 	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
 		const peers = this.getPeers(excludePeer);
 
