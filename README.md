@@ -1,6 +1,9 @@
 # Edumeet room server
 
-This is the room server for the edumeet project. It is a docker the can be used to run a room server for the edumeet project.
+This is the room server service for the Edumeet project.
+It handles signaling to and from client and media node services.
+
+![](img/edumeet-room-server.drawio.png)
 
 ## Usage
 
@@ -8,6 +11,8 @@ Make a file called `config.json` in the `/config` folder. An example configurati
 [config.example.json](config/config.example.json)
 
 ### Docker
+
+Running the service as a docker container.
 
 ```bash
 $ docker build . -t user/edumeet-room-server
