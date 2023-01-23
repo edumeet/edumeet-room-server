@@ -13,7 +13,7 @@ afterEach(() => {
 	jest.clearAllMocks();
 });
 
-test('Should throw on room not found', async () => {
+test('joinRoom() - Should throw on room not found', async () => {
 	const room = {
 		id: 'id',
 		rooms: List<Room>(),
@@ -37,7 +37,7 @@ test('Should throw on room not found', async () => {
 	await expect(sut(context, next)).rejects.toThrow();
 });
 
-test('Should handle joinRoom and call addPeer on breakoutRoom', async () => {
+test('joinRoom() - Should call addPeer on breakoutRoom', async () => {
 	const spyAddPeer = jest.fn();
 	const breakOutRoomToJoin = { id: SESSION_ID, addPeer: spyAddPeer } as unknown as Room;
 	const room = {
@@ -105,7 +105,7 @@ test('Should not handle unrelated methods', async () => {
 	expect(context.handled).toBeFalsy();
 });
 
-test('Should throw on createRoom when peer not authorized', async () => {
+test('createRoom() - Should throw when peer not authorized', async () => {
 	const room = {
 		id: 'id',
 		sessionId: SESSION_ID,
@@ -130,7 +130,7 @@ test('Should throw on createRoom when peer not authorized', async () => {
 	await expect(sut(context, next)).rejects.toThrow();
 });
 
-test('Should ', async () => {
+test('createRoom() - Should add room and notify peers', async () => {
 	const addRoom = jest.fn();
 	const notifyPeers = jest.fn();
 	const room = {
