@@ -10,9 +10,9 @@ test.each([
 	[ 'id', 'wrong', 'id', 'id', false ],
 	[ 'wrong', 'id', 'id', 'id', false ],
 	[ 'id', 'id', 'id', 'id', true ]
-])('Should not handle messages for wrong consumer or router', async (routerId, routerIdInMessage, consumerId, consumerIdInMessage, wasHandled) => {
+])('Should not handle messages for wrong consumer or router', async (routerId, routerIdInMessage, dataConsumerId, dataConsumerIdInMessage, wasHandled) => {
 	const consumer = {
-		id: consumerId,
+		id: dataConsumerId,
 		router: {
 			id: routerId
 		},
@@ -26,7 +26,7 @@ test.each([
 			method: 'consumerClosed',
 			data: {
 				routerId: routerIdInMessage,
-				consumerId: consumerIdInMessage
+				consumerId: dataConsumerIdInMessage
 			}
 		}
 	} as MediaNodeConnectionContext;

@@ -1,6 +1,6 @@
-import { DataConsumer } from '../../../src/media/DataConsumer';
+import { DataProducer } from '../../../src/media/DataProducer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
-import { createDataConsumerMiddleware } from '../../../src/middlewares/dataConsumerMiddleware';
+import { createDataProducerMiddleware } from '../../../src/middlewares/dataProducerMiddleware';
 
 const next = jest.fn();
 
@@ -10,23 +10,23 @@ test.each([
 	[ 'id', 'wrong', 'id', 'id', false ],
 	[ 'wrong', 'id', 'id', 'id', false ],
 	[ 'id', 'id', 'id', 'id', true ]
-])('Should not handle messages for wrong consumer or router', async (routerId, routerIdInMessage, consumerId, consumerIdInMessage, wasHandled) => {
-	const dataConsumer = {
-		id: consumerId,
+])('Should not handle messages for wrong consumer or router', async (routerId, routerIdInMessage, producerId, producerIdInMessage, wasHandled) => {
+	const dataProducer = {
+		id: producerId,
 		router: {
 			id: routerId
 		},
 		close: jest.fn()
-	} as unknown as DataConsumer;
-	const sut = createDataConsumerMiddleware({ dataConsumer });
+	} as unknown as DataProducer;
+	const sut = createDataProducerMiddleware({ dataProducer });
 
 	const context = {
 		handled: false,
 		message: {
-			method: 'dataConsumerClosed',
+			method: 'dataProducerClosed',
 			data: {
 				routerId: routerIdInMessage,
-				dataConsumerId: consumerIdInMessage
+				dataProducerId: producerIdInMessage
 			}
 		}
 	} as MediaNodeConnectionContext;
@@ -36,13 +36,13 @@ test.each([
 });
 
 test('Should not handle unrelated methods', async () => {
-	const dataConsumer = {
+	const dataProducer = {
 		id: 'id',
 		router: {
 			id: 'id'
 		},
-	} as unknown as DataConsumer;
-	const sut = createDataConsumerMiddleware({ dataConsumer });
+	} as unknown as DataProducer;
+	const sut = createDataProducerMiddleware({ dataProducer });
 
 	const context = {
 		handled: false,
@@ -50,7 +50,7 @@ test('Should not handle unrelated methods', async () => {
 			method: 'non-existing-method',
 			data: {
 				routerId: 'id',
-				dataConsumerId: 'id'
+				dataProducerId: 'id'
 			}
 		}
 	} as MediaNodeConnectionContext;
@@ -59,24 +59,24 @@ test('Should not handle unrelated methods', async () => {
 	expect(context.handled).toBeFalsy();
 });
 
-test('Should close dataConsumer', async () => {
+test('Should close dataProducer', async () => {
 	const spy = jest.fn();
-	const dataConsumer = {
+	const dataProducer = {
 		id: 'id',
 		router: {
 			id: 'id'
 		},
 		close: spy
-	} as unknown as DataConsumer;
-	const sut = createDataConsumerMiddleware({ dataConsumer });
+	} as unknown as DataProducer;
+	const sut = createDataProducerMiddleware({ dataProducer });
 
 	const context = {
 		handled: false,
 		message: {
-			method: 'dataConsumerClosed',
+			method: 'dataProducerClosed',
 			data: {
 				routerId: 'id',
-				dataConsumerId: 'id'
+				dataProducerId: 'id'
 			}
 		}
 	} as MediaNodeConnectionContext;
