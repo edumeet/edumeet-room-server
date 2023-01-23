@@ -5,15 +5,15 @@ import * as checkSessionId from '../../../src/common/checkSessionId';
 import { createBreakoutMiddleware } from '../../../src/middlewares/breakoutMiddleware';
 import { List } from 'edumeet-common';
 import { userRoles } from '../../../src/common/authorization';
-import MediaService from '../../../src/MediaService';
+
+const next = jest.fn();
+const SESSION_ID = 'sessionId';
 
 afterEach(() => {
 	jest.clearAllMocks();
 });
 
 test('Should throw on room not found', async () => {
-	const SESSION_ID = 'sessionId';
-	const next = jest.fn();
 	const room = {
 		id: 'id',
 		rooms: List<Room>(),
@@ -38,8 +38,6 @@ test('Should throw on room not found', async () => {
 });
 
 test('Should handle joinRoom and call addPeer on breakoutRoom', async () => {
-	const SESSION_ID = 'sessionId';
-	const next = jest.fn();
 	const spyAddPeer = jest.fn();
 	const breakOutRoomToJoin = { id: SESSION_ID, addPeer: spyAddPeer } as unknown as Room;
 	const room = {
@@ -72,7 +70,6 @@ test('Should handle joinRoom and call addPeer on breakoutRoom', async () => {
 });
 
 test('Should call next middleware on wrong session', async () => {
-	const next = jest.fn();
 	const spyThisSession = jest.spyOn(checkSessionId, 'thisSession');
 	const room = { sessionId: 'id1' } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
@@ -92,7 +89,6 @@ test('Should call next middleware on wrong session', async () => {
 });
 
 test('Should not handle unrelated methods', async () => {
-	const next = jest.fn();
 	const room = { id: 'id' } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createBreakoutMiddleware(options);
@@ -110,8 +106,6 @@ test('Should not handle unrelated methods', async () => {
 });
 
 test('Should throw on createRoom when peer not authorized', async () => {
-	const SESSION_ID = 'sessionId';
-	const next = jest.fn();
 	const room = {
 		id: 'id',
 		sessionId: SESSION_ID,
@@ -137,8 +131,6 @@ test('Should throw on createRoom when peer not authorized', async () => {
 });
 
 test('Should ', async () => {
-	const SESSION_ID = 'sessionId';
-	const next = jest.fn();
 	const addRoom = jest.fn();
 	const notifyPeers = jest.fn();
 	const room = {
