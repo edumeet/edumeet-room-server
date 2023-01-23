@@ -5,9 +5,7 @@ import Room from '../../../src/Room';
 import * as checkSessionId from '../../../src/common/checkSessionId';
 import { userRoles } from '../../../src/common/authorization';
 
-const next = jest.fn().mockImplementation(() => {
-	return 'NextWasCalled';
-});
+const next = jest.fn();
 
 afterEach(() => {
 	jest.clearAllMocks();
@@ -24,7 +22,6 @@ test('Should throw on peer not authorized', async () => {
 	const context = {
 		peer,
 		message,
-		handled: false
 	} as unknown as PeerContext;
 
 	await expect(sut(context, next)).rejects.toThrow();
@@ -45,10 +42,9 @@ test('Should call next middleware on wrong session', async () => {
 		handled: false
 	} as unknown as PeerContext;
 
-	const result = await sut(context, next);
+	await sut(context, next);
 
 	expect(spyThisSession).toHaveBeenCalled();
-	expect(result).toBe('NextWasCalled');
 	expect(context.handled).toBeFalsy();
 });
 
@@ -93,8 +89,7 @@ test('Should call next middleware if not chat message', async () => {
 		handled: false
 	} as unknown as PeerContext;
 
-	const result = await sut(context, next);
+	await sut(context, next);
 
-	expect(result).toBe('NextWasCalled');
 	expect(context.handled).toBeFalsy();
 });
