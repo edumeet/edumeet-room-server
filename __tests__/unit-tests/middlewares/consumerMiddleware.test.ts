@@ -1,4 +1,3 @@
-import exp from 'constants';
 import { Consumer } from '../../../src/media/Consumer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
 import { createConsumerMiddleware } from '../../../src/middlewares/consumerMiddleware';
@@ -6,22 +5,25 @@ import { createConsumerMiddleware } from '../../../src/middlewares/consumerMiddl
 const next = jest.fn();
 
 test.each([
-	[ 'id', 'id', 'id', 'wrong' ],
-	[ 'id', 'id', 'wrong', 'id' ],
-	[ 'id', 'wrong', 'id', 'id' ],
-	[ 'wrong', 'id', 'id', 'id' ]
-])('Should not handle messages for wrong consumer or router', async (routerId, routerIdInMessage, consumerId, consumerIdInMessage) => {
+	[ 'id', 'id', 'id', 'wrong', false ],
+	[ 'id', 'id', 'wrong', 'id', false ],
+	[ 'id', 'wrong', 'id', 'id', false ],
+	[ 'wrong', 'id', 'id', 'id', false ],
+	[ 'id', 'id', 'id', 'id', true ]
+])('Should not handle messages for wrong consumer or router', async (routerId, routerIdInMessage, consumerId, consumerIdInMessage, wasHandled) => {
 	const consumer = {
 		id: consumerId,
 		router: {
 			id: routerId
-		}
+		},
+		close: jest.fn()
 	} as unknown as Consumer;
 	const sut = createConsumerMiddleware({ consumer });
 
 	const context = {
 		handled: false,
 		message: {
+			method: 'consumerClosed',
 			data: {
 				routerId: routerIdInMessage,
 				consumerId: consumerIdInMessage
@@ -30,7 +32,7 @@ test.each([
 	} as MediaNodeConnectionContext;
 
 	await sut(context, next);
-	expect(context.handled).toBeFalsy();
+	expect(context.handled).toBe(wasHandled);
 });
 
 test('Should not handle unrelated methods', async () => {
