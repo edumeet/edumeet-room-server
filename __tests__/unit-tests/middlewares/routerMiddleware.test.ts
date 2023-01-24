@@ -1,28 +1,26 @@
 import { Next } from 'edumeet-common';
-import { PipeDataProducer } from '../../../src/media/PipeDataProducer';
-import { PipeProducer } from '../../../src/media/PipeProducer';
-import { createPipeProducerMiddleware } from '../../../src/middlewares/pipeProducerMiddleware';
+import { Router } from '../../../src/media/Router';
+import { createRouterMiddleware } from '../../../src/middlewares/routerMiddleware';
 import { PeerContext } from '../../../src/Peer';
 
 const ID = 'id';
 const next = jest.fn as unknown as Next;
 
 test('Should not handle unrelated message', async () => {
-	const pipeProducer = {
+	const router = {
 		id: ID,
 		router: {
 			id: ID
 		}
-	} as unknown as PipeProducer;
+	} as unknown as Router; 
 
-	const sut = createPipeProducerMiddleware({ pipeProducer });
+	const sut = createRouterMiddleware({ router });
 
 	const context = {
 		message: {
 			method: 'non-existing-method',
 			data: {
 				routerId: ID,
-				pipeProducerId: ID
 			}
 		}
 	} as unknown as PeerContext;
@@ -32,24 +30,23 @@ test('Should not handle unrelated message', async () => {
 	expect(context.handled).toBeFalsy();
 });
 
-test('pipeProducerClosed() - Should close pipeProducer', async () => {
+test('routerClosed() - Should close router', async () => {
 	const close = jest.fn();
-	const pipeProducer = {
+	const router = {
 		id: ID,
 		router: {
 			id: ID
 		},
 		close
-	} as unknown as PipeProducer;
+	} as unknown as Router; 
 
-	const sut = createPipeProducerMiddleware({ pipeProducer });
+	const sut = createRouterMiddleware({ router });
 
 	const context = {
 		message: {
-			method: 'pipeProducerClosed',
+			method: 'routerClosed',
 			data: {
 				routerId: ID,
-				pipeProducerId: ID
 			}
 		}
 	} as unknown as PeerContext;

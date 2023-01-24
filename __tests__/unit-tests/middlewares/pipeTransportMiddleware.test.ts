@@ -1,28 +1,27 @@
 import { Next } from 'edumeet-common';
-import { PipeDataProducer } from '../../../src/media/PipeDataProducer';
-import { PipeProducer } from '../../../src/media/PipeProducer';
-import { createPipeProducerMiddleware } from '../../../src/middlewares/pipeProducerMiddleware';
+import { PipeTransport } from '../../../src/media/PipeTransport';
+import { createPipeTransportMiddleware } from '../../../src/middlewares/pipeTransportMiddleware';
 import { PeerContext } from '../../../src/Peer';
 
 const ID = 'id';
 const next = jest.fn as unknown as Next;
 
 test('Should not handle unrelated message', async () => {
-	const pipeProducer = {
+	const pipeTransport = {
 		id: ID,
 		router: {
 			id: ID
 		}
-	} as unknown as PipeProducer;
+	} as unknown as PipeTransport;
 
-	const sut = createPipeProducerMiddleware({ pipeProducer });
+	const sut = createPipeTransportMiddleware({ pipeTransport });
 
 	const context = {
 		message: {
 			method: 'non-existing-method',
 			data: {
 				routerId: ID,
-				pipeProducerId: ID
+				pipeTransportId: ID
 			}
 		}
 	} as unknown as PeerContext;
@@ -32,24 +31,24 @@ test('Should not handle unrelated message', async () => {
 	expect(context.handled).toBeFalsy();
 });
 
-test('pipeProducerClosed() - Should close pipeProducer', async () => {
+test('pipeTransportClosed() - Should close pipeTransport', async () => {
 	const close = jest.fn();
-	const pipeProducer = {
+	const pipeTransport = {
 		id: ID,
 		router: {
 			id: ID
 		},
 		close
-	} as unknown as PipeProducer;
+	} as unknown as PipeTransport;
 
-	const sut = createPipeProducerMiddleware({ pipeProducer });
+	const sut = createPipeTransportMiddleware({ pipeTransport });
 
 	const context = {
 		message: {
-			method: 'pipeProducerClosed',
+			method: 'pipeTransportClosed',
 			data: {
 				routerId: ID,
-				pipeProducerId: ID
+				pipeTransportId: ID
 			}
 		}
 	} as unknown as PeerContext;
