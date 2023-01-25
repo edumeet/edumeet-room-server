@@ -189,6 +189,9 @@ export default class Room extends EventEmitter {
 			this.notifyPeers('lobby:peerClosed', { peerId: peer.id }, peer);
 		}
 
+		// Check if the remaining peers want to escape from meeting
+		this.escapeMeeting();
+
 		// If the Room is the root room and there are no more peers in it, close
 		if (this.empty && !this.parent)
 			this.close();
@@ -280,7 +283,7 @@ export default class Room extends EventEmitter {
 		}
 
 		if (escape) {
-			this.close();
+			this.notifyPeers('escapeMeeting', {});
 		}
 	}
 
