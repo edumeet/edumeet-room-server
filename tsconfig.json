@@ -2,6 +2,7 @@
 	"references": [
 		{"path": "./src"},
 		{"path": "./__tests__"}
+		{"path": "./__mocks__"}
 	],
 	"files": [],
 }
