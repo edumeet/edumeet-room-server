@@ -40,8 +40,6 @@ export interface PeerInfo {
 	roles: number[];
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
-	escapeMeeting: boolean;
-	escapeMeetingTimestamp?: number;
 }
 
 export interface PeerContext {
@@ -280,8 +278,6 @@ export class Peer extends EventEmitter {
 			picture: this.picture,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
-			escapeMeeting: this.escapeMeeting,
-			escapeMeetingTimestamp: this.escapeMeetingTimestamp,
 			roles: this.roles.map((role) => role.id),
 		};
 	}
