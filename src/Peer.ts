@@ -69,6 +69,8 @@ export class Peer extends EventEmitter {
 	public picture?: string;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
+	#escapeMeeting = false;
+	public escapeMeetingTimestamp?: number;
 	public routerId?: string;
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
@@ -130,6 +132,15 @@ export class Peer extends EventEmitter {
 	public set raisedHand(value: boolean) {
 		this.#raisedHand = value;
 		this.raisedHandTimestamp = Date.now();
+	}
+
+	public get escapeMeeting(): boolean {
+		return this.#escapeMeeting;
+	}
+
+	public set escapeMeeting(value: boolean) {
+		this.#escapeMeeting = value;
+		this.escapeMeetingTimestamp = Date.now();
 	}
 
 	public get router(): Router | undefined {

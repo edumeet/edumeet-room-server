@@ -70,6 +70,24 @@ export const createPeerMiddleware = ({
 				break;
 			}
 
+			case 'escapeMeeting': {
+				const { escapeMeeting } = message.data;
+
+				peer.escapeMeeting = escapeMeeting;
+
+				if (escapeMeeting) {
+					if (!room.peers.items.some((p) => !p.escapeMeeting)) {
+						room.notifyPeers('escapeMeeting', {});
+
+						room.close();
+					}
+				}
+
+				context.handled = true;
+
+				break;
+			}
+
 			default: {
 				break;
 			}
