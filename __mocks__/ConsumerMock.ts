@@ -1,4 +1,4 @@
-export default class ProducerMock {
+export default class ConsumerMock {
 	id = 'id';
 
 	resume = jest.fn();
