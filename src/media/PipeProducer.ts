@@ -3,8 +3,8 @@ import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConn
 import { Router } from './Router';
 import { createPipeProducerMiddleware } from '../middlewares/pipeProducerMiddleware';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
-import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
-import { MediaKind } from 'edumeet-common';
+import { Logger, Middleware, skipIfClosed, MediaKind } from 'edumeet-common';
+type MediaKind = typeof MediaKind[keyof typeof MediaKind];
 
 const logger = new Logger('PipeProducer');
 

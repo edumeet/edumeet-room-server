@@ -6,6 +6,7 @@ import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { ProducerScore } from '../common/types';
 import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { MediaKind } from 'edumeet-common';
+type MediaKind = typeof MediaKind[keyof typeof MediaKind];
 
 const logger = new Logger('Producer');
 

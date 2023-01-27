@@ -11,6 +11,7 @@ import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { DataProducer, DataProducerOptions } from './DataProducer';
 import { DataConsumer, DataConsumerOptions } from './DataConsumer';
 import { MediaKind } from 'edumeet-common';
+type MediaKind = typeof MediaKind[keyof typeof MediaKind];
 
 const logger = new Logger('WebRtcTransport');
 

@@ -11,6 +11,7 @@ import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
 import { PipeDataProducer, PipeDataProducerOptions } from './PipeDataProducer';
 import { PipeDataConsumer, PipeDataConsumerOptions } from './PipeDataConsumer';
 import { MediaKind } from 'edumeet-common';
+type MediaKind = typeof MediaKind[keyof typeof MediaKind];
 
 const logger = new Logger('PipeTransport');
 
