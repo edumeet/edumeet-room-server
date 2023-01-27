@@ -1,6 +1,5 @@
 import { Next } from 'edumeet-common';
 import { MiddlewareOptions } from '../../../src/common/types';
-import { createLobbyMiddleware } from '../../../src/middlewares/lobbyMiddleware';
 import { createLobbyPeerMiddleware } from '../../../src/middlewares/lobbyPeerMiddleware';
 import { PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
