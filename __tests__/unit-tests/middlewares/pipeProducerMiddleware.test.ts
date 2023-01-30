@@ -1,5 +1,4 @@
 import { Next } from 'edumeet-common';
-import { PipeDataProducer } from '../../../src/media/PipeDataProducer';
 import { PipeProducer } from '../../../src/media/PipeProducer';
 import { createPipeProducerMiddleware } from '../../../src/middlewares/pipeProducerMiddleware';
 import { PeerContext } from '../../../src/Peer';
