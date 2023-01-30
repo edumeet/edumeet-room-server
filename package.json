@@ -1,6 +1,6 @@
 {
 	"name": "edumeet-room-server",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Edumeet room server",
 	"main": "dist/src/server.js",
 	"author": "Håvar Aambø Fosstveit <havar@fosstveit.net>",
@@ -8,7 +8,7 @@
 	"scripts": {
 		"build": "tsc --build src",
 		"start": "tsc --build src && node dist/src/server.js",
-		"prodstart": "node dist/server.js",
+		"prodstart": "node dist/src/server.js",
 		"lint": "eslint . --ext .ts",
 		"lint:fix": "eslint . --ext .ts --fix",
 		"connect": "node connect.js",
