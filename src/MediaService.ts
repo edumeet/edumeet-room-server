@@ -57,10 +57,10 @@ export default class MediaService {
 		let mediaNode: MediaNode;
 		const mediaNodes = this.loadBalancer.getCandidates(this.mediaNodes, room);
 
+		mediaNode = this.mediaNodes.items[0];
 		if (mediaNodes) {
 			mediaNode = mediaNodes[0];
 		} 
-		mediaNode = this.mediaNodes.items[0];
 
 		if (!mediaNode)
 			throw new Error('no media nodes available');

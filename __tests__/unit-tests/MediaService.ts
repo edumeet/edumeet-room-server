@@ -6,12 +6,12 @@ import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
 import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
 
+const lb = { getCandidates: jest.fn() } as unknown as LoadBalancer;
+
 describe('MediaService', () => {
 	let mediaService: MediaService;
 
 	beforeEach(() => {
-		const lb = { getCandidates: jest.fn() } as unknown as LoadBalancer;
-
 		mediaService = new MediaService(lb);
 		mediaService.mediaNodes.clear(); // We don't want nodes from config
 	});
@@ -34,21 +34,14 @@ describe('MediaService', () => {
 		const ERROR_MSG_NO_MEDIA_NODES = 'no media nodes available';
 		const ERROR_MSG_ROOM_CLOSED = 'room closed';
 		let fakeMediaNode1: MediaNode;
-		let fakeMediaNode2: MediaNode;
-		let mockGetRouter1: jest.SpyInstance;
-		let mockGetRouter2: jest.SpyInstance;
+		let mockGetRouter: jest.SpyInstance;
 		let spyMediaNode1GetRouter: jest.SpyInstance;
-		let spyMediaNode2GetRouter: jest.SpyInstance;
 		let fakeRoom: Room;
-		let fakePeer1: Peer;
-		let fakePeer2: Peer;
+		let fakePeer: Peer;
 		let spyRoomAddRouter: jest.SpyInstance;
 
 		beforeEach(() => {
-			mockGetRouter1 = jest.fn().mockImplementation(async () => {	
-				return { close: jest.fn() } as unknown as Router;
-			});
-			mockGetRouter2 = jest.fn().mockImplementation(async () => {	
+			mockGetRouter = jest.fn().mockImplementation(async () => {	
 				return { close: jest.fn() } as unknown as Router;
 			});
 			fakeRoom = {
@@ -56,28 +49,22 @@ describe('MediaService', () => {
 				parentClose: false,
 				addRouter: jest.fn()
 			} as unknown as Room;
-			fakePeer1 = {
-				id: 'id'
-			} as unknown as Peer;
-			fakePeer2 = {
+			fakePeer = {
 				id: 'id'
 			} as unknown as Peer;
 			fakeMediaNode1 = {
-				getRouter: mockGetRouter1
-			} as unknown as MediaNode;
-			fakeMediaNode2 = {
-				getRouter: mockGetRouter2
+				getRouter: mockGetRouter
 			} as unknown as MediaNode;
 			spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
 			spyMediaNode1GetRouter = jest.spyOn(fakeMediaNode1, 'getRouter');
-			spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
 		});
 
 		it('getRouter() - Should add router to room when parent not closed', async () => {
 			mediaService.mediaNodes.add(fakeMediaNode1);
+
 			expect(mediaService.mediaNodes.length).toBe(1);
 			
-			await mediaService.getRouter(fakeRoom, fakePeer1);
+			await mediaService.getRouter(fakeRoom, fakePeer);
 
 			expect(spyRoomAddRouter).toHaveBeenCalled();
 		});
@@ -87,25 +74,40 @@ describe('MediaService', () => {
 
 			mediaService.mediaNodes.add(fakeMediaNode1);
 			
-			await expect(mediaService.getRouter(roomWithClosedParent, fakePeer1)).
+			await expect(mediaService.getRouter(roomWithClosedParent, fakePeer)).
 				rejects.toThrowError(ERROR_MSG_ROOM_CLOSED);
 			expect(spyRoomAddRouter).not.toHaveBeenCalled();
 		});
 		
 		it('getRouter() - Should throw on no mediaNodes', async () => {
-			await expect(mediaService.getRouter(fakeRoom, fakePeer1)).
+			await expect(mediaService.getRouter(fakeRoom, fakePeer)).
 				rejects.toThrowError(ERROR_MSG_NO_MEDIA_NODES);
 		});
 		
-		it('getRouter() - Should stay on same mediaNode', async () => {
+		it('getRouter() - Should call getRouter on mediaNode', async () => {
+			mediaService.mediaNodes.add(fakeMediaNode1);
+			
+			mediaService.getRouter(fakeRoom, fakePeer);
+
+			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(1);
+		});
+		
+		it('getRouter() - Should use mediaNode candidate given by loadbalancer', async () => {
+			const fakeMediaNode2 = {
+				getRouter: jest.fn(),
+			} as unknown as MediaNode;
+			const spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
+
 			mediaService.mediaNodes.add(fakeMediaNode1);
 			mediaService.mediaNodes.add(fakeMediaNode2);
+			jest.spyOn(lb, 'getCandidates').mockImplementation(() => {
+				return [ fakeMediaNode2, fakeMediaNode1 ]; 
+			});
 			
-			mediaService.getRouter(fakeRoom, fakePeer1);
-			mediaService.getRouter(fakeRoom, fakePeer2);
+			mediaService.getRouter(fakeRoom, fakePeer);
 
-			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(2);
-			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(0);
+			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(0);
+			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(1);
 		});
 	});
 });
