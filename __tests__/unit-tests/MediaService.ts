@@ -6,7 +6,9 @@ import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
 import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
 
-const lb = { getCandidates: jest.fn() } as unknown as LoadBalancer;
+const lb = { getCandidates: jest.fn().mockImplementation(() => {
+	return [];
+}) } as unknown as LoadBalancer;
 
 describe('MediaService', () => {
 	let mediaService: MediaService;

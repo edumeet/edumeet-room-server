@@ -58,7 +58,7 @@ export default class MediaService {
 		const mediaNodes = this.loadBalancer.getCandidates(this.mediaNodes, room);
 
 		mediaNode = this.mediaNodes.items[0];
-		if (mediaNodes) {
+		if (mediaNodes.length > 0) {
 			mediaNode = mediaNodes[0];
 		} 
 
