@@ -5,10 +5,9 @@ import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { List, Logger, skipIfClosed } from 'edumeet-common';
+import { LoadBalancer } from './loadbalance/LoadBalancer';
 
 const logger = new Logger('MediaService');
-
-let index = 0;
 
 export interface RouterData {
 	roomId: string;
@@ -18,11 +17,13 @@ export interface RouterData {
 export default class MediaService {
 	public closed = false;
 	public mediaNodes = List<MediaNode>();
+	private loadBalancer: LoadBalancer;
 
-	constructor() {
+	constructor(loadBalancer: LoadBalancer) {
 		logger.debug('constructor()');
 
 		this.loadMediaNodes();
+		this.loadBalancer = loadBalancer;
 	}
 
 	@skipIfClosed
@@ -53,10 +54,13 @@ export default class MediaService {
 	public async getRouter(room: Room, peer: Peer): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
-		const mediaNode = this.mediaNodes.items[index];
+		let mediaNode: MediaNode;
+		const mediaNodes = this.loadBalancer.getCandidates(this.mediaNodes, room);
 
-		index += 1;
-		index %= this.mediaNodes.length;
+		if (mediaNodes) {
+			mediaNode = mediaNodes[0];
+		} 
+		mediaNode = this.mediaNodes.items[0];
 
 		if (!mediaNode)
 			throw new Error('no media nodes available');

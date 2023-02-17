@@ -272,4 +272,16 @@ export default class Room extends EventEmitter {
 			peer.notify({ method, data });
 		}
 	}
+
+	public getActiveMediaNodes(): Set<string> {
+		const mediaNodeIds = new Set<string>();
+
+		this.routers.items.forEach((router) => {
+			logger.debug(router);
+			mediaNodeIds.add(router.mediaNode.id);
+		});
+		logger.debug(mediaNodeIds);	
+		
+		return mediaNodeIds;
+	}
 }

@@ -9,12 +9,17 @@ import { interactiveServer } from './interactiveServer';
 import { Logger } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
+import { LoadBalancer } from './loadbalance/LoadBalancer';
+import { StickyStrategy } from './loadbalance/StickyStrategy';
 
 const logger = new Logger('Server');
 
 logger.debug('Starting...');
 
-const mediaService = new MediaService();
+const stickyStrategy = new StickyStrategy();
+const loadBalancer = new LoadBalancer(stickyStrategy);
+
+const mediaService = new MediaService(loadBalancer);
 const serverManager = new ServerManager({ mediaService });
 
 interactiveServer(serverManager);
