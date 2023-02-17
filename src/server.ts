@@ -10,14 +10,14 @@ import { Logger } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
 import { LoadBalancer } from './loadbalance/LoadBalancer';
-import { StickyStrategy } from './loadbalance/StickyStrategy';
+import { LBStrategyFactory } from './loadbalance/LBStrategyFactory';
 
 const logger = new Logger('Server');
 
 logger.debug('Starting...');
 
-const stickyStrategy = new StickyStrategy();
-const loadBalancer = new LoadBalancer(stickyStrategy);
+const lbStrategyFactory = new LBStrategyFactory(config.loadBalancingStrategies);
+const loadBalancer = new LoadBalancer(lbStrategyFactory);
 
 const mediaService = new MediaService(loadBalancer);
 const serverManager = new ServerManager({ mediaService });

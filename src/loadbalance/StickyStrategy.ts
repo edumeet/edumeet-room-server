@@ -1,9 +1,9 @@
 import { List } from 'edumeet-common';
 import MediaNode from '../media/MediaNode';
 import Room from '../Room';
-import { LoadBalanceStrategy } from './LoadBalanceStrategy';
+import { LBStrategy } from './LBStrategy';
 
-export class StickyStrategy extends LoadBalanceStrategy {
+export class StickyStrategy extends LBStrategy {
 	public getCandidates(mediaNodes: List<MediaNode>, room: Room) {
 		const candidates: MediaNode[] = [];
 		const candidateIds = room.getActiveMediaNodes();

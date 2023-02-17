@@ -1,25 +1,27 @@
 import { List } from 'edumeet-common';
 import MediaNode from '../media/MediaNode';
+import { Peer } from '../Peer';
 import Room from '../Room';
-import { LoadBalanceStrategy } from './LoadBalanceStrategy';
+import { LBStrategy } from './LBStrategy';
+import { LBStrategyFactory } from './LBStrategyFactory';
 import { StickyStrategy } from './StickyStrategy';
 
 export class LoadBalancer {
-	private stickyStrategy: LoadBalanceStrategy;
-	private strategies = new Map<string, LoadBalanceStrategy>();
+	private strategies: Map<string, LBStrategy>;
+	private stickyStrategy: StickyStrategy;
 
-	constructor(stickyStrategy: StickyStrategy) {
-		this.stickyStrategy = stickyStrategy;
+	constructor(factory: LBStrategyFactory) {
+		this.stickyStrategy = factory.createStickyStrategy();
+		this.strategies = factory.createStrategies();
 	}
 
-	public addStrategy(name: string, strategy: LoadBalanceStrategy) {
-		this.strategies.set(name, strategy);
-	}
-
-	public getCandidates(mediaNodes: List<MediaNode>, room: Room) {
+	public getCandidates(mediaNodes: List<MediaNode>, room: Room, peer?: Peer) {
 		const stickyCandidates = this.stickyStrategy.getCandidates(mediaNodes, room);
 		
 		return stickyCandidates;
 	}
-    
+
+	private hasGeoStrategy(): boolean {
+		return this.strategies.has('geo');
+	}
 }
