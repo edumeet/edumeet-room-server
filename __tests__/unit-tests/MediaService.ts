@@ -4,12 +4,15 @@ import MediaService from '../../src/MediaService';
 import Room from '../../src/Room';
 import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
+import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
 
 describe('MediaService', () => {
 	let mediaService: MediaService;
 
 	beforeEach(() => {
-		mediaService = new MediaService();
+		const lb = { getCandidates: jest.fn() } as unknown as LoadBalancer;
+
+		mediaService = new MediaService(lb);
 		mediaService.mediaNodes.clear(); // We don't want nodes from config
 	});
 
@@ -37,7 +40,8 @@ describe('MediaService', () => {
 		let spyMediaNode1GetRouter: jest.SpyInstance;
 		let spyMediaNode2GetRouter: jest.SpyInstance;
 		let fakeRoom: Room;
-		let fakePeer: Peer;
+		let fakePeer1: Peer;
+		let fakePeer2: Peer;
 		let spyRoomAddRouter: jest.SpyInstance;
 
 		beforeEach(() => {
@@ -52,7 +56,10 @@ describe('MediaService', () => {
 				parentClose: false,
 				addRouter: jest.fn()
 			} as unknown as Room;
-			fakePeer = {
+			fakePeer1 = {
+				id: 'id'
+			} as unknown as Peer;
+			fakePeer2 = {
 				id: 'id'
 			} as unknown as Peer;
 			fakeMediaNode1 = {
@@ -70,7 +77,7 @@ describe('MediaService', () => {
 			mediaService.mediaNodes.add(fakeMediaNode1);
 			expect(mediaService.mediaNodes.length).toBe(1);
 			
-			await mediaService.getRouter(fakeRoom, fakePeer);
+			await mediaService.getRouter(fakeRoom, fakePeer1);
 
 			expect(spyRoomAddRouter).toHaveBeenCalled();
 		});
@@ -80,26 +87,25 @@ describe('MediaService', () => {
 
 			mediaService.mediaNodes.add(fakeMediaNode1);
 			
-			await expect(mediaService.getRouter(roomWithClosedParent, fakePeer)).
+			await expect(mediaService.getRouter(roomWithClosedParent, fakePeer1)).
 				rejects.toThrowError(ERROR_MSG_ROOM_CLOSED);
 			expect(spyRoomAddRouter).not.toHaveBeenCalled();
 		});
 		
-		it('getRouter() - Should spread routers across mediaNodes', async () => {
+		it('getRouter() - Should throw on no mediaNodes', async () => {
+			await expect(mediaService.getRouter(fakeRoom, fakePeer1)).
+				rejects.toThrowError(ERROR_MSG_NO_MEDIA_NODES);
+		});
+		
+		it('getRouter() - Should stay on same mediaNode', async () => {
 			mediaService.mediaNodes.add(fakeMediaNode1);
 			mediaService.mediaNodes.add(fakeMediaNode2);
 			
-			mediaService.getRouter(fakeRoom, fakePeer);
-			mediaService.getRouter(fakeRoom, fakePeer);
+			mediaService.getRouter(fakeRoom, fakePeer1);
+			mediaService.getRouter(fakeRoom, fakePeer2);
 
-			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(1);
-			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(1);
-		});
-		
-		// This needs to be last since index is set to NaN
-		it('getRouter() - Should throw on no mediaNodes', async () => {
-			await expect(mediaService.getRouter(fakeRoom, fakePeer)).
-				rejects.toThrowError(ERROR_MSG_NO_MEDIA_NODES);
+			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(2);
+			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(0);
 		});
 	});
 });

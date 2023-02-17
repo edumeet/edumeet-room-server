@@ -4,6 +4,7 @@ import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
 import { userRoles } from '../../src/common/authorization';
+import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
 
 describe('Room', () => {
 	let room1: Room;
@@ -22,11 +23,13 @@ describe('Room', () => {
 	const roomName1 = 'testRoomName1';
 	const roomName2 = 'testRoomName2';
 	const roomName3 = 'testRoomName3';
+	const lb = {} as unknown as LoadBalancer;	
 
 	beforeEach(() => {
+		
 		room1 = new Room({
 			id: roomId1,
-			mediaService: new MediaService(),
+			mediaService: new MediaService(lb),
 			name: roomName1,
 		});
 
@@ -430,12 +433,12 @@ describe('Room', () => {
 		beforeEach(() => {
 			room2 = new Room({
 				id: roomId2,
-				mediaService: new MediaService(),
+				mediaService: new MediaService(lb),
 				name: roomName2,
 			});
 			room3 = new Room({
 				id: roomId3,
-				mediaService: new MediaService(),
+				mediaService: new MediaService(lb),
 				name: roomName3,
 				parent: room2
 			});

@@ -3,12 +3,14 @@ import { IOServerConnection } from 'edumeet-common';
 import MediaService from '../../src/MediaService';
 import ServerManager from '../../src/ServerManager';
 import { Socket } from 'socket.io';
+import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
 
 describe('ServerManager', () => {
 	let serverManager: ServerManager;
+	const lb = {} as unknown as LoadBalancer;
 
 	beforeEach(() => {
-		serverManager = new ServerManager({ mediaService: new MediaService() });
+		serverManager = new ServerManager({ mediaService: new MediaService(lb) });
 	});
 
 	afterEach(() => {
