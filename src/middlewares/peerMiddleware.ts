@@ -28,7 +28,7 @@ export const createPeerMiddleware = ({
 
 				peer.displayName = displayName;
 
-				room.notifyPeers('peerDisplayNameChanged', {
+				room.notifyPeers('changeDisplayName', {
 					peerId: peer.id,
 					displayName
 				}, peer);
