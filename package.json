@@ -20,6 +20,7 @@
 	"devDependencies": {
 		"@tsconfig/node18": "^1.0.1",
 		"@types/debug": "^4.1.7",
+		"@types/geoip-lite": "^1.4.1",
 		"@types/jest": "^29.2.2",
 		"@types/jsonwebtoken": "^8.5.9",
 		"@types/node": "^18.11.9",
@@ -36,6 +37,7 @@
 	"dependencies": {
 		"debug": "^4.3.4",
 		"edumeet-common": "edumeet/edumeet-common",
+		"geoip-lite": "^1.4.7",
 		"jsonwebtoken": "^8.5.1",
 		"socket.io": "^4.5.3"
 	},
