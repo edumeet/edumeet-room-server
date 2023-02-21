@@ -6,7 +6,7 @@ const mediaNode1 = { id: 'id1' } as unknown as MediaNode;
 const mediaNode2 = { id: 'id2' } as unknown as MediaNode;
 const mediaNode3 = { id: 'id3' } as unknown as MediaNode;
 
-test('Should only return active media-node', () => {
+test('Should only return active media-nodes', () => {
 	const activeRoomIds = new Set<string>();
 
 	activeRoomIds.add('id1');
@@ -26,7 +26,7 @@ test('Should only return active media-node', () => {
 	expect(candidates.length).toBe(1);
 });
 
-test('Should return all active media-node', () => {
+test('Should return all active media-nodes', () => {
 	const activeRoomIds = new Set<string>();
 
 	activeRoomIds.add('id3');
@@ -47,7 +47,7 @@ test('Should return all active media-node', () => {
 	expect(candidates.length).toBe(2);
 });
 
-test('Should return empty array on no active media-node', () => {
+test('Should return empty array on no active media-nodes', () => {
 	const room = {
 		getActiveMediaNodes: jest.fn()
 	} as unknown as Room;

@@ -28,7 +28,7 @@ test('Should not suggest remote media node', () => {
 	expect(candidates[2]).toBe(mediaNodeRemote);
 });
 
-test('Should use sticky node within threshold', () => {
+test('Should use sticky media-node when within threshold', () => {
 	const stickyCandidates = [ mediaNodeClose ];
 	const allNodes = [ mediaNodeRemote, mediaNodeClose, mediaNodeMiddle ];
 	const peer = { getAddress: () => { return client; } } as unknown as Peer;
