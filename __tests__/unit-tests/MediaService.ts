@@ -6,30 +6,19 @@ import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
 import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
 
-const lb = { getCandidates: jest.fn().mockImplementation(() => {
-	return [];
-}) } as unknown as LoadBalancer;
-
 describe('MediaService', () => {
-	let mediaService: MediaService;
-
-	beforeEach(() => {
-		mediaService = new MediaService(lb);
-		mediaService.mediaNodes.clear(); // We don't want nodes from config
-	});
-
-	afterEach(() => {
-		jest.restoreAllMocks();
-	});
-
 	it('Has correct properties', () => {
-		expect(mediaService.closed).toBe(false);
+		const sut = new MediaService({} as unknown as LoadBalancer);
+
+		expect(sut.closed).toBe(false);
 	});
 
 	it('close()', () => {
-		mediaService.close();
-		expect(mediaService.closed).toBe(true);
-		expect(mediaService.mediaNodes.length).toBe(0);
+		const sut = new MediaService({} as unknown as LoadBalancer);
+
+		sut.close();
+		expect(sut.closed).toBe(true);
+		expect(sut.mediaNodes.length).toBe(0);
 	});
 
 	describe('Router', () => {
@@ -41,6 +30,8 @@ describe('MediaService', () => {
 		let fakeRoom: Room;
 		let fakePeer: Peer;
 		let spyRoomAddRouter: jest.SpyInstance;
+		let lb: LoadBalancer;
+		let mediaService: MediaService;
 
 		beforeEach(() => {
 			mockGetRouter = jest.fn().mockImplementation(async () => {	
@@ -59,6 +50,14 @@ describe('MediaService', () => {
 			} as unknown as MediaNode;
 			spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
 			spyMediaNode1GetRouter = jest.spyOn(fakeMediaNode1, 'getRouter');
+			lb = { getCandidates: jest.fn().mockImplementation(() => {
+				return [ fakeMediaNode1 ];
+			}) } as unknown as LoadBalancer; 
+			mediaService = new MediaService(lb);
+			mediaService.mediaNodes.clear();
+		});
+		afterEach(() => {
+			jest.clearAllMocks();
 		});
 
 		it('getRouter() - Should add router to room when parent not closed', async () => {
@@ -82,6 +81,9 @@ describe('MediaService', () => {
 		});
 		
 		it('getRouter() - Should throw on no mediaNodes', async () => {
+			jest.spyOn(lb, 'getCandidates').mockImplementation(() => {
+				return [];
+			});
 			await expect(mediaService.getRouter(fakeRoom, fakePeer)).
 				rejects.toThrowError(ERROR_MSG_NO_MEDIA_NODES);
 		});
@@ -89,24 +91,25 @@ describe('MediaService', () => {
 		it('getRouter() - Should call getRouter on mediaNode', async () => {
 			mediaService.mediaNodes.add(fakeMediaNode1);
 			
-			mediaService.getRouter(fakeRoom, fakePeer);
+			await mediaService.getRouter(fakeRoom, fakePeer);
 
 			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(1);
 		});
 		
-		it('getRouter() - Should use mediaNode candidate given by loadbalancer', async () => {
+		it('getRouter() - Should use candidates given by loadbalancer', async () => {
 			const fakeMediaNode2 = {
 				getRouter: jest.fn(),
 			} as unknown as MediaNode;
 			const spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
 
-			mediaService.mediaNodes.add(fakeMediaNode1);
-			mediaService.mediaNodes.add(fakeMediaNode2);
-			jest.spyOn(lb, 'getCandidates').mockImplementation(() => {
-				return [ fakeMediaNode2, fakeMediaNode1 ]; 
-			});
+			const loadBalancer = {
+				getCandidates: () => { return [ fakeMediaNode2 ]; } 
+			} as unknown as LoadBalancer;
+			const sut = new MediaService(loadBalancer);
+
+			sut.mediaNodes.add(fakeMediaNode1);
 			
-			mediaService.getRouter(fakeRoom, fakePeer);
+			await sut.getRouter(fakeRoom, fakePeer);
 
 			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(0);
 			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(1);

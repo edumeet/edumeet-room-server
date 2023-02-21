@@ -1,10 +1,13 @@
-import { List } from 'edumeet-common';
+import { IOServerConnection, List, Logger } from 'edumeet-common';
 import MediaNode from '../media/MediaNode';
 import { Peer } from '../Peer';
 import Room from '../Room';
-import { LBStrategy } from './LBStrategy';
+import { GeoStrategy } from './GeoStrategy';
+import { LBStrategy, LB_STRATEGIES } from './LBStrategy';
 import { LBStrategyFactory } from './LBStrategyFactory';
 import { StickyStrategy } from './StickyStrategy';
+
+const logger = new Logger('LoadBalancer');
 
 export class LoadBalancer {
 	private strategies: Map<string, LBStrategy>;
@@ -15,13 +18,22 @@ export class LoadBalancer {
 		this.strategies = factory.createStrategies();
 	}
 
-	public getCandidates(mediaNodes: List<MediaNode>, room: Room, peer?: Peer) {
-		const stickyCandidates = this.stickyStrategy.getCandidates(mediaNodes, room);
-		
-		return stickyCandidates;
-	}
+	public getCandidates(
+		mediaNodes: List<MediaNode>,
+		room: Room,
+		peer: Peer): MediaNode[] {
+		let candidates: MediaNode[];
 
-	private hasGeoStrategy(): boolean {
-		return this.strategies.has('geo');
+		logger.debug('getting mediaNode candidates for peer id:', peer.id);
+
+		candidates = this.stickyStrategy.getCandidates(mediaNodes.items, room);
+
+		const geoStrategy = this.strategies.get(LB_STRATEGIES.GEO) as unknown as GeoStrategy;
+
+		if (geoStrategy) {
+			candidates = geoStrategy.getCandidates(mediaNodes.items, candidates, peer);
+		}
+		
+		return candidates.length > 0 ? candidates : mediaNodes.items;
 	}
 }

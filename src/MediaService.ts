@@ -54,17 +54,13 @@ export default class MediaService {
 	public async getRouter(room: Room, peer: Peer): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
-		let mediaNode: MediaNode = this.mediaNodes.items[0];
-		const mediaNodes = this.loadBalancer.getCandidates(this.mediaNodes, room, peer);
+		const mediaNodes: MediaNode[] = this.loadBalancer.getCandidates(
+			this.mediaNodes, room, peer);
 
-		if (mediaNodes.length > 0) {
-			mediaNode = mediaNodes[0];
-		} 
-
-		if (!mediaNode)
+		if (mediaNodes.length == 0)
 			throw new Error('no media nodes available');
 
-		const router = await mediaNode.getRouter({
+		const router = await mediaNodes[0].getRouter({
 			roomId: room.id,
 			appData: {
 				roomId: room.id,

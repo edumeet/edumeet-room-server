@@ -13,6 +13,7 @@ import {
 	BaseConnection,
 	InboundNotification,
 	InboundRequest,
+	IOServerConnection,
 	List,
 	Logger,
 	Pipeline,
@@ -269,6 +270,12 @@ export class Peer extends EventEmitter {
 
 	private assignToken(): string {
 		return jwt.sign({ id: this.id }, signingkey, { noTimestamp: true });
+	}
+
+	public getAddress(): string {
+		const connection = this.connections.items[0] as unknown as IOServerConnection;
+		
+		return connection.address;
 	}
 
 	public get peerInfo(): PeerInfo {
