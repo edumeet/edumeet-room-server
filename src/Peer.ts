@@ -1,5 +1,5 @@
-import EventEmitter from 'events';
-import jwt from 'jsonwebtoken';
+import { EventEmitter } from 'events';
+import * as jwt from 'jsonwebtoken';
 import { signingkey } from './common/token';
 import { userRoles } from './common/authorization';
 import { Role } from './common/types';

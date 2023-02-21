@@ -26,7 +26,7 @@ import { Producer } from '../../src/media/Producer';
 import { Consumer } from '../../src/media/Consumer';
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
 import { Router } from '../../src/media/Router';
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { Pipeline } from 'edumeet-common';
 
 describe('Peer', () => {
