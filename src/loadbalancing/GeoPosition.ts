@@ -3,7 +3,7 @@ import * as geoip from 'geoip-lite';
 
 const logger = new Logger('GeoPosition');
 
-interface GeoPositionOptions {
+export interface GeoPositionOptions {
 	latitude?: number
 	longitude?: number,
 }
