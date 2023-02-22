@@ -3,20 +3,34 @@ import * as geoip from 'geoip-lite';
 
 const logger = new Logger('GeoPosition');
 
+interface GeoPositionOptions {
+	address?: string,
+	longitude?: number,
+	latitude?: number
+}
+
 export default class GeoPosition {
-	lat: number;
-	lon: number;
+	latitude: number;
+	longitude: number;
 
-	constructor(address: string) {
-		const geo = geoip.lookup(address);
+	constructor({ address, longitude, latitude }: GeoPositionOptions) {
 
-		logger.debug('creating geoposition for ip', address);
-		if (!geo) {
-			throw Error('Geoposition not found');
+		if (address && (!longitude && !latitude)) {
+			const geo = geoip.lookup(address);
+
+			logger.debug('creating geoposition for ip', address);
+			if (!geo) {
+				throw Error('Geoposition not found');
+			}
+
+			this.latitude = geo.ll[0];
+			this.longitude = geo.ll[1];
+		} else if (!address && (longitude && latitude)) {
+			this.latitude = latitude;
+			this.longitude = longitude;
+		} else {
+			throw Error('construcor args must be either adress or longitude & latitude');
 		}
-
-		this.lat = geo.ll[0];
-		this.lon = geo.ll[1];
 	}
 
 	public getDistance(positionToCompare: GeoPosition) {
@@ -32,10 +46,10 @@ export default class GeoPosition {
 		const cosine = (num: number) => Math.cos(num);
 	
 		const radius = 6371;
-		const φ1 = this.degreeToRadians(position1.lat);
-		const λ1 = this.degreeToRadians(position1.lon);
-		const φ2 = this.degreeToRadians(position2.lat);
-		const λ2 = this.degreeToRadians(position2.lon);
+		const φ1 = this.degreeToRadians(position1.latitude);
+		const λ1 = this.degreeToRadians(position1.longitude);
+		const φ2 = this.degreeToRadians(position2.latitude);
+		const λ2 = this.degreeToRadians(position2.longitude);
 		const Δφ = φ2 - φ1;
 		const Δλ = λ2 - λ1;
 	

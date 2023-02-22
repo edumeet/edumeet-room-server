@@ -34,18 +34,16 @@ export default class GeoStrategy extends LBStrategy {
 			}
 			logger.debug('active medianodes for room not within threshold', this.threshold, 'km');			
 		}
-
+		
 		return this.sortOnDistance(mediaNodes, peer);
 	}
 
 	private filterOnThreshold(mediaNodes: MediaNode[], peer: Peer) {
 		try {
-			const clientPos = new GeoPosition(peer.getAddress());
+			const clientPos = this.getClientPosition(peer);
 
 			const filteredCandidates = mediaNodes.filter((candidate) => {
-				// Shomehow we need to make sure this is an ipv4 address
-				const mediaNodePos = new GeoPosition(candidate.hostname);
-				const distance = clientPos.getDistance(mediaNodePos);
+				const distance = clientPos.getDistance(candidate.geoPosition);
 
 				logger.debug('distance to ', candidate.id, 'is', distance, 'km');
 				if (distance > this.threshold) {
@@ -69,11 +67,11 @@ export default class GeoStrategy extends LBStrategy {
 
 	private sortOnDistance(mediaNodes: MediaNode[], peer: Peer) {
 		try {
-			const clientPos = new GeoPosition(peer.getAddress());
+			const clientPos = this.getClientPosition(peer);
 
 			const sortedCandidates = mediaNodes.sort((a, b) => {
-				const aPos = new GeoPosition(a.hostname);
-				const bPos = new GeoPosition(b.hostname);
+				const aPos = a.geoPosition;
+				const bPos = b.geoPosition;
 				const aDistance = clientPos.getDistance(aPos);
 				const bDistance = clientPos.getDistance(bPos);
 
@@ -81,6 +79,7 @@ export default class GeoStrategy extends LBStrategy {
 			});
 		
 			return sortedCandidates;
+
 		} catch (err) {
 			logger.error(err);
 			
@@ -88,4 +87,26 @@ export default class GeoStrategy extends LBStrategy {
 		}
 	}
 
+	/**
+	 * Get client position using
+	 * 1.)  
+	 */
+	private getClientPosition(peer: Peer) {
+		try {
+			const address = peer.getAddress().address;
+			const clientPos = new GeoPosition({ address });
+			
+			return clientPos;
+		} catch (err) {
+		}
+		try {
+			const forwardedFor = peer.getAddress().forwardedFor;
+			const clientPos = new GeoPosition({ address: forwardedFor });
+
+			return clientPos;
+		} catch (err) {
+		}
+
+		throw Error('Could not create client geoPosition');
+	}
 }
