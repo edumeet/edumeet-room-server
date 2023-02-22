@@ -4,32 +4,33 @@ import * as geoip from 'geoip-lite';
 const logger = new Logger('GeoPosition');
 
 interface GeoPositionOptions {
-	address?: string,
-	longitude?: number,
 	latitude?: number
+	longitude?: number,
 }
 
 export default class GeoPosition {
 	latitude: number;
 	longitude: number;
 
-	constructor({ address, longitude, latitude }: GeoPositionOptions) {
+	constructor({ latitude, longitude }: GeoPositionOptions) {
+		logger.debug('constructor() [latitude: %s, longitute: %s]', latitude, longitude);
+		if (!longitude || !latitude) {
+			throw Error('latitude or longitude missing');
+		}
+		this.latitude = latitude;
+		this.longitude = longitude;
+	}
 
-		if (address && (!longitude && !latitude)) {
-			const geo = geoip.lookup(address);
+	public static create({ address }: { address: string }): GeoPosition {
+		const geo = geoip.lookup(address);
 
-			logger.debug('creating geoposition for ip', address);
-			if (!geo) {
-				throw Error('Geoposition not found');
-			}
-
-			this.latitude = geo.ll[0];
-			this.longitude = geo.ll[1];
-		} else if (!address && (longitude && latitude)) {
-			this.latitude = latitude;
-			this.longitude = longitude;
+		logger.debug('create() [address: %s]', address);
+		if (!geo) {
+			throw Error('Geoposition not found');
 		} else {
-			throw Error('construcor args must be either adress or longitude & latitude');
+			const [ latitude, longitude ] = geo.ll;
+			
+			return new GeoPosition({ latitude, longitude });
 		}
 	}
 

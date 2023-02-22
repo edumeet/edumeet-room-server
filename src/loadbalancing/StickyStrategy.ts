@@ -7,7 +7,7 @@ const logger = new Logger('StickyStrategy');
 
 export default class StickyStrategy extends LBStrategy {
 	public getCandidates(mediaNodes: MediaNode[], room: Room) {
-		logger.debug('getting sticky candidates for room', room.id);
+		logger.debug('getCandidates() [room.id: %s]', room.id);
 		const candidates: MediaNode[] = [];
 		const candidateIds = room.getActiveMediaNodes();
 

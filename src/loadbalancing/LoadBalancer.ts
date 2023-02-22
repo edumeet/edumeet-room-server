@@ -24,7 +24,7 @@ export default class LoadBalancer {
 		peer: Peer): MediaNode[] {
 		let candidates: MediaNode[];
 
-		logger.debug('getting mediaNode candidates for peer id:', peer.id);
+		logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
 
 		candidates = this.stickyStrategy.getCandidates(mediaNodes.items, room);
 

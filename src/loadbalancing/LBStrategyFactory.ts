@@ -9,6 +9,7 @@ export default class LBStrategyFactory {
 	private strategies: string[];
 
 	constructor(strategies: string[]) {
+		logger.debug('constructor() [strategies: %s]', strategies);
 		if (!this.areValid(strategies)) {
 			throw Error('Invalid load balancing strategies');
 		}
@@ -16,7 +17,7 @@ export default class LBStrategyFactory {
 	}
 
 	private areValid(strategies: string[]): boolean {
-		logger.debug('validating strategies', strategies);
+		logger.debug('areValid() [strategies: %s]', strategies);
 		
 		return strategies.every((strategy) => 
 			strategy == LB_STRATEGIES.GEO ||

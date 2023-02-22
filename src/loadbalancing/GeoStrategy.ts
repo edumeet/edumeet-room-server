@@ -6,6 +6,9 @@ import GeoPosition from './GeoPosition';
 
 const logger = new Logger('GeoStrategy');
 
+/**
+ * Intended to assign peers to a media-node not too far away.
+ */
 export default class GeoStrategy extends LBStrategy {
 	private threshold: number;
 
@@ -18,11 +21,9 @@ export default class GeoStrategy extends LBStrategy {
 		mediaNodes: MediaNode[],
 		stickyCandidates: MediaNode[], 
 		peer: Peer) {
-		logger.debug('getting candidates for peer id', peer.id);
+		logger.debug('getCandidates() [peer.id %s]', peer.id);
 
 		if (stickyCandidates.length > 0) {
-			logger.debug('filtering candidates where room is active');
-			
 			const filteredCandidates = this.filterOnThreshold(stickyCandidates, peer);
 
 			if (filteredCandidates.length > 0) {
@@ -32,29 +33,27 @@ export default class GeoStrategy extends LBStrategy {
 				
 				return filteredCandidates;
 			}
-			logger.debug('active medianodes for room not within threshold', this.threshold, 'km');			
 		}
 		
 		return this.sortOnDistance(mediaNodes, peer);
 	}
 
+	/**
+	 * Remove media-nodes not within threshold.
+	 */
 	private filterOnThreshold(mediaNodes: MediaNode[], peer: Peer) {
+		logger.debug('filterOnThreshold() [peer.id: %s]', peer.id);
 		try {
 			const clientPos = this.getClientPosition(peer);
 
 			const filteredCandidates = mediaNodes.filter((candidate) => {
 				const distance = clientPos.getDistance(candidate.geoPosition);
 
-				logger.debug('distance to ', candidate.id, 'is', distance, 'km');
-				if (distance > this.threshold) {
-					logger.debug(candidate.id, 'not within threshold:', this.threshold, 'km');
-					
-					return false;
-				} else {
-					logger.debug('adding', candidate.id, 'as candidate');
-					
-					return true;
-				}
+				logger.debug('filterOnThreshold() [candidade.id: %s, distance: %s]', candidate.id, distance);
+
+				if (distance > this.threshold) return false;
+				
+				return true;
 			});
 			
 			return filteredCandidates;
@@ -89,21 +88,25 @@ export default class GeoStrategy extends LBStrategy {
 
 	/**
 	 * Get client position using
-	 * 1.)  
+	 * 1.) socket.handshake.address
+	 * 2.) socket.handshake.headers['x-forwardeded-for'] 
 	 */
 	private getClientPosition(peer: Peer) {
 		try {
 			const address = peer.getAddress().address;
-			const clientPos = new GeoPosition({ address });
+			const clientPos = GeoPosition.create({ address });
 			
 			return clientPos;
 		} catch (err) {
 		}
 		try {
 			const forwardedFor = peer.getAddress().forwardedFor;
-			const clientPos = new GeoPosition({ address: forwardedFor });
 
-			return clientPos;
+			if (forwardedFor) {
+				const clientPos = GeoPosition.create({ address: forwardedFor });
+				
+				return clientPos;
+			}
 		} catch (err) {
 		}
 
