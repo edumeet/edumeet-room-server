@@ -718,6 +718,11 @@
   dependencies:
     "@types/ms" "*"
 
+"@types/geoip-lite@^1.4.1":
+  version "1.4.1"
+  resolved "https://registry.yarnpkg.com/@types/geoip-lite/-/geoip-lite-1.4.1.tgz#2c0d787fb14b2463b244baca1f3b9023fba3c49b"
+  integrity sha512-qHH5eF3rL1wwqpzdsgMdgskfdWXxxQvJb9POJ66NK7/1l3QXsqHLpIheh9OmhtqZ2CF7AmN0sA2R4PgW8JSm7w==
+
 "@types/graceful-fs@^4.1.3":
   version "4.1.6"
   resolved "https://registry.yarnpkg.com/@types/graceful-fs/-/graceful-fs-4.1.6.tgz#e14b2576a1c25026b7f02ede1de3b84c3a1efeae"
@@ -989,6 +994,13 @@ arraybuffer.slice@~0.0.7:
   resolved "https://registry.npmjs.org/arraybuffer.slice/-/arraybuffer.slice-0.0.7.tgz"
   integrity sha512-wGUIVQXuehL5TCqQun8OW81jGzAWycqzFF8lFp+GOM5BXLYj3bKNsYC4daB7n6XjCqxQA/qgTJ+8ANR3acjrog==
 
+"async@2.1 - 2.6.4":
+  version "2.6.4"
+  resolved "https://registry.yarnpkg.com/async/-/async-2.6.4.tgz#706b7ff6084664cd7eae713f6f965433b5504221"
+  integrity sha512-mzo5dfJYwAn29PeiJ0zvwTo04zj8HDJj0Mn8TD7sno7q12prdbnasKJHhkm2c1LgrhlJ0teaea8860oxi51mGA==
+  dependencies:
+    lodash "^4.17.14"
+
 awaitqueue@^3.0.1:
   version "3.0.1"
   resolved "https://registry.yarnpkg.com/awaitqueue/-/awaitqueue-3.0.1.tgz#155f10bb1b6dd2f926c6ab8cf1ea9ffacf69a113"
@@ -1127,7 +1139,7 @@ bser@2.1.1:
 
 buffer-crc32@~0.2.3:
   version "0.2.13"
-  resolved "https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz"
+  resolved "https://registry.yarnpkg.com/buffer-crc32/-/buffer-crc32-0.2.13.tgz#0d333e3f00eac50aa1454abd30ef8c2a5d9a7242"
   integrity sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ==
 
 buffer-equal-constant-time@1.0.1:
@@ -1708,7 +1720,7 @@ fb-watchman@^2.0.0:
 
 fd-slicer@~1.1.0:
   version "1.1.0"
-  resolved "https://registry.npmjs.org/fd-slicer/-/fd-slicer-1.1.0.tgz"
+  resolved "https://registry.yarnpkg.com/fd-slicer/-/fd-slicer-1.1.0.tgz#25c7c89cb1f9077f8891bbe61d8f390eae256f1e"
   integrity sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==
   dependencies:
     pend "~1.2.0"
@@ -1778,7 +1790,7 @@ gensync@^1.0.0-beta.2:
 
 geoip-lite@^1.4.7:
   version "1.4.7"
-  resolved "https://registry.npmjs.org/geoip-lite/-/geoip-lite-1.4.7.tgz"
+  resolved "https://registry.yarnpkg.com/geoip-lite/-/geoip-lite-1.4.7.tgz#0142051023e3a2fb12bd539c5d627dcaff69af74"
   integrity sha512-JQHntlH7B/nR6Ec8ZJTuKsSdRNrR+snrfBNy0y0wVYWyVVi/MoDlXyv7P3wmozdlyshta6rXfbtK7qu/9lvEog==
   dependencies:
     async "2.1 - 2.6.4"
@@ -1917,7 +1929,7 @@ husky@^8.0.3:
 
 "iconv-lite@0.4.13 - 0.6.3":
   version "0.6.3"
-  resolved "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.6.3.tgz"
+  resolved "https://registry.yarnpkg.com/iconv-lite/-/iconv-lite-0.6.3.tgz#a52f80bf38da1952eb5c681790719871a1a72501"
   integrity sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==
   dependencies:
     safer-buffer ">= 2.1.2 < 3.0.0"
@@ -1968,7 +1980,7 @@ inherits@2:
 
 "ip-address@5.8.9 - 5.9.4":
   version "5.9.4"
-  resolved "https://registry.npmjs.org/ip-address/-/ip-address-5.9.4.tgz"
+  resolved "https://registry.yarnpkg.com/ip-address/-/ip-address-5.9.4.tgz#4660ac261ad61bd397a860a007f7e98e4eaee386"
   integrity sha512-dHkI3/YNJq4b/qQaz+c8LuarD3pY24JqZWfjB8aZx1gtpc2MDILu9L9jpZe1sHpzo/yWFweQVn+U//FhazUxmw==
   dependencies:
     jsbn "1.1.0"
@@ -2464,7 +2476,7 @@ js-yaml@^4.1.0:
 
 jsbn@1.1.0:
   version "1.1.0"
-  resolved "https://registry.npmjs.org/jsbn/-/jsbn-1.1.0.tgz"
+  resolved "https://registry.yarnpkg.com/jsbn/-/jsbn-1.1.0.tgz#b01307cb29b618a1ed26ec79e911f803c4da0040"
   integrity sha512-4bYVV3aAMtDTTu4+xsDYa6sy9GyJ69/amsu9sYF2zqjiEoZA5xJi3BrfX3uY+/IekIu7MwdObdbDWpoZdBv3/A==
 
 jsesc@^2.5.1:
@@ -2532,7 +2544,7 @@ kleur@^3.0.3:
 
 lazy@1.0.11:
   version "1.0.11"
-  resolved "https://registry.npmjs.org/lazy/-/lazy-1.0.11.tgz"
+  resolved "https://registry.yarnpkg.com/lazy/-/lazy-1.0.11.tgz#daa068206282542c088288e975c297c1ae77b690"
   integrity sha512-Y+CjUfLmIpoUCCRl0ub4smrYtGGr5AOa2AKOaWelGHOGz33X/Y/KizefGqbkwfz44+cnq/+9habclf8vOmu2LA==
 
 leven@^3.1.0:
@@ -2611,6 +2623,11 @@ lodash.once@^4.0.0:
   version "4.1.1"
   resolved "https://registry.npmjs.org/lodash.once/-/lodash.once-4.1.1.tgz"
   integrity sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==
+
+lodash@^4.17.14, lodash@^4.17.15:
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
+  integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
 
 lru-cache@^5.1.1:
   version "5.1.1"
@@ -2877,7 +2894,7 @@ path-type@^4.0.0:
 
 pend@~1.2.0:
   version "1.2.0"
-  resolved "https://registry.npmjs.org/pend/-/pend-1.2.0.tgz"
+  resolved "https://registry.yarnpkg.com/pend/-/pend-1.2.0.tgz#7a57eb550a6783f9115331fcf4663d5c8e007a50"
   integrity sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==
 
 picocolors@^1.0.0:
@@ -2987,7 +3004,7 @@ reusify@^1.0.4:
 
 "rimraf@2.5.2 - 2.7.1":
   version "2.7.1"
-  resolved "https://registry.npmjs.org/rimraf/-/rimraf-2.7.1.tgz"
+  resolved "https://registry.yarnpkg.com/rimraf/-/rimraf-2.7.1.tgz#35797f13a7fdadc566142c29d4f07ccad483e3ec"
   integrity sha512-uWjbaKIK3T1OSVptzX7Nl6PvQ3qAGtKEtVRjRuazjfL3Bx5eI409VZSqgND+4UNnmzLVdPj9FqFJNPqBZFve4w==
   dependencies:
     glob "^7.1.3"
@@ -3013,7 +3030,7 @@ safe-buffer@^5.0.1:
 
 "safer-buffer@>= 2.1.2 < 3.0.0":
   version "2.1.2"
-  resolved "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz"
+  resolved "https://registry.yarnpkg.com/safer-buffer/-/safer-buffer-2.1.2.tgz#44fa161b0187b9549dd84bb91802f9bd8385cd6a"
   integrity sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==
 
 sdp-transform@^2.14.1:
@@ -3178,7 +3195,7 @@ source-map@^0.6.0, source-map@^0.6.1:
 
 sprintf-js@1.1.2:
   version "1.1.2"
-  resolved "https://registry.npmjs.org/sprintf-js/-/sprintf-js-1.1.2.tgz"
+  resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.1.2.tgz#da1765262bf8c0f571749f2ad6c26300207ae673"
   integrity sha512-VE0SOVEHCk7Qc8ulkWw3ntAzXuqf7S2lvwQaDLRnUeIEaKNQJzV6BwmLKhOqT61aGhfUMrXeaBk+oDGCzvhcug==
 
 sprintf-js@~1.0.2:
@@ -3508,7 +3525,7 @@ yargs@^17.3.1:
 
 "yauzl@2.9.2 - 2.10.0":
   version "2.10.0"
-  resolved "https://registry.npmjs.org/yauzl/-/yauzl-2.10.0.tgz"
+  resolved "https://registry.yarnpkg.com/yauzl/-/yauzl-2.10.0.tgz#c7eb17c93e112cb1086fa6d8e51fb0667b79a5f9"
   integrity sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==
   dependencies:
     buffer-crc32 "~0.2.3"
