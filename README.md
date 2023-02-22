@@ -10,6 +10,8 @@ It handles signaling to and from client and media node services.
 Make a file called `config.json` in the `/config` folder. An example configuration file with all properties set to default values can be found here:
 [config.example.json](config/config.example.json)
 
+Note that if you don't provide a value for `tls.cert` and `tls.key` the server will start in HTTP mode.
+
 ### Docker
 
 Running the service as a docker container.
