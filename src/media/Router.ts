@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
