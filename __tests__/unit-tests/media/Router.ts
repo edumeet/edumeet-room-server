@@ -12,6 +12,9 @@ import { DataProducer } from '../../../src/media/DataProducer';
 import { PipeDataProducer } from '../../../src/media/PipeDataProducer';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
 import { MediaKind } from 'edumeet-common';
+import GeoPosition from '../../../src/loadbalancing/GeoPosition';
+
+const geoPosition = {} as unknown as GeoPosition;
 
 class MockMediaNodeConnection extends EventEmitter {
 	pipeline = { use: jest.fn(), remove: jest.fn() };
@@ -80,6 +83,7 @@ describe('Router', () => {
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
+		geoPosition
 	});
 
 	const mediaNode2 = new MediaNode({
@@ -87,6 +91,7 @@ describe('Router', () => {
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
+		geoPosition
 	});
 
 	let mockConnection1: MediaNodeConnection;

@@ -1,23 +1,25 @@
+import GeoPosition from '../../../src/loadbalancing/GeoPosition';
 import GeoStrategy from '../../../src/loadbalancing/GeoStrategy';
 import MediaNode from '../../../src/media/MediaNode';
 import { Peer } from '../../../src/Peer';
 
 const mediaNodeRemote = {
-	hostname: '1.1.128.50'
+	geoPosition: new GeoPosition({ latitude: 16.8833,	longitude: 101.8833 })
 } as unknown as MediaNode;
 const mediaNodeClose = {
-	hostname: '2.248.0.10'
+	geoPosition: new GeoPosition({ latitude: 59.8376, longitude: 13.143 })
 } as unknown as MediaNode;
 const mediaNodeMiddle = {
-	hostname: '194.177.32.0'
+	geoPosition: new GeoPosition({ latitude: 48.8543,	longitude: 2.3527 })
 } as unknown as MediaNode;
-const client = '5.44.192.0';
-const clientLocalhost = '127.0.0.1';
+const clientDirect = { address: '5.44.192.0', forwardedFor: undefined };
+const clientReverseProxy = { address: '10.244.0.1', forwardedFor: '5.44.192.0' };
+const clientLocalhost = { address: '127.0.0.1' };
 
 test('Should not suggest remote media node', () => {
 	const stickyCandidates = [ mediaNodeRemote ];
 	const allNodes = [ mediaNodeRemote, mediaNodeClose, mediaNodeMiddle ];
-	const peer = { getAddress: () => { return client; } } as unknown as Peer;
+	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
 
 	const sut = new GeoStrategy();
 
@@ -31,7 +33,7 @@ test('Should not suggest remote media node', () => {
 test('Should use sticky media-node when within threshold', () => {
 	const stickyCandidates = [ mediaNodeClose ];
 	const allNodes = [ mediaNodeRemote, mediaNodeClose, mediaNodeMiddle ];
-	const peer = { getAddress: () => { return client; } } as unknown as Peer;
+	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
 
 	const sut = new GeoStrategy();
 
@@ -44,7 +46,7 @@ test('Should use sticky media-node when within threshold', () => {
 test('Should use closest media-node on two active nodes within threshold', () => {
 	const stickyCandidates = [ mediaNodeMiddle, mediaNodeClose ];
 	const allNodes = [ mediaNodeRemote, mediaNodeClose, mediaNodeMiddle ];
-	const peer = { getAddress: () => { return client; } } as unknown as Peer;
+	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
 
 	const sut = new GeoStrategy();
 
@@ -54,10 +56,10 @@ test('Should use closest media-node on two active nodes within threshold', () =>
 	expect(candidates.length).toBe(2);
 });
 
-test('Should use closest media-node on no active nodes', () => {
+test('Should use closest media-node on no active nodes - direct', () => {
 	const stickyCandidates: MediaNode[] = [];
 	const allNodes = [ mediaNodeRemote, mediaNodeClose, mediaNodeMiddle ];
-	const peer = { getAddress: () => { return client; } } as unknown as Peer;
+	const peer = { getAddress: () => { return clientReverseProxy; } } as unknown as Peer;
 
 	const sut = new GeoStrategy();
 
@@ -67,10 +69,36 @@ test('Should use closest media-node on no active nodes', () => {
 	expect(candidates.length).toBe(3);
 });
 
-test('Should use media-node outside of threshold when no other available', () => {
+test('Should use closest media-node on no active nodes - reverse proxy', () => {
+	const stickyCandidates: MediaNode[] = [];
+	const allNodes = [ mediaNodeRemote, mediaNodeClose, mediaNodeMiddle ];
+	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
+
+	const sut = new GeoStrategy();
+
+	const candidates = sut.getCandidates(allNodes, stickyCandidates, peer);
+
+	expect(candidates[0]).toBe(mediaNodeClose);
+	expect(candidates.length).toBe(3);
+});
+
+test('Should use media-node outside of threshold when no other available - direct', () => {
 	const stickyCandidates: MediaNode[] = [];
 	const allNodes = [ mediaNodeRemote ];
-	const peer = { getAddress: () => { return client; } } as unknown as Peer;
+	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
+
+	const sut = new GeoStrategy();
+
+	const candidates = sut.getCandidates(allNodes, stickyCandidates, peer);
+
+	expect(candidates[0]).toBe(mediaNodeRemote);
+	expect(candidates.length).toBe(1);
+});
+
+test('Should use media-node outside of threshold when no other available - reverse proxy', () => {
+	const stickyCandidates: MediaNode[] = [];
+	const allNodes = [ mediaNodeRemote ];
+	const peer = { getAddress: () => { return clientReverseProxy; } } as unknown as Peer;
 
 	const sut = new GeoStrategy();
 

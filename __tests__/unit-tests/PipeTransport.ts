@@ -6,6 +6,9 @@ import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../../src/common/types';
 import { PipeTransport } from '../../src/media/PipeTransport';
 import { MediaKind } from 'edumeet-common';
+import GeoPosition from '../../src/loadbalancing/GeoPosition';
+
+const geoPosition = {} as unknown as GeoPosition;
 
 describe('PipeTransport', () => {
 	let pipeTransport: PipeTransport;
@@ -34,6 +37,7 @@ describe('PipeTransport', () => {
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
+		geoPosition
 	});
 
 	const router = new Router({
