@@ -4,7 +4,7 @@ import MediaService from '../../src/MediaService';
 import Room from '../../src/Room';
 import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
-import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
+import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
 
 describe('MediaService', () => {
 	it('Has correct properties', () => {

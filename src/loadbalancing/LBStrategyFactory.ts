@@ -1,11 +1,11 @@
 import { Logger } from 'edumeet-common';
-import { GeoStrategy } from './GeoStrategy';
-import { LBStrategy, LB_STRATEGIES } from './LBStrategy';
-import { StickyStrategy } from './StickyStrategy';
+import GeoStrategy from './GeoStrategy';
+import LBStrategy, { LB_STRATEGIES } from './LBStrategy';
+import StickyStrategy from './StickyStrategy';
 
 const logger = new Logger('LBStrategyFactory');
 
-export class LBStrategyFactory {
+export default class LBStrategyFactory {
 	private strategies: string[];
 
 	constructor(strategies: string[]) {

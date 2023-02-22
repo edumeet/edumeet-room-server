@@ -5,7 +5,7 @@ import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { List, Logger, skipIfClosed } from 'edumeet-common';
-import { LoadBalancer } from './loadbalancing/LoadBalancer';
+import LoadBalancer from './loadbalancing/LoadBalancer';
 
 const logger = new Logger('MediaService');
 

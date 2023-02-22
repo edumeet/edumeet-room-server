@@ -1,6 +1,6 @@
 import { List } from 'edumeet-common';
-import { LBStrategyFactory } from '../../../src/loadbalance/LBStrategyFactory';
-import { LoadBalancer } from '../../../src/loadbalance/LoadBalancer';
+import LBStrategyFactory from '../../../src/loadbalancing/LBStrategyFactory';
+import LoadBalancer from '../../../src/loadbalancing/LoadBalancer';
 import MediaNode from '../../../src/media/MediaNode';
 import { Peer } from '../../../src/Peer';
 import Room from '../../../src/Room';

@@ -4,7 +4,7 @@ import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
 import { userRoles } from '../../src/common/authorization';
-import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
+import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
 
 describe('Room', () => {
 	let room1: Room;

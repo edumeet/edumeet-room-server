@@ -1,15 +1,15 @@
-import { IOServerConnection, List, Logger } from 'edumeet-common';
+import { List, Logger } from 'edumeet-common';
 import MediaNode from '../media/MediaNode';
 import { Peer } from '../Peer';
 import Room from '../Room';
-import { GeoStrategy } from './GeoStrategy';
-import { LBStrategy, LB_STRATEGIES } from './LBStrategy';
-import { LBStrategyFactory } from './LBStrategyFactory';
-import { StickyStrategy } from './StickyStrategy';
+import GeoStrategy from './GeoStrategy';
+import LBStrategy, { LB_STRATEGIES } from './LBStrategy';
+import LBStrategyFactory from './LBStrategyFactory';
+import StickyStrategy from './StickyStrategy';
 
 const logger = new Logger('LoadBalancer');
 
-export class LoadBalancer {
+export default class LoadBalancer {
 	private strategies: Map<string, LBStrategy>;
 	private stickyStrategy: StickyStrategy;
 

@@ -1,12 +1,12 @@
 import MediaNode from '../media/MediaNode';
 import { Peer } from '../Peer';
-import { LBStrategy } from './LBStrategy';
+import LBStrategy from './LBStrategy';
 import { Logger } from 'edumeet-common';
-import { GeoPosition } from './GeoPosition';
+import GeoPosition from './GeoPosition';
 
 const logger = new Logger('GeoStrategy');
 
-export class GeoStrategy extends LBStrategy {
+export default class GeoStrategy extends LBStrategy {
 	private threshold: number;
 
 	constructor(threshold = 2000) {

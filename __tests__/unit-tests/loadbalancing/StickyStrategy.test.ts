@@ -1,4 +1,4 @@
-import { StickyStrategy } from '../../../src/loadbalance/StickyStrategy';
+import StickyStrategy from '../../../src/loadbalancing/StickyStrategy';
 import MediaNode from '../../../src/media/MediaNode';
 import Room from '../../../src/Room';
 

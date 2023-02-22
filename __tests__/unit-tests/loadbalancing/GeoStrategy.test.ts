@@ -1,4 +1,4 @@
-import { GeoStrategy } from '../../../src/loadbalance/GeoStrategy';
+import GeoStrategy from '../../../src/loadbalancing/GeoStrategy';
 import MediaNode from '../../../src/media/MediaNode';
 import { Peer } from '../../../src/Peer';
 

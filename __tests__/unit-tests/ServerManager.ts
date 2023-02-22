@@ -3,7 +3,7 @@ import { IOServerConnection } from 'edumeet-common';
 import MediaService from '../../src/MediaService';
 import ServerManager from '../../src/ServerManager';
 import { Socket } from 'socket.io';
-import { LoadBalancer } from '../../src/loadbalance/LoadBalancer';
+import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
 
 describe('ServerManager', () => {
 	let serverManager: ServerManager;

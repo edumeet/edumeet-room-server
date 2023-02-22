@@ -1,7 +1,7 @@
-import { GeoStrategy } from '../../../src/loadbalance/GeoStrategy';
-import { LB_STRATEGIES } from '../../../src/loadbalance/LBStrategy';
-import { LBStrategyFactory } from '../../../src/loadbalance/LBStrategyFactory';
-import { StickyStrategy } from '../../../src/loadbalance/StickyStrategy';
+import GeoStrategy from '../../../src/loadbalancing/GeoStrategy';
+import { LB_STRATEGIES } from '../../../src/loadbalancing/LBStrategy';
+import LBStrategyFactory from '../../../src/loadbalancing/LBStrategyFactory';
+import StickyStrategy from '../../../src/loadbalancing/StickyStrategy';
 
 test('createStickyStrategy() should create sticky strategy', () => {
 	const sut = new LBStrategyFactory([]);
