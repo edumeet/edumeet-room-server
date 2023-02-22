@@ -6,6 +6,7 @@ import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { List, Logger, skipIfClosed } from 'edumeet-common';
 import LoadBalancer from './loadbalancing/LoadBalancer';
+import GeoPosition from './loadbalancing/GeoPosition';
 
 const logger = new Logger('MediaService');
 
@@ -40,12 +41,15 @@ export default class MediaService {
 	private loadMediaNodes(): void {
 		logger.debug('loadMediaNodes()');
 
-		for (const { hostname, port, secret } of config.mediaNodes) {
+		for (const { hostname, port, secret, longitude, latitude } of config.mediaNodes) {
+			const geoPosition = new GeoPosition({ longitude, latitude });
+
 			this.mediaNodes.add(new MediaNode({
 				id: randomUUID(),
 				hostname,
 				port,
 				secret,
+				geoPosition
 			}));
 		}
 	}

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { IOClientConnection, Logger, skipIfClosed } from 'edumeet-common';
+import GeoPosition from '../loadbalancing/GeoPosition';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 
@@ -15,6 +16,7 @@ interface MediaNodeOptions {
 	hostname: string;
 	port: number;
 	secret: string;
+	geoPosition: GeoPosition
 }
 
 export default class MediaNode {
@@ -26,12 +28,14 @@ export default class MediaNode {
 	public connection?: MediaNodeConnection;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
+	public readonly geoPosition: GeoPosition;
 
 	constructor({
 		id,
 		hostname,
 		port,
-		secret
+		secret,
+		geoPosition
 	}: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
@@ -39,6 +43,7 @@ export default class MediaNode {
 		this.hostname = hostname;
 		this.port = port;
 		this.#secret = secret;
+		this.geoPosition = geoPosition;
 	}
 
 	@skipIfClosed
