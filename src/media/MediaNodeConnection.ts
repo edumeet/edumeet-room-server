@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { BaseConnection, InboundNotification, InboundRequest, Logger, Pipeline, skipIfClosed, SocketMessage } from 'edumeet-common';
 
 const logger = new Logger('MediaNodeConnection');

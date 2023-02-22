@@ -10,8 +10,8 @@ import { interactiveServer } from './interactiveServer';
 import { Logger } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
-import { LoadBalancer } from './loadbalance/LoadBalancer';
-import { LBStrategyFactory } from './loadbalance/LBStrategyFactory';
+import { LoadBalancer } from './loadbalancing/LoadBalancer';
+import { LBStrategyFactory } from './loadbalancing/LBStrategyFactory';
 
 interface Config {
 	listenHost: string;

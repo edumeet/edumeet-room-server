@@ -1,8 +1,8 @@
 {
 	"extends": "@tsconfig/node18/tsconfig.json",
-    "compilerOptions": {
+	"compilerOptions": {
 		"experimentalDecorators": true,
 		"resolveJsonModule": true,
-    },
+	},
 	"include": ["**/*.ts"]
 }

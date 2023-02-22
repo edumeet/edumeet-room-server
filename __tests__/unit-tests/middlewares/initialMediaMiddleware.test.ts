@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { MiddlewareOptions } from '../../../src/common/types';
 import { WebRtcTransport } from '../../../src/media/WebRtcTransport';
 import MediaService from '../../../src/MediaService';
