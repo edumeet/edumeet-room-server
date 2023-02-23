@@ -42,4 +42,5 @@ $ DEBUG=edumeet-room-server:* yarn start
 | listenHost | Ip/address the server will listen on | `"string"` | ``0.0.0.0``
 | tls | TLS configuration for the server | `object` | ``{ "cert": "./certs edumeet-demo-cert.pem", "key": "./certs/edumeet-demo-key.pem"}`` |
 | mediaNodes | Array of media nodes to use | `array` | ``[ { "host": "localhost", "port": 3000, "secret": "secret-shared-with-media-node" } ]`` |
+| loadBalancingStrategies | load balancing strategies to use. Supported strategies: `'geo'` | `array` | `['geo']` |
 ---
