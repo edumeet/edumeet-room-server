@@ -282,7 +282,8 @@ export default class Room extends EventEmitter {
 		this.routers.items.forEach((router) => {
 			mediaNodeIds.add(router.mediaNode.id);
 		});
-		logger.debug('room id', this.id, 'active media-nodes:', mediaNodeIds);	
+		
+		logger.debug('getActiveMediaNodes() [mediaNodeIds: %s]', mediaNodeIds);	
 		
 		return mediaNodeIds;
 	}
