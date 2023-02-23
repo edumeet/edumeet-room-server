@@ -26,7 +26,6 @@ export default class GeoStrategy extends LBStrategy {
 		if (stickyCandidates.length > 0) {
 			const filteredCandidates = this.filterOnThreshold(stickyCandidates, peer);
 
-			logger.debug('getCandidates() [filteredCandidates.length: %s]', filteredCandidates.length);
 			if (filteredCandidates.length > 0) {
 				if (filteredCandidates.length > 1) {
 					return this.sortOnDistance(filteredCandidates, peer);
@@ -49,8 +48,6 @@ export default class GeoStrategy extends LBStrategy {
 
 			const filteredCandidates = mediaNodes.filter((candidate) => {
 				const distance = clientPos.getDistance(candidate.geoPosition);
-
-				logger.debug('filterOnThreshold() [candidade.id: %s, distance: %s]', candidate.id, distance);
 
 				if (distance > this.threshold) return false;
 				

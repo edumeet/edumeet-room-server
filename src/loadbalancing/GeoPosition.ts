@@ -63,7 +63,6 @@ export default class GeoPosition {
 	}
 
 	private degreeToRadians(degrees = 0): number {
-		logger.debug('degreeToRadians() [degrees: %s]', degrees);
 		if (isNaN(degrees)) {
 			throw new Error('Must input valid number for degrees');
 		}
