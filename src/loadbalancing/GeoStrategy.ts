@@ -7,7 +7,7 @@ import GeoPosition from './GeoPosition';
 const logger = new Logger('GeoStrategy');
 
 /**
- * Intended to assign peers to a media-node not too far away.
+ * Try to assign peers to media-nodes that are geographically close to client.
  */
 export default class GeoStrategy extends LBStrategy {
 	private threshold: number;
@@ -26,6 +26,7 @@ export default class GeoStrategy extends LBStrategy {
 		if (stickyCandidates.length > 0) {
 			const filteredCandidates = this.filterOnThreshold(stickyCandidates, peer);
 
+			logger.debug('getCandidates() [filteredCandidates.length: %s]', filteredCandidates.length);
 			if (filteredCandidates.length > 0) {
 				if (filteredCandidates.length > 1) {
 					return this.sortOnDistance(filteredCandidates, peer);
@@ -39,7 +40,7 @@ export default class GeoStrategy extends LBStrategy {
 	}
 
 	/**
-	 * Remove media-nodes not within threshold.
+	 * Remove media-nodes outside of threshold.
 	 */
 	private filterOnThreshold(mediaNodes: MediaNode[], peer: Peer) {
 		logger.debug('filterOnThreshold() [peer.id: %s]', peer.id);
@@ -64,7 +65,11 @@ export default class GeoStrategy extends LBStrategy {
 		}
 	}
 
+	/**
+	 * Sort media-nodes on geographical position.
+	 */
 	private sortOnDistance(mediaNodes: MediaNode[], peer: Peer) {
+		logger.debug('sortOnDistance() [peer.id: %s]', peer.id);
 		try {
 			const clientPos = this.getClientPosition(peer);
 
@@ -92,6 +97,7 @@ export default class GeoStrategy extends LBStrategy {
 	 * 2.) socket.handshake.headers['x-forwardeded-for'] 
 	 */
 	private getClientPosition(peer: Peer) {
+		logger.debug('getClientPosition() [peer.id: %s]', peer.id);
 		try {
 			const address = peer.getAddress().address;
 			const clientPos = GeoPosition.create({ address });

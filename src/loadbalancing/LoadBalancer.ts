@@ -9,11 +9,15 @@ import StickyStrategy from './StickyStrategy';
 
 const logger = new Logger('LoadBalancer');
 
+/**
+ * Sort media-nodes according to load balancing strategies.
+ */
 export default class LoadBalancer {
 	private strategies: Map<string, LBStrategy>;
 	private stickyStrategy: StickyStrategy;
 
 	constructor(factory: LBStrategyFactory) {
+		logger.debug('constructor() [factory: %s]', factory);
 		this.stickyStrategy = factory.createStickyStrategy();
 		this.strategies = factory.createStrategies();
 	}
@@ -22,9 +26,8 @@ export default class LoadBalancer {
 		mediaNodes: List<MediaNode>,
 		room: Room,
 		peer: Peer): MediaNode[] {
-		let candidates: MediaNode[];
-
 		logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
+		let candidates: MediaNode[];
 
 		candidates = this.stickyStrategy.getCandidates(mediaNodes.items, room);
 

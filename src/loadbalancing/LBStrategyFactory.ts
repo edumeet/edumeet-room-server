@@ -5,6 +5,9 @@ import StickyStrategy from './StickyStrategy';
 
 const logger = new Logger('LBStrategyFactory');
 
+/**
+ * Create load balancing strategies.
+ */
 export default class LBStrategyFactory {
 	private strategies: string[];
 
@@ -33,7 +36,6 @@ export default class LBStrategyFactory {
 		const strategies = new Map<string, LBStrategy>();
 
 		if (this.strategies.includes(LB_STRATEGIES.GEO)) {
-			logger.debug('creating', LB_STRATEGIES.GEO, 'strategy');
 			strategies.set(LB_STRATEGIES.GEO, new GeoStrategy());
 		}
 		

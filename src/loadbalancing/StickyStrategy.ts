@@ -5,6 +5,9 @@ import LBStrategy from './LBStrategy';
 
 const logger = new Logger('StickyStrategy');
 
+/**
+ * Try to assign peers to a media-node where room is active.
+ */
 export default class StickyStrategy extends LBStrategy {
 	public getCandidates(mediaNodes: MediaNode[], room: Room) {
 		logger.debug('getCandidates() [room.id: %s]', room.id);

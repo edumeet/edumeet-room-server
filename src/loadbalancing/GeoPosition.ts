@@ -4,13 +4,13 @@ import * as geoip from 'geoip-lite';
 const logger = new Logger('GeoPosition');
 
 export interface GeoPositionOptions {
-	latitude?: number
-	longitude?: number,
+	latitude: number
+	longitude: number,
 }
 
 export default class GeoPosition {
-	latitude: number;
-	longitude: number;
+	private latitude: number;
+	private longitude: number;
 
 	constructor({ latitude, longitude }: GeoPositionOptions) {
 		logger.debug('constructor() [latitude: %s, longitute: %s]', latitude, longitude);
@@ -22,9 +22,9 @@ export default class GeoPosition {
 	}
 
 	public static create({ address }: { address: string }): GeoPosition {
+		logger.debug('create() [address: %s]', address);
 		const geo = geoip.lookup(address);
 
-		logger.debug('create() [address: %s]', address);
 		if (!geo) {
 			throw Error('Geoposition not found');
 		} else {
@@ -35,6 +35,8 @@ export default class GeoPosition {
 	}
 
 	public getDistance(positionToCompare: GeoPosition) {
+		logger.debug('getDistance() [positionToCompare: %s]', positionToCompare);
+		
 		return this.calculateDistance(this, positionToCompare);
 	}
 
@@ -43,6 +45,7 @@ export default class GeoPosition {
 	 *http://www.movable-type.co.uk/scripts/latlong.html
 	 */
 	private calculateDistance(position1: GeoPosition, position2: GeoPosition): number {
+		logger.debug('calculateDistance() [position1: %s, position2: %s]', position1, position2);
 		const sine = (num: number) => Math.sin(num / 2);
 		const cosine = (num: number) => Math.cos(num);
 	
@@ -60,7 +63,7 @@ export default class GeoPosition {
 	}
 
 	private degreeToRadians(degrees = 0): number {
-		// Math.PI / 180
+		logger.debug('degreeToRadians() [degrees: %s]', degrees);
 		if (isNaN(degrees)) {
 			throw new Error('Must input valid number for degrees');
 		}
