@@ -27,6 +27,7 @@ interface Config {
 		latitude: number;
 		longitude: number;
 	}>;
+	loadBalancingStrategies?: Array<string>;
 }
 
 const actualConfig = config as Config;
