@@ -15,7 +15,7 @@ The following steps will get you setup to contribute changes to this repo:
 
 3. Run `yarn install` to install dependencies.
 
-4. You should probably get your IDE working with our eslint config. This is an example `.vscode/settings.json`
+4. You should probably get your IDE working with our eslint config. This is an example of `.vscode/settings.json` and it's how I (pnts-se) personally get it to work on Vscode.
 
 ```json
 {
