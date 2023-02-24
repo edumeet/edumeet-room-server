@@ -1,6 +1,7 @@
 import LBStrategy from '../../../src/loadbalancing/LBStrategy';
 import LBStrategyFactory from '../../../src/loadbalancing/LBStrategyFactory';
 import LoadBalancer from '../../../src/loadbalancing/LoadBalancer';
+import StickyStrategy from '../../../src/loadbalancing/StickyStrategy';
 import MediaNode from '../../../src/media/MediaNode';
 import { Peer } from '../../../src/Peer';
 import Room from '../../../src/Room';
@@ -77,7 +78,7 @@ test('Should use geo candidates when geo strategy', () => {
 
 	strategies.set('geo', mockGeoStrategy);
 	const factory = new LBStrategyFactoryMock(
-		null,
+		null as unknown as StickyStrategy,
 		strategies
 	) as unknown as LBStrategyFactory;
 	const sut = new LoadBalancer(factory);
