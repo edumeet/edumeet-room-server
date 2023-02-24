@@ -5,7 +5,7 @@ import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { List, Logger, skipIfClosed } from 'edumeet-common';
-import LoadBalancer from './loadbalancing/LoadBalancer';
+import LoadBalancer, { LbCandidates } from './loadbalancing/LoadBalancer';
 import GeoPosition from './loadbalancing/GeoPosition';
 
 const logger = new Logger('MediaService');
@@ -58,13 +58,15 @@ export default class MediaService {
 	public async getRouter(room: Room, peer: Peer): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
-		const mediaNodes: MediaNode[] = this.loadBalancer.getCandidates(
-			this.mediaNodes, room, peer);
+		const copyOfMediaNodes = [ ...this.mediaNodes.items ];
+		const candidateIds: LbCandidates = this.loadBalancer.getCandidates(
+			{ copyOfMediaNodes, room, peer });
+		const mediaNodeCandidate = this.mediaNodes.get(candidateIds[0]);
 
-		if (mediaNodes.length == 0)
+		if (!mediaNodeCandidate)
 			throw new Error('no media nodes available');
 
-		const router = await mediaNodes[0].getRouter({
+		const router = await mediaNodeCandidate.getRouter({
 			roomId: room.id,
 			appData: {
 				roomId: room.id,

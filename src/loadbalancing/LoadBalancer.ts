@@ -1,4 +1,4 @@
-import { List, Logger } from 'edumeet-common';
+import { Logger } from 'edumeet-common';
 import MediaNode from '../media/MediaNode';
 import { Peer } from '../Peer';
 import Room from '../Room';
@@ -8,6 +8,12 @@ import LBStrategyFactory from './LBStrategyFactory';
 import StickyStrategy from './StickyStrategy';
 
 const logger = new Logger('LoadBalancer');
+
+export interface LoadBalancerOptions {
+	room: Room,
+	peer: Peer,
+	copyOfMediaNodes: MediaNode[]
+}
 
 /**
  * Sort media-nodes according to load balancing strategies.
@@ -22,21 +28,38 @@ export default class LoadBalancer {
 		this.strategies = factory.createStrategies();
 	}
 
-	public getCandidates(
-		mediaNodes: List<MediaNode>,
-		room: Room,
-		peer: Peer): MediaNode[] {
+	public getCandidates({
+		copyOfMediaNodes,
+		room,
+		peer
+	}: LoadBalancerOptions): LbCandidates {
 		logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
-		let candidates: MediaNode[];
+		let mediaNodes: MediaNode[];
 
-		candidates = this.stickyStrategy.getCandidates(mediaNodes.items, room);
+		mediaNodes = this.stickyStrategy.getCandidates(copyOfMediaNodes, room);
 
 		const geoStrategy = this.strategies.get(LB_STRATEGIES.GEO) as unknown as GeoStrategy;
 
 		if (geoStrategy) {
-			candidates = geoStrategy.getCandidates(mediaNodes.items, candidates, peer);
+			mediaNodes = geoStrategy.getCandidates(copyOfMediaNodes, mediaNodes, peer);
 		}
 		
-		return candidates.length > 0 ? candidates : mediaNodes.items;
+		if (mediaNodes.length > 0) {
+			return this.createCandidates(mediaNodes);
+		} else {
+			return this.createCandidates(copyOfMediaNodes);
+		}
+	}
+
+	private createCandidates(mediaNodes: MediaNode[]): LbCandidates {
+		const ids: string[] = [];	
+
+		mediaNodes.forEach((node) => {
+			ids.push(node.id);
+		});
+		
+		return ids;
 	}
 }
+
+export type LbCandidates = string[]
