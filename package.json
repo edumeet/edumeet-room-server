@@ -36,7 +36,7 @@
 	},
 	"dependencies": {
 		"debug": "^4.3.4",
-		"edumeet-common": "edumeet/edumeet-common#0.2.6",
+		"edumeet-common": "edumeet/edumeet-common#0.3.0",
 		"geoip-lite": "^1.4.7",
 		"jsonwebtoken": "^8.5.1",
 		"socket.io": "^4.6.1",
