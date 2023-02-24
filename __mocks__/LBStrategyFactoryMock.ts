@@ -1,8 +1,11 @@
-export default class LBStrategyFactoryMock {
-	sticky = { getCandidates: () => { return []; } };
-	strategies = new Map<string, any>();
+import StickyStrategy from '../src/loadbalancing/StickyStrategy';
+import LBStrategy from '../src/loadbalancing/LBStrategy';
 
-	constructor(sticky?: any, strategies?: any) {
+export default class LBStrategyFactoryMock {
+	sticky = { getCandidates: () => { return []; } } as unknown as StickyStrategy;
+	strategies = new Map<string, LBStrategy>();
+
+	constructor(sticky?: StickyStrategy, strategies?: Map<string, LBStrategy>) {
 		if (sticky)	this.sticky = sticky;
 		if (strategies) this.strategies = strategies;
 	}

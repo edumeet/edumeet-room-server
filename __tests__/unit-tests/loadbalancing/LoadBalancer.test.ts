@@ -1,4 +1,4 @@
-import { List } from 'edumeet-common';
+import LBStrategy from '../../../src/loadbalancing/LBStrategy';
 import LBStrategyFactory from '../../../src/loadbalancing/LBStrategyFactory';
 import LoadBalancer from '../../../src/loadbalancing/LoadBalancer';
 import MediaNode from '../../../src/media/MediaNode';
@@ -9,13 +9,13 @@ import LBStrategyFactoryMock from '../../../__mocks__/LBStrategyFactoryMock';
 const mediaNode1 = {} as unknown as MediaNode;
 const mediaNode2 = {} as unknown as MediaNode;
 
-test('Should return mediaNodes on no candidates', () => {
+test('Should return original order on no candidates', () => {
 	const room = {} as unknown as Room;
 	const peer = {} as unknown as Peer;
-	const mediaNodes = List<MediaNode>();
+	const copyOfMediaNodes: MediaNode[] = [];
 
-	mediaNodes.add(mediaNode1);
-	mediaNodes.add(mediaNode2);
+	copyOfMediaNodes.push(mediaNode1);
+	copyOfMediaNodes.push(mediaNode2);
 	const sticky = {
 		getCandidates: jest.fn().mockImplementation(() => {
 			return [];
@@ -27,20 +27,24 @@ test('Should return mediaNodes on no candidates', () => {
 	const sut = new LoadBalancer(factory);
 	const spyStickyGetCandidates = jest.spyOn(sticky, 'getCandidates');
 
-	const candidates = sut.getCandidates(mediaNodes, room, peer);
+	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
 
 	expect(spyCreateSticky).toHaveBeenCalledTimes(1);
 	expect(spyCreateStrategies).toHaveBeenCalledTimes(1);
 	expect(spyStickyGetCandidates).toHaveBeenCalledTimes(1);
-	expect(candidates).toBe(mediaNodes.items);
+	expect(candidates[0]).toBe(copyOfMediaNodes[0].id);
+	expect(candidates[1]).toBe(copyOfMediaNodes[1].id);
 });
 
 test('Should return candidates on sticky candidates', () => {
 	const room = {} as unknown as Room;
 	const peer = {} as unknown as Peer;
-	const mediaNodes = List<MediaNode>();
+	const copyOfMediaNodes: MediaNode[] = [];
 
-	const stickyCandidates = [ mediaNode1 ];
+	copyOfMediaNodes.push(mediaNode1);
+	copyOfMediaNodes.push(mediaNode2);
+
+	const stickyCandidates = [ mediaNode2 ];
 	const sticky = {
 		getCandidates: jest.fn().mockImplementation(() => {
 			return stickyCandidates;
@@ -49,19 +53,20 @@ test('Should return candidates on sticky candidates', () => {
 	const factory = new LBStrategyFactoryMock(sticky) as unknown as LBStrategyFactory;
 	const sut = new LoadBalancer(factory);
 
-	const candidates = sut.getCandidates(mediaNodes, room, peer);
+	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
 
-	expect(candidates).toBe(stickyCandidates);
+	expect(candidates[0]).toBe(copyOfMediaNodes[1].id);
+	expect(candidates[1]).toBe(stickyCandidates[0].id);
 });
 
 test('Should use geo candidates when geo strategy', () => {
 	const room = {} as unknown as Room;
 	const peer = {} as unknown as Peer;
-	const mediaNodes = List<MediaNode>();
+	const copyOfMediaNodes: MediaNode[] = [];
 
-	mediaNodes.add(mediaNode1);
-	mediaNodes.add(mediaNode2);
-	const strategies = new Map<string, any>();
+	copyOfMediaNodes.push(mediaNode1);
+	copyOfMediaNodes.push(mediaNode2);
+	const strategies = new Map<string, LBStrategy>();
 	const geoCandidates = [ mediaNode2 ];
 	const mockGeoStrategy = {
 		getCandidates: jest.fn().mockImplementation(() => {
@@ -77,8 +82,9 @@ test('Should use geo candidates when geo strategy', () => {
 	) as unknown as LBStrategyFactory;
 	const sut = new LoadBalancer(factory);
 
-	const candidates = sut.getCandidates(mediaNodes, room, peer);
+	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
     
-	expect(candidates).toBe(geoCandidates);
+	expect(candidates[0]).toBe(mediaNode2.id);
+	expect(candidates[1]).toBe(mediaNode1.id);
 	expect(spyGetCandidates).toHaveBeenCalledTimes(1);
 });
