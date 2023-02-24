@@ -117,5 +117,32 @@ describe('MediaService', () => {
 			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(0);
 			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(1);
 		});
+		
+		it('getRouter() - Should work when loadbalancer fails', async () => {
+			const fakeMediaNode2 = {
+				id: 'id2',
+				getRouter: jest.fn(),
+			} as unknown as MediaNode;
+			const spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
+			const loadBalancer = {
+				getCandidates: () => { return undefined; } 
+			} as unknown as LoadBalancer;
+			const sut = new MediaService(loadBalancer);
+
+			sut.mediaNodes.clear();
+
+			sut.mediaNodes.add(fakeMediaNode1);
+			sut.mediaNodes.add(fakeMediaNode2);
+			
+			await sut.getRouter(fakeRoom, fakePeer);
+
+			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(1);
+			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(0);
+			
+			await sut.getRouter(fakeRoom, fakePeer);
+
+			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(1);
+			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(1);
+		});
 	});
 });
