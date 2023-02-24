@@ -10,6 +10,8 @@ import GeoPosition from './loadbalancing/GeoPosition';
 
 const logger = new Logger('MediaService');
 
+let index = 0;
+
 export interface RouterData {
 	roomId: string;
 	pipePromises: Map<string, Promise<void>>;
@@ -61,7 +63,17 @@ export default class MediaService {
 		const copyOfMediaNodes = [ ...this.mediaNodes.items ];
 		const candidateIds: LbCandidates = this.loadBalancer.getCandidates(
 			{ copyOfMediaNodes, room, peer });
-		const mediaNodeCandidate = this.mediaNodes.get(candidateIds[0]);
+
+		let mediaNodeCandidate: MediaNode | undefined;
+
+		// If we have candidates from LoadBalancer try those, else fall back to round-robin
+		if (candidateIds) {
+			mediaNodeCandidate = this.mediaNodes.get(candidateIds[0]);
+		} else {
+			mediaNodeCandidate = this.mediaNodes.items[index];
+			index += 1;
+			index %= this.mediaNodes.length;
+		}
 
 		if (!mediaNodeCandidate)
 			throw new Error('no media nodes available');
