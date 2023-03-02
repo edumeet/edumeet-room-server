@@ -11,7 +11,7 @@ const logger = new Logger('LBStrategyFactory');
 export default class LBStrategyFactory {
 	private strategies: string[];
 
-	constructor(strategies: string[]) {
+	constructor(strategies: string[] = []) {
 		logger.debug('constructor() [strategies: %s]', strategies);
 		if (!this.areValid(strategies)) {
 			throw Error('Invalid load balancing strategies');

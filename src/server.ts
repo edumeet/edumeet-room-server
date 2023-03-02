@@ -12,23 +12,7 @@ import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
 import LoadBalancer from './loadbalancing/LoadBalancer';
 import LBStrategyFactory from './loadbalancing/LBStrategyFactory';
-
-interface Config {
-	listenHost: string;
-	listenPort: string;
-	tls?: {
-		cert: string;
-		key: string;
-	};
-	mediaNodes?: Array<{
-		hostname: string;
-		port: number;
-		secret: string;
-		latitude: number;
-		longitude: number;
-	}>;
-	loadBalancingStrategies?: Array<string>;
-}
+import { Config } from './Config';
 
 const actualConfig = config as Config;
 
@@ -36,10 +20,10 @@ const logger = new Logger('Server');
 
 logger.debug('Starting...');
 
-const lbStrategyFactory = new LBStrategyFactory(config.loadBalancingStrategies);
+const lbStrategyFactory = new LBStrategyFactory(actualConfig.loadBalancingStrategies);
 const loadBalancer = new LoadBalancer(lbStrategyFactory);
 
-const mediaService = new MediaService(loadBalancer);
+const mediaService = new MediaService({ loadBalancer, config: actualConfig });
 const serverManager = new ServerManager({ mediaService });
 
 interactiveServer(serverManager);

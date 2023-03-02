@@ -1,4 +1,3 @@
-import config from '../config/config.json';
 import Room from './Room';
 import { Peer } from './Peer';
 import MediaNode from './media/MediaNode';
@@ -7,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { List, Logger, skipIfClosed } from 'edumeet-common';
 import LoadBalancer, { LbCandidates } from './loadbalancing/LoadBalancer';
 import GeoPosition from './loadbalancing/GeoPosition';
+import { Config } from './Config';
 
 const logger = new Logger('MediaService');
 
@@ -17,15 +17,20 @@ export interface RouterData {
 	pipePromises: Map<string, Promise<void>>;
 }
 
+export interface MediaServiceOptions {
+	loadBalancer: LoadBalancer;
+	config: Config
+}
+
 export default class MediaService {
 	public closed = false;
 	public mediaNodes = List<MediaNode>();
 	private loadBalancer: LoadBalancer;
 
-	constructor(loadBalancer: LoadBalancer) {
+	constructor({ loadBalancer, config } : MediaServiceOptions) {
 		logger.debug('constructor()');
 
-		this.loadMediaNodes();
+		this.loadMediaNodes(config);
 		this.loadBalancer = loadBalancer;
 	}
 
@@ -40,7 +45,7 @@ export default class MediaService {
 	}
 
 	@skipIfClosed
-	private loadMediaNodes(): void {
+	private loadMediaNodes(config: Config): void {
 		logger.debug('loadMediaNodes()');
 
 		for (const { hostname, port, secret, longitude, latitude } of config.mediaNodes) {
