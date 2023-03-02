@@ -5,6 +5,7 @@ import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
 import { userRoles } from '../../src/common/authorization';
 import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
+import { Config } from '../../src/Config';
 
 describe('Room', () => {
 	let room1: Room;
@@ -23,13 +24,14 @@ describe('Room', () => {
 	const roomName1 = 'testRoomName1';
 	const roomName2 = 'testRoomName2';
 	const roomName3 = 'testRoomName3';
-	const lb = {} as unknown as LoadBalancer;	
+	const config = { mediaNodes: [] } as unknown as Config;
+	const loadBalancer = {} as unknown as LoadBalancer;	
 
 	beforeEach(() => {
 		
 		room1 = new Room({
 			id: roomId1,
-			mediaService: new MediaService(lb),
+			mediaService: new MediaService({ loadBalancer, config }),
 			name: roomName1,
 		});
 
@@ -433,12 +435,12 @@ describe('Room', () => {
 		beforeEach(() => {
 			room2 = new Room({
 				id: roomId2,
-				mediaService: new MediaService(lb),
+				mediaService: new MediaService({ loadBalancer, config }),
 				name: roomName2,
 			});
 			room3 = new Room({
 				id: roomId3,
-				mediaService: new MediaService(lb),
+				mediaService: new MediaService({ loadBalancer, config }),
 				name: roomName3,
 				parent: room2
 			});

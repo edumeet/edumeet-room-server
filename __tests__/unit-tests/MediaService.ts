@@ -5,16 +5,25 @@ import Room from '../../src/Room';
 import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
 import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
+import { Config } from '../../src/Config';
 
+const config = {
+	listenPort: 3000,
+	listenHost: 3000,
+	mediaNodes: []
+} as unknown as Config;
+		
 describe('MediaService', () => {
 	it('Has correct properties', () => {
-		const sut = new MediaService({} as unknown as LoadBalancer);
+		const loadBalancer = {} as unknown as LoadBalancer;
+		const sut = new MediaService({ loadBalancer, config });
 
 		expect(sut.closed).toBe(false);
 	});
 
 	it('close()', () => {
-		const sut = new MediaService({} as unknown as LoadBalancer);
+		const loadBalancer = {} as unknown as LoadBalancer;
+		const sut = new MediaService({ loadBalancer, config });
 
 		sut.close();
 		expect(sut.closed).toBe(true);
@@ -30,7 +39,7 @@ describe('MediaService', () => {
 		let fakeRoom: Room;
 		let fakePeer: Peer;
 		let spyRoomAddRouter: jest.SpyInstance;
-		let lb: LoadBalancer;
+		let loadBalancer: LoadBalancer;
 		let mediaService: MediaService;
 
 		beforeEach(() => {
@@ -51,11 +60,10 @@ describe('MediaService', () => {
 			} as unknown as MediaNode;
 			spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
 			spyMediaNode1GetRouter = jest.spyOn(fakeMediaNode1, 'getRouter');
-			lb = { getCandidates: jest.fn().mockImplementation(() => {
+			loadBalancer = { getCandidates: jest.fn().mockImplementation(() => {
 				return [ fakeMediaNode1.id ];
 			}) } as unknown as LoadBalancer; 
-			mediaService = new MediaService(lb);
-			mediaService.mediaNodes.clear();
+			mediaService = new MediaService({ loadBalancer, config });
 		});
 		afterEach(() => {
 			jest.clearAllMocks();
@@ -82,7 +90,7 @@ describe('MediaService', () => {
 		});
 		
 		it('getRouter() - Should throw on no mediaNodes', async () => {
-			jest.spyOn(lb, 'getCandidates').mockImplementation(() => {
+			jest.spyOn(loadBalancer, 'getCandidates').mockImplementation(() => {
 				return [];
 			});
 			await expect(mediaService.getRouter(fakeRoom, fakePeer)).
@@ -104,10 +112,10 @@ describe('MediaService', () => {
 			} as unknown as MediaNode;
 			const spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
 
-			const loadBalancer = {
+			loadBalancer = {
 				getCandidates: () => { return [ fakeMediaNode2.id ]; } 
 			} as unknown as LoadBalancer;
-			const sut = new MediaService(loadBalancer);
+			const sut = new MediaService({ loadBalancer, config });
 
 			sut.mediaNodes.add(fakeMediaNode1);
 			sut.mediaNodes.add(fakeMediaNode2);
@@ -124,12 +132,11 @@ describe('MediaService', () => {
 				getRouter: jest.fn(),
 			} as unknown as MediaNode;
 			const spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
-			const loadBalancer = {
+
+			loadBalancer = {
 				getCandidates: () => { return undefined; } 
 			} as unknown as LoadBalancer;
-			const sut = new MediaService(loadBalancer);
-
-			sut.mediaNodes.clear();
+			const sut = new MediaService({ loadBalancer, config });
 
 			sut.mediaNodes.add(fakeMediaNode1);
 			sut.mediaNodes.add(fakeMediaNode2);

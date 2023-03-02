@@ -4,13 +4,17 @@ import MediaService from '../../src/MediaService';
 import ServerManager from '../../src/ServerManager';
 import { Socket } from 'socket.io';
 import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
+import { Config } from '../../src/Config';
 
 describe('ServerManager', () => {
 	let serverManager: ServerManager;
-	const lb = {} as unknown as LoadBalancer;
+	const config = { mediaNodes: [] } as unknown as Config;
+	const loadBalancer = {} as unknown as LoadBalancer;
 
 	beforeEach(() => {
-		serverManager = new ServerManager({ mediaService: new MediaService(lb) });
+		serverManager = new ServerManager({
+			mediaService: new MediaService({ loadBalancer, config }) 
+		});
 	});
 
 	afterEach(() => {
