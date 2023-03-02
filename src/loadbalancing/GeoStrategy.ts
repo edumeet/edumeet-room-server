@@ -56,7 +56,7 @@ export default class GeoStrategy extends LBStrategy {
 			
 			return filteredCandidates;
 		} catch (err) {
-			logger.error(err);
+			if (err instanceof Error) logger.error(err.message);
 			
 			return mediaNodes;
 		}
@@ -82,7 +82,7 @@ export default class GeoStrategy extends LBStrategy {
 			return sortedCandidates;
 
 		} catch (err) {
-			logger.error(err);
+			if (err instanceof Error) logger.error(err.message);
 			
 			return mediaNodes;
 		}

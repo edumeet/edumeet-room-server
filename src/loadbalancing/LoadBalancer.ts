@@ -33,21 +33,30 @@ export default class LoadBalancer {
 		room,
 		peer
 	}: LoadBalancerOptions): LbCandidates {
-		logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
-		let mediaNodes: MediaNode[];
+		try {
+			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
+			let mediaNodes: MediaNode[];
 
-		mediaNodes = this.stickyStrategy.getCandidates(copyOfMediaNodes, room);
+			mediaNodes = this.stickyStrategy.getCandidates(copyOfMediaNodes, room);
 
-		const geoStrategy = this.strategies.get(LB_STRATEGIES.GEO) as unknown as GeoStrategy;
+			const geoStrategy = this.strategies.get(
+				LB_STRATEGIES.GEO
+			) as unknown as GeoStrategy;
 
-		if (geoStrategy) {
-			mediaNodes = geoStrategy.getCandidates(copyOfMediaNodes, mediaNodes, peer);
-		}
+			if (this.strategies.has(LB_STRATEGIES.GEO)) {
+				mediaNodes = geoStrategy.getCandidates(copyOfMediaNodes, mediaNodes, peer);
+			}
 		
-		if (mediaNodes.length > 0) {
-			return this.createCandidates(mediaNodes);
-		} else {
-			return this.createCandidates(copyOfMediaNodes);
+			if (mediaNodes.length > 0) {
+				return this.createCandidates(mediaNodes);
+			} else {
+				return this.createCandidates(copyOfMediaNodes);
+			}
+
+		} catch (err) {
+			if (err instanceof Error) logger.error('Error while getting candidates');
+			
+			return [];
 		}
 	}
 
