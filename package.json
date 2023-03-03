@@ -1,6 +1,6 @@
 {
 	"name": "edumeet-room-server",
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"description": "Edumeet room server",
 	"main": "dist/src/server.js",
 	"author": "Håvar Aambø Fosstveit <havar@fosstveit.net>",
