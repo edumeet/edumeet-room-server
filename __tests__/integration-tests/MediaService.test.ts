@@ -68,4 +68,5 @@ test('getRouter() should get router', async () => {
 	expect(room.routers.length).toBe(1);
 	expect(router.closed).toBeFalsy();
 	expect(router.appData.roomId).toBe(room.id);
+	router.close();
 });
