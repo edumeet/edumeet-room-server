@@ -35,8 +35,6 @@ export default class GeoPosition {
 	}
 
 	public getDistance(positionToCompare: GeoPosition) {
-		logger.debug('getDistance() [positionToCompare: %s]', positionToCompare);
-		
 		return this.calculateDistance(this, positionToCompare);
 	}
 
