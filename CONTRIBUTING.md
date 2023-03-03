@@ -39,7 +39,7 @@ The following steps will get you setup to contribute changes to this repo:
     ```
 5. Create pull request to the main branch of edumeet-room-server.
 ### Git hooks
-We're using husky git-hooks. When you do a commit, it will fail if `yarn lint` fails. When you do a push, it will fail if `yarn test` or `yarn build` fails.
+We're using husky git-hooks. When you do a commit, it will fail if `yarn lint` fails. When you do a push, it will fail if `yarn test:unit` or `yarn build` fails.
 
 ### Commands
 **`DEBUG=edumeet-room-server:* yarn start`**
@@ -56,7 +56,7 @@ We're using husky git-hooks. When you do a commit, it will fail if `yarn lint` f
 
 **`yarn test:coverage`**
 
-- export test coverage
+- export unit-test coverage
 
 ### Tests
 
