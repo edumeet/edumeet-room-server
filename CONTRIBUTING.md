@@ -17,26 +17,26 @@ The following steps will get you setup to contribute changes to this repo:
 
 4. You should probably get your IDE working with our eslint config. This is an example of `.vscode/settings.json` and it's how I (pnts-se) personally get it to work on Vscode.
 
-```json
-{
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
-  "eslint.format.enable": true,
-  "editor.defaultFormatter": "dbaeumer.vscode-eslint",
-  "editor.formatOnSave": true,
-  "editor.formatOnSaveMode": "modifications",
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true,
-  },
-  "[json]": {
-    "editor.defaultFormatter": "vscode.json-language-features"
-  },
-}
-```
+    ```json
+    {
+      "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact"
+      ],
+      "eslint.format.enable": true,
+      "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+      "editor.formatOnSave": true,
+      "editor.formatOnSaveMode": "modifications",
+      "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true,
+      },
+      "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+      },
+    }
+    ```
 5. Create pull request to the main branch of edumeet-room-server.
 ### Git hooks
 We're using husky git-hooks. When you do a commit, it will fail if `yarn lint` fails. When you do a push, it will fail if `yarn test` or `yarn build` fails.
