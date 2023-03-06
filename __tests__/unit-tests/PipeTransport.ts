@@ -5,6 +5,7 @@ import MediaNode from '../../src/media/MediaNode';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../../src/common/types';
 import { PipeTransport } from '../../src/media/PipeTransport';
+import { MediaKind } from 'edumeet-common';
 
 describe('PipeTransport', () => {
 	let pipeTransport: PipeTransport;
@@ -107,7 +108,7 @@ describe('PipeTransport', () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
 					expect(data.pipeTransportId).toBe(pipeTransportId);
 					expect(data.producerId).toBe(producerId);
-					expect(data.kind).toBe('audio');
+					expect(data.kind).toBe(MediaKind.AUDIO);
 					expect(data.paused).toBe(false);
 					expect(data.rtpParameters).toBe(rtpParameters);
 
@@ -118,7 +119,7 @@ describe('PipeTransport', () => {
 
 		const pipeProducer = await pipeTransport.produce({
 			producerId,
-			kind: 'audio',
+			kind: MediaKind.AUDIO,
 			paused: false,
 			rtpParameters,
 		});
@@ -142,7 +143,7 @@ describe('PipeTransport', () => {
 
 					return {
 						id: consumerId,
-						kind: 'audio',
+						kind: MediaKind.AUDIO,
 						producerPaused: false,
 						rtpParameters,
 					};

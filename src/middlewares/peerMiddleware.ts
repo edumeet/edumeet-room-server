@@ -28,7 +28,7 @@ export const createPeerMiddleware = ({
 
 				peer.displayName = displayName;
 
-				room.notifyPeers('peerDisplayNameChanged', {
+				room.notifyPeers('changeDisplayName', {
 					peerId: peer.id,
 					displayName
 				}, peer);
@@ -64,6 +64,24 @@ export const createPeerMiddleware = ({
 					raisedHand,
 					raisedHandTimestamp: peer.raisedHandTimestamp
 				}, peer);
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'escapeMeeting': {
+				const { escapeMeeting } = message.data;
+
+				peer.escapeMeeting = escapeMeeting;
+
+				if (escapeMeeting) {
+					if (!room.peers.items.some((p) => !p.escapeMeeting)) {
+						room.notifyPeers('escapeMeeting', {});
+
+						room.close();
+					}
+				}
 
 				context.handled = true;
 

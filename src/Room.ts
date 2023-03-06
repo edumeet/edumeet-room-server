@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import MediaService from './MediaService';
 import { createMediaMiddleware } from './middlewares/mediaMiddleware';
 import { Peer, PeerContext } from './Peer';
@@ -128,7 +128,10 @@ export default class Room extends EventEmitter {
 	}
 
 	public addRouter(router: Router): void {
-		this.parent?.addRouter(router) ?? this.pushRouter(router);
+		if (this.parent)
+			this.parent.addRouter(router);
+		else
+			this.pushRouter(router);
 	}
 
 	@skipIfClosed

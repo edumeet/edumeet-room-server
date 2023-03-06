@@ -1,6 +1,7 @@
 import { Peer } from '../Peer';
 import Room from '../Room';
 import { Role } from './types';
+import { MediaSourceType } from 'edumeet-common';
 
 export const userRoles: Record<string, Role> = {
 	// These can be changed, id must be unique.
@@ -174,34 +175,34 @@ export const permittedPeers = (
 	);
 };
 
-export const permittedProducer = (source: string, room: Room, peer: Peer) => {
+export const permittedProducer = (source: MediaSourceType, room: Room, peer: Peer) => {
 	if (
 		!source ||
-		![ 'mic', 'webcam', 'screen', 'screenaudio', 'extravideo' ]
+		!Object.values(MediaSourceType)
 			.includes(source)
 	)
 		throw new Error('invalid producer source');
 
 	if (
-		(source === 'mic' || source === 'screenaudio') &&
+		(source === MediaSourceType.MIC || source === MediaSourceType.SCREENAUDIO) &&
 		!hasPermission(room, peer, Permission.SHARE_AUDIO)
 	)
 		throw new Error('peer not authorized');
 
 	if (
-		source === 'webcam' &&
+		source === MediaSourceType.WEBCAM &&
 		!hasPermission(room, peer, Permission.SHARE_VIDEO)
 	)
 		throw new Error('peer not authorized');
 
 	if (
-		source === 'screen' &&
+		source === MediaSourceType.SCREEN &&
 		!hasPermission(room, peer, Permission.SHARE_SCREEN)
 	)
 		throw new Error('peer not authorized');
 
 	if (
-		source === 'extravideo' &&
+		source === MediaSourceType.EXTRAVIDEO &&
 		!hasPermission(room, peer, Permission.EXTRA_VIDEO)
 	)
 		throw new Error('peer not authorized');

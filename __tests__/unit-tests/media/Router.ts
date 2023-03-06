@@ -11,6 +11,7 @@ import { EventEmitter } from 'events';
 import { DataProducer } from '../../../src/media/DataProducer';
 import { PipeDataProducer } from '../../../src/media/PipeDataProducer';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
+import { MediaKind } from 'edumeet-common';
 
 class MockMediaNodeConnection extends EventEmitter {
 	pipeline = { use: jest.fn(), remove: jest.fn() };
@@ -47,19 +48,19 @@ class MockDataConsumer extends EventEmitter {
 }
 
 class MockPipeConsumer extends EventEmitter {
-	kind = 'video';
+	kind = MediaKind.VIDEO;
 	close = jest.fn();
 }
 
 class MockPipeProducer extends EventEmitter {
 	close = jest.fn();
-	kind = 'video';
+	kind = MediaKind.VIDEO;
 	pause = jest.fn();
 }
 
 class MockPipeProducerPaused extends EventEmitter {
 	close = jest.fn();
-	kind = 'video';
+	kind = MediaKind.VIDEO;
 	paused = false;
 	public async resume(): Promise<void> { this.paused = false; }
 	public async pause(): Promise<void> { this.paused = true; }
@@ -160,7 +161,7 @@ describe('Router', () => {
 		const producerId = 'testProducerId';
 		const rtpCapabilities = {
 			codecs: [ {
-				kind: 'audio',
+				kind: MediaKind.AUDIO,
 				mimeType: 'audio/opus',
 				clockRate: 48000,
 				channels: 2,
@@ -269,13 +270,13 @@ describe('Router', () => {
 				paused: false,
 				router: router1,
 				connection: mockConnection3,
-				kind: 'audio',
+				kind: MediaKind.AUDIO,
 				rtpParameters: {} as RtpParameters,
 			} as unknown as Producer;
 			fakeProducer2 = { id: 'id' } as unknown as Producer;
 			fakePipeConsumer = {
 				id: 'id',
-				kind: 'audio',
+				kind: MediaKind.AUDIO,
 				producerPaused: false,
 				rtpParameters: {} as RtpParameters,
 			} as unknown as PipeConsumer;
@@ -331,7 +332,7 @@ describe('Router', () => {
 						expect(data.routerId).toBe(router2.id);
 						expect(data.pipeTransportId).toBe(fakePipeTransport2.id);
 						expect(data.producerId).toBe(fakeProducer1.id);
-						expect(data.kind).toBe('audio');
+						expect(data.kind).toBe(MediaKind.AUDIO);
 						expect(data.paused).toBe(false);
 						expect(data.rtpParameters).toEqual(fakeProducer1.rtpParameters);
 
@@ -432,7 +433,7 @@ describe('Router', () => {
 						expect(data.routerId).toBe(router3.id);
 						expect(data.pipeTransportId).toBe(fakePipeTransport2.id);
 						expect(data.producerId).toBe(fakeProducer1.id);
-						expect(data.kind).toBe('audio');
+						expect(data.kind).toBe(MediaKind.AUDIO);
 						expect(data.paused).toBe(false);
 						expect(data.rtpParameters).toEqual(fakeProducer1.rtpParameters);
 

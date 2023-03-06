@@ -45,12 +45,12 @@ export const createBreakoutMiddleware = ({
 
 			case 'joinRoom': {
 				const { sessionId } = message.data;
-				const joinRoom = room.rooms.get(sessionId);
+				const roomToJoin = room.rooms.get(sessionId);
 
-				if (!joinRoom)
+				if (!roomToJoin)
 					throw new Error('room not found');
 
-				joinRoom.addPeer(peer);
+				roomToJoin.addPeer(peer);
 				context.handled = true;
 
 				break;

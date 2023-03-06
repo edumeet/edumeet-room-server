@@ -1,15 +1,16 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { Producer, ProducerOptions } from './Producer';
 import { Consumer, ConsumerOptions } from './Consumer';
 import { Router } from './Router';
 import { createWebRtcTransportMiddleware } from '../middlewares/webRtcTransportMiddleware';
-import { MediaKind, RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup-client/lib/Transport';
 import { SctpParameters, SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
 import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { DataProducer, DataProducerOptions } from './DataProducer';
 import { DataConsumer, DataConsumerOptions } from './DataConsumer';
+import { MediaKind } from 'edumeet-common';
 
 const logger = new Logger('WebRtcTransport');
 

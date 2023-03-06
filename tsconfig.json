@@ -1,11 +1,8 @@
 {
-	"extends": "@tsconfig/node18/tsconfig.json",
-	"compilerOptions": {
-		"experimentalDecorators": true,
-		"outDir": "dist",
-		"resolveJsonModule": true,
-		"esModuleInterop": true,
-	},
-	"include": ["src", "__tests__"],
-	"exclude": ["node_modules", "connect.js"]
+	"references": [
+		{ "path": "./src" },
+		{ "path": "./__tests__" },
+		{ "path": "./__mocks__" },
+	],
+	"files": [],
 }

@@ -1,9 +1,10 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { Router } from './Router';
 import { createPipeProducerMiddleware } from '../middlewares/pipeProducerMiddleware';
-import { MediaKind, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { MediaKind } from 'edumeet-common';
 
 const logger = new Logger('PipeProducer');
 
