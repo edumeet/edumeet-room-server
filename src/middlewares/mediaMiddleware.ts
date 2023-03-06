@@ -1,4 +1,4 @@
-import { Logger, Middleware } from 'edumeet-common';
+import { Logger, MediaKind, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumer, createDataConsumer } from '../common/consuming';
@@ -68,7 +68,10 @@ export const createMediaMiddleware = ({
 				(async () => {
 					for (const consumerPeer of room.getPeers(peer)) {
 						// Avoid to create video consumer if a peer is in audio-only mode
-						if (producer.kind === 'audio' || (producer.kind === 'video' && !consumerPeer.audioOnly))
+						if (
+							producer.kind === MediaKind.AUDIO ||
+							(producer.kind === MediaKind.VIDEO && !consumerPeer.audioOnly)
+						)
 							await createConsumer(consumerPeer, peer, producer);
 					}
 				})();

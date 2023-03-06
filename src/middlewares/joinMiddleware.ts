@@ -1,4 +1,4 @@
-import { Logger, Middleware } from 'edumeet-common';
+import { Logger, MediaKind, Middleware } from 'edumeet-common';
 import {
 	hasPermission,
 	Permission,
@@ -29,7 +29,7 @@ export const createJoinMiddleware = ({
 
 		if (!thisSession(room, message))
 			return next();
-		
+
 		switch (message.method) {
 			case 'join': {
 				// These input parameters should not be provided to sub-rooms
@@ -41,10 +41,10 @@ export const createJoinMiddleware = ({
 						audioOnly,
 						rtpCapabilities,
 					} = message.data;
-	
+
 					if (!rtpCapabilities)
 						throw new Error('missing rtpCapabilities');
-	
+
 					peer.displayName = displayName;
 					peer.picture = picture;
 					peer.audioOnly = audioOnly;
@@ -69,11 +69,14 @@ export const createJoinMiddleware = ({
 						for (const joinedPeer of room.getPeers(peer)) {
 							for (const producer of joinedPeer.producers.values()) {
 								const { appData: { sessionId } } = producer;
-	
+
 								// We only want to consume producers in the same session
 								if (!producer.closed && sessionId === room.sessionId) {
 									// Avoid to create video consumer if a peer is in audio-only mode
-									if (producer.kind === 'audio' || (producer.kind === 'video' && !peer.audioOnly))
+									if (
+										producer.kind === MediaKind.AUDIO ||
+										(producer.kind === MediaKind.VIDEO && !peer.audioOnly)
+									)
 										await createConsumer(peer, joinedPeer, producer);
 								}
 							}
@@ -83,7 +86,7 @@ export const createJoinMiddleware = ({
 						for (const joinedPeer of room.getPeers(peer)) {
 							for (const dataProducer of joinedPeer.dataProducers.values()) {
 								const { appData: { sessionId } } = dataProducer;
-	
+
 								// We only want to consume dataProducers in the same session
 								if (!dataProducer.closed && sessionId === room.sessionId)
 									await createDataConsumer(peer, joinedPeer, dataProducer);
