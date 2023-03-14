@@ -3,7 +3,7 @@ import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConn
 import { Router } from './Router';
 import { PipeConsumer, PipeConsumerOptions } from './PipeConsumer';
 import { PipeProducer, PipeProducerOptions } from './PipeProducer';
-import { createPipeTransportMiddleware } from '../middlewares/pipeTransportMiddleware';
+import { createPipeTransportsMiddleware } from '../middlewares/pipeTransportsMiddleware';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../common/types';
 import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
@@ -74,8 +74,6 @@ export class PipeTransport extends EventEmitter {
 	public pipeDataConsumers: Map<string, PipeDataConsumer> = new Map();
 	public pipeDataProducers: Map<string, PipeDataProducer> = new Map();
 
-	private pipeTransportMiddleware: Middleware<MediaNodeConnectionContext>;
-
 	constructor({
 		router,
 		connection,
@@ -97,10 +95,6 @@ export class PipeTransport extends EventEmitter {
 		this.srtpParameters = srtpParameters;
 		this.appData = appData;
 
-		this.pipeTransportMiddleware = createPipeTransportMiddleware({
-			pipeTransport: this
-		});
-
 		this.handleConnection();
 	}
 
@@ -109,8 +103,6 @@ export class PipeTransport extends EventEmitter {
 		logger.debug('close()');
 
 		this.closed = true;
-
-		this.connection.pipeline.remove(this.pipeTransportMiddleware);
 
 		if (!remoteClose) {
 			this.connection.notify({
@@ -133,8 +125,6 @@ export class PipeTransport extends EventEmitter {
 		logger.debug('handleConnection()');
 
 		this.connection.once('close', () => this.close(true));
-
-		this.connection.pipeline.use(this.pipeTransportMiddleware);
 	}
 
 	@skipIfClosed
@@ -232,7 +222,11 @@ export class PipeTransport extends EventEmitter {
 		});
 
 		this.pipeConsumers.set(pipeConsumer.id, pipeConsumer);
-		pipeConsumer.once('close', () => this.pipeConsumers.delete(id));
+		this.router.pipeConsumers.set(pipeConsumer.id, pipeConsumer);
+		pipeConsumer.once('close', () => {
+			this.pipeConsumers.delete(id);
+			this.router.pipeConsumers.delete(id);
+		});
 
 		return pipeConsumer;
 	}
@@ -312,7 +306,11 @@ export class PipeTransport extends EventEmitter {
 		});
 
 		this.pipeDataConsumers.set(pipeDataConsumer.id, pipeDataConsumer);
-		pipeDataConsumer.once('close', () => this.pipeDataConsumers.delete(id));
+		this.router.pipeDataConsumers.set(pipeDataConsumer.id, pipeDataConsumer);
+		pipeDataConsumer.once('close', () => {
+			this.pipeDataConsumers.delete(id);
+			this.router.pipeDataConsumers.delete(id);
+		});
 
 		return pipeDataConsumer;
 	}

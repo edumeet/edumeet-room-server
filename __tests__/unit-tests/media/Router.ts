@@ -128,11 +128,8 @@ describe('Router', () => {
 	});
 
 	it('close()', () => {
-		const routerMiddleware = router1['routerMiddleware'];
-
 		router1.close();
 		expect(router1.closed).toBe(true);
-		expect(router1.connection.pipeline.remove).toHaveBeenCalledWith(routerMiddleware);
 	});
 
 	it('close() - Should close transports', () => {

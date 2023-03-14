@@ -1,9 +1,8 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
+import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
-import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { Logger, skipIfClosed } from 'edumeet-common';
 import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
-import { createPipeDataConsumerMiddleware } from '../middlewares/pipeDataConsumerMiddleware';
 
 const logger = new Logger('PipeDataConsumer');
 
@@ -37,8 +36,6 @@ export class PipeDataConsumer extends EventEmitter {
 	public protocol?: string;
 	public appData: Record<string, unknown>;
 
-	private pipeDataconsumerMiddleware: Middleware<MediaNodeConnectionContext>;
-
 	constructor({
 		router,
 		connection,
@@ -62,9 +59,6 @@ export class PipeDataConsumer extends EventEmitter {
 		this.protocol = protocol;
 		this.appData = appData;
 
-		this.pipeDataconsumerMiddleware =
-			createPipeDataConsumerMiddleware({ pipeDataConsumer: this });
-
 		this.handleConnection();
 	}
 
@@ -73,8 +67,6 @@ export class PipeDataConsumer extends EventEmitter {
 		logger.debug('close() [id:%s, remoteClose:%s]', this.id, remoteClose);
 
 		this.closed = true;
-
-		this.connection.pipeline.remove(this.pipeDataconsumerMiddleware);
 
 		if (!remoteClose) {
 			this.connection.notify({
@@ -94,7 +86,5 @@ export class PipeDataConsumer extends EventEmitter {
 		logger.debug('handleConnection()');
 
 		this.connection.once('close', () => this.close(true));
-
-		this.connection.pipeline.use(this.pipeDataconsumerMiddleware);
 	}
 }

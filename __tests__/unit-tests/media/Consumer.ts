@@ -79,13 +79,6 @@ describe('Consumer', () => {
 		consumer.close();
 		expect(spyNotify).toHaveBeenCalled();
 	});
-	
-	it('close() - Should remove consumer middleware from pipeline', () => {
-		const spyRemove = jest.spyOn(consumer.connection.pipeline, 'remove');
-
-		consumer.close();
-		expect(spyRemove).toHaveBeenCalled();
-	});
 
 	it('setProducerPaused() - Should emit producerpause', () => {
 		consumer.setProducerPaused();

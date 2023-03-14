@@ -69,13 +69,6 @@ describe('Consumer', () => {
 		dataConsumer.close(remoteClose);
 		expect(spyNotify).toHaveBeenCalledWith(expected);
 	});
-	
-	it('close() - Should remove consumer middleware from pipeline', () => {
-		const spyRemove = jest.spyOn(dataConsumer.connection.pipeline, 'remove');
-
-		dataConsumer.close();
-		expect(spyRemove).toHaveBeenCalled();
-	});
 
 	it('Should be closed after close event from connection', () => {
 		expect(dataConsumer.closed).toBe(false);

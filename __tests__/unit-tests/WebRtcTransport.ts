@@ -67,8 +67,6 @@ describe('WebRtcTransport', () => {
 	});
 
 	it('close()', () => {
-		const webRtcTransportMiddleware = webRtcTransport['webRtcTransportMiddleware'];
-
 		webRtcTransport.connection.notify = jest.fn(({ method, data }) => {
 			return ({
 				'closeWebRtcTransport': () => {
@@ -81,8 +79,6 @@ describe('WebRtcTransport', () => {
 		webRtcTransport.close();
 		expect(webRtcTransport.connection.notify).toBeCalledTimes(1);
 		expect(webRtcTransport.closed).toBe(true);
-		expect(webRtcTransport.connection.pipeline.remove).
-			toHaveBeenCalledWith(webRtcTransportMiddleware);
 	});
 
 	it('connect()', async () => {

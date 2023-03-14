@@ -1,6 +1,7 @@
 import { Producer } from '../../../src/media/Producer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
-import { createProducerMiddleware } from '../../../src/middlewares/producerMiddleware';
+import { createProducersMiddleware } from '../../../src/middlewares/producersMiddleware';
+import { Router } from '../../../src/media/Router';
 
 const next = jest.fn();
 
@@ -18,7 +19,21 @@ test.each([
 		},
 		close: jest.fn()
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const router = {
+		id: routerId,
+		producers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -42,7 +57,21 @@ test('Should not handle unrelated methods', async () => {
 			id: 'id'
 		},
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const router = {
+		id: 'id',
+		producers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -68,7 +97,21 @@ test('Should close producer', async () => {
 		},
 		close: spy
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const router = {
+		id: 'id',
+		producers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -95,7 +138,21 @@ test('Should set score', async () => {
 		},
 		setScore: spy
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const router = {
+		id: 'id',
+		producers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,

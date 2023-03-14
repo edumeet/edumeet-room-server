@@ -1,6 +1,7 @@
 import { Consumer } from '../../../src/media/Consumer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
-import { createConsumerMiddleware } from '../../../src/middlewares/consumerMiddleware';
+import { Router } from '../../../src/media/Router';
+import { createConsumersMiddleware } from '../../../src/middlewares/consumersMiddleware';
 
 const next = jest.fn();
 
@@ -18,7 +19,21 @@ test.each([
 		},
 		close: jest.fn()
 	} as unknown as Consumer;
-	const sut = createConsumerMiddleware({ consumer });
+
+	const consumers = new Map<string, Consumer>();
+
+	consumers.set(consumer.id, consumer);
+
+	const router = {
+		id: routerId,
+		consumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -42,7 +57,21 @@ test('Should not handle unrelated methods', async () => {
 			id: 'id'
 		},
 	} as unknown as Consumer;
-	const sut = createConsumerMiddleware({ consumer });
+
+	const consumers = new Map<string, Consumer>();
+
+	consumers.set(consumer.id, consumer);
+
+	const router = {
+		id: 'id',
+		consumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -68,7 +97,21 @@ test('Should close consumer', async () => {
 		},
 		close: spy
 	} as unknown as Consumer;
-	const sut = createConsumerMiddleware({ consumer });
+
+	const consumers = new Map<string, Consumer>();
+
+	consumers.set(consumer.id, consumer);
+
+	const router = {
+		id: 'id',
+		consumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -95,7 +138,21 @@ test('Should pause producer', async () => {
 		},
 		setProducerPaused: spy
 	} as unknown as Consumer;
-	const sut = createConsumerMiddleware({ consumer });
+
+	const consumers = new Map<string, Consumer>();
+
+	consumers.set(consumer.id, consumer);
+
+	const router = {
+		id: 'id',
+		consumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -122,7 +179,21 @@ test('Should resume producer', async () => {
 		},
 		setProducerResumed: spy
 	} as unknown as Consumer;
-	const sut = createConsumerMiddleware({ consumer });
+
+	const consumers = new Map<string, Consumer>();
+
+	consumers.set(consumer.id, consumer);
+
+	const router = {
+		id: 'id',
+		consumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -149,7 +220,21 @@ test('Should set score', async () => {
 		},
 		setScore: spy
 	} as unknown as Consumer;
-	const sut = createConsumerMiddleware({ consumer });
+	
+	const consumers = new Map<string, Consumer>();
+
+	consumers.set(consumer.id, consumer);
+
+	const router = {
+		id: 'id',
+		consumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -177,7 +262,21 @@ test('Should set consumers layer', async () => {
 		},
 		setLayers: spy
 	} as unknown as Consumer;
-	const sut = createConsumerMiddleware({ consumer });
+	
+	const consumers = new Map<string, Consumer>();
+
+	consumers.set(consumer.id, consumer);
+
+	const router = {
+		id: 'id',
+		consumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,

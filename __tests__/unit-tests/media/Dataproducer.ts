@@ -51,7 +51,6 @@ describe('DataProducer', () => {
 	});
 
 	it('close() - Should be closed and notify connection', () => {
-		const spyRemove = jest.spyOn(fakeConnection.pipeline, 'remove');
 		const expected = { method: CLOSE_METHOD,
 			data: {
 				routerId: fakeRouter.id,
@@ -61,7 +60,6 @@ describe('DataProducer', () => {
 
 		dataProducer.close();
 		expect(dataProducer.closed).toBe(true);
-		expect(spyRemove).toHaveBeenCalled();
 		expect(spyNotify).toHaveBeenCalledWith(expected);
 	});
 
