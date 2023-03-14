@@ -1,9 +1,8 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
+import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
-import { createPipeProducerMiddleware } from '../middlewares/pipeProducerMiddleware';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
-import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { Logger, skipIfClosed } from 'edumeet-common';
 import { MediaKind } from 'edumeet-common';
 
 const logger = new Logger('PipeProducer');
@@ -36,8 +35,6 @@ export class PipeProducer extends EventEmitter {
 	public rtpParameters: RtpParameters;
 	public appData: Record<string, unknown>;
 
-	private pipeProducerMiddleware: Middleware<MediaNodeConnectionContext>;
-
 	constructor({
 		router,
 		connection,
@@ -59,10 +56,6 @@ export class PipeProducer extends EventEmitter {
 		this.rtpParameters = rtpParameters;
 		this.appData = appData;
 
-		this.pipeProducerMiddleware = createPipeProducerMiddleware({
-			pipeProducer: this
-		});
-
 		this.handleConnection();
 	}
 
@@ -71,8 +64,6 @@ export class PipeProducer extends EventEmitter {
 		logger.debug('close() [id:%s, remoteClose:%s]', this.id, remoteClose);
 
 		this.closed = true;
-
-		this.connection.pipeline.remove(this.pipeProducerMiddleware);
 
 		if (!remoteClose) {
 			this.connection.notify({
@@ -92,8 +83,6 @@ export class PipeProducer extends EventEmitter {
 		logger.debug('handleConnection()');
 
 		this.connection.once('close', () => this.close(true));
-
-		this.connection.pipeline.use(this.pipeProducerMiddleware);
 	}
 
 	@skipIfClosed

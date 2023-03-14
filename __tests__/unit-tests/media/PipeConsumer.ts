@@ -4,8 +4,6 @@ import { EventEmitter } from 'events';
 import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
 import { Router } from '../../../src/media/Router';
-
-import * as PipeConsumerMiddleware from '../../../src/middlewares/pipeConsumerMiddleware';
 import { MediaKind } from 'edumeet-common';
 
 class MockMediaNodeConnection extends EventEmitter {
@@ -17,8 +15,6 @@ describe('PipeConsumer', () => {
 	let mockConnection: MediaNodeConnection;
 	let fakeRouter: Router;
 	let fakeRtpParameters: RtpParameters;
-	let spyCreateMW: jest.SpyInstance;
-	let spyPipelineRemove: jest.SpyInstance;
 	let spyEmit: jest.SpyInstance;
 	let spyConnectionNotify: jest.SpyInstance;
 	const PIPE_CONSUMER_ID = 'id';
@@ -28,7 +24,6 @@ describe('PipeConsumer', () => {
 		fakeRouter = { id: 'id' } as unknown as Router;
 		mockConnection = new MockMediaNodeConnection() as unknown as MediaNodeConnection;
 		fakeRtpParameters = {} as unknown as RtpParameters;
-		spyCreateMW = jest.spyOn(PipeConsumerMiddleware, 'createPipeConsumerMiddleware');
 		pipeConsumer = new PipeConsumer({
 			id: PIPE_CONSUMER_ID,
 			router: fakeRouter,
@@ -38,7 +33,6 @@ describe('PipeConsumer', () => {
 			producerPaused: false,
 			rtpParameters: fakeRtpParameters
 		});
-		spyPipelineRemove = jest.spyOn(mockConnection.pipeline, 'remove');
 		spyEmit = jest.spyOn(pipeConsumer, 'emit');
 		spyConnectionNotify = jest.spyOn(mockConnection, 'notify');
 	});
@@ -46,15 +40,10 @@ describe('PipeConsumer', () => {
 		jest.clearAllMocks();
 	});
 
-	it('constructor - Should create pipeConsumer middleware', () => {
-		expect(spyCreateMW).toHaveBeenCalled();
-	});
-
 	it('close() - Should be close PipeConsumer', () => {
 		pipeConsumer.close();
 
 		expect(pipeConsumer.closed).toBe(true);
-		expect(spyPipelineRemove).toHaveBeenCalled();
 		expect(spyEmit).toHaveBeenCalledWith('close');
 		expect(spyConnectionNotify).toHaveBeenCalled();
 	});

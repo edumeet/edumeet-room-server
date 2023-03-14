@@ -1,13 +1,12 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
+import { MediaNodeConnection } from './MediaNodeConnection';
 import { Producer, ProducerOptions } from './Producer';
 import { Consumer, ConsumerOptions } from './Consumer';
 import { Router } from './Router';
-import { createWebRtcTransportMiddleware } from '../middlewares/webRtcTransportMiddleware';
 import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup-client/lib/Transport';
 import { SctpParameters, SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
-import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { Logger, skipIfClosed } from 'edumeet-common';
 import { DataProducer, DataProducerOptions } from './DataProducer';
 import { DataConsumer, DataConsumerOptions } from './DataConsumer';
 import { MediaKind } from 'edumeet-common';
@@ -75,8 +74,6 @@ export class WebRtcTransport extends EventEmitter {
 	public dataConsumers: Map<string, DataConsumer> = new Map();
 	public dataProducers: Map<string, DataProducer> = new Map();
 
-	private webRtcTransportMiddleware: Middleware<MediaNodeConnectionContext>;
-
 	constructor({
 		router,
 		connection,
@@ -100,10 +97,6 @@ export class WebRtcTransport extends EventEmitter {
 		this.sctpParameters = sctpParameters;
 		this.appData = appData;
 
-		this.webRtcTransportMiddleware = createWebRtcTransportMiddleware({
-			webRtcTransport: this
-		});
-
 		this.handleConnection();
 	}
 
@@ -112,8 +105,6 @@ export class WebRtcTransport extends EventEmitter {
 		logger.debug('close()');
 
 		this.closed = true;
-
-		this.connection.pipeline.remove(this.webRtcTransportMiddleware);
 
 		if (!remoteClose) {
 			this.connection.notify({
@@ -136,8 +127,6 @@ export class WebRtcTransport extends EventEmitter {
 		logger.debug('handleConnection()');
 
 		this.connection.once('close', () => this.close(true));
-
-		this.connection.pipeline.use(this.webRtcTransportMiddleware);
 	}
 
 	@skipIfClosed
@@ -264,7 +253,11 @@ export class WebRtcTransport extends EventEmitter {
 		});
 
 		this.consumers.set(id, consumer);
-		consumer.once('close', () => this.consumers.delete(id));
+		this.router.consumers.set(id, consumer);
+		consumer.once('close', () => {
+			this.consumers.delete(id);
+			this.router.consumers.delete(id);
+		});
 
 		return consumer;
 	}
@@ -342,7 +335,11 @@ export class WebRtcTransport extends EventEmitter {
 		});
 
 		this.dataConsumers.set(id, dataConsumer);
-		dataConsumer.once('close', () => this.dataConsumers.delete(id));
+		this.router.dataConsumers.set(id, dataConsumer);
+		dataConsumer.once('close', () => {
+			this.dataConsumers.delete(id);
+			this.router.dataConsumers.delete(id);
+		});
 
 		return dataConsumer;
 	}

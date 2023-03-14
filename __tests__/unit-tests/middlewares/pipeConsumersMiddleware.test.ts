@@ -1,6 +1,6 @@
 import { Next } from 'edumeet-common';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
-import { createPipeConsumerMiddleware } from '../../../src/middlewares/pipeConsumerMiddleware';
+import { createPipeConsumersMiddleware } from '../../../src/middlewares/pipeConsumersMiddleware';
 import { PeerContext } from '../../../src/Peer';
 
 const ID = 'id';
@@ -14,7 +14,14 @@ test('Should not handle unrelated message', async () => {
 		}
 	} as unknown as PipeConsumer;
 
-	const sut = createPipeConsumerMiddleware({ pipeConsumer });
+	const pipeConsumers = new Map<string, PipeConsumer>();
+
+	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
+
+	const sut = createPipeConsumersMiddleware({
+		routerId: pipeConsumer.router.id,
+		pipeConsumers
+	});
 
 	const context = {
 		message: {
@@ -41,7 +48,14 @@ test('pipeConsumerClosed() - Should close pipeConsumer', async () => {
 		close
 	} as unknown as PipeConsumer;
 
-	const sut = createPipeConsumerMiddleware({ pipeConsumer });
+	const pipeConsumers = new Map<string, PipeConsumer>();
+
+	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
+
+	const sut = createPipeConsumersMiddleware({
+		routerId: pipeConsumer.router.id,
+		pipeConsumers
+	});
 
 	const context = {
 		message: {
@@ -69,7 +83,14 @@ test('pipeConsumerPaused() - Should pause pipeConsumer', async () => {
 		setProducerPaused
 	} as unknown as PipeConsumer;
 
-	const sut = createPipeConsumerMiddleware({ pipeConsumer });
+	const pipeConsumers = new Map<string, PipeConsumer>();
+
+	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
+
+	const sut = createPipeConsumersMiddleware({
+		routerId: pipeConsumer.router.id,
+		pipeConsumers
+	});
 
 	const context = {
 		message: {
@@ -97,7 +118,14 @@ test('pipeConsumerResumed() - Should pause pipeConsumer', async () => {
 		setProducerResumed
 	} as unknown as PipeConsumer;
 
-	const sut = createPipeConsumerMiddleware({ pipeConsumer });
+	const pipeConsumers = new Map<string, PipeConsumer>();
+
+	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
+
+	const sut = createPipeConsumersMiddleware({
+		routerId: pipeConsumer.router.id,
+		pipeConsumers
+	});
 
 	const context = {
 		message: {

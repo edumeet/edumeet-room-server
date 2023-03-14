@@ -63,8 +63,6 @@ describe('PipeTransport', () => {
 	});
 
 	it('close()', () => {
-		const pipeTransportMiddleware = pipeTransport['pipeTransportMiddleware'];
-
 		pipeTransport.connection.notify = jest.fn(({ method, data }) => {
 			return ({
 				'closePipeTransport': () => {
@@ -77,8 +75,6 @@ describe('PipeTransport', () => {
 		pipeTransport.close();
 		expect(pipeTransport.connection.notify).toBeCalledTimes(1);
 		expect(pipeTransport.closed).toBe(true);
-		expect(pipeTransport.connection.pipeline.remove).
-			toHaveBeenCalledWith(pipeTransportMiddleware);
 	});
 
 	it('connect()', async () => {

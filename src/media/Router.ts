@@ -2,7 +2,6 @@ import { EventEmitter } from 'events';
 import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
-import { createRouterMiddleware } from '../middlewares/routerMiddleware';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
 import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
@@ -13,6 +12,19 @@ import { PipeDataProducer } from './PipeDataProducer';
 import { PipeDataConsumer } from './PipeDataConsumer';
 import { Producer } from './Producer';
 import { DataProducer } from './DataProducer';
+import { Consumer } from './Consumer';
+import { DataConsumer } from './DataConsumer';
+import { createRouterMiddleware } from '../middlewares/routerMiddleware';
+import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
+import { createPipeTransportsMiddleware } from '../middlewares/pipeTransportsMiddleware';
+import { createProducersMiddleware } from '../middlewares/producersMiddleware';
+import { createPipeProducersMiddleware } from '../middlewares/pipeProducersMiddleware';
+import { createDataProducersMiddleware } from '../middlewares/dataProducersMiddleware';
+import { createPipeDataProducersMiddleware } from '../middlewares/pipeDataProducersMiddleware';
+import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
+import { createPipeConsumersMiddleware } from '../middlewares/pipeConsumersMiddleware';
+import { createDataConsumersMiddleware } from '../middlewares/dataConsumersMiddleware';
+import { createPipeDataConsumersMiddleware } from '../middlewares/pipeDataConsumersMiddleware';
 
 const logger = new Logger('Router');
 
@@ -69,11 +81,25 @@ export class Router extends EventEmitter {
 	public pipeProducers: Map<string, PipeProducer> = new Map();
 	public dataProducers: Map<string, DataProducer> = new Map();
 	public pipeDataProducers: Map<string, PipeDataProducer> = new Map();
+	public consumers: Map<string, Consumer> = new Map();
+	public pipeConsumers: Map<string, PipeConsumer> = new Map();
+	public dataConsumers: Map<string, DataConsumer> = new Map();
+	public pipeDataConsumers: Map<string, PipeDataConsumer> = new Map();
 
 	// Mapped by remote routerId
 	public routerPipePromises = new Map<string, Promise<PipeTransportPair>>();
 
 	private routerMiddleware: Middleware<MediaNodeConnectionContext>;
+	private webRtcTransportsMiddleware: Middleware<MediaNodeConnectionContext>;
+	private pipeTransportsMiddleware: Middleware<MediaNodeConnectionContext>;
+	private producersMiddleware: Middleware<MediaNodeConnectionContext>;
+	private pipeProducersMiddleware: Middleware<MediaNodeConnectionContext>;
+	private dataProducersMiddleware: Middleware<MediaNodeConnectionContext>;
+	private pipeDataProducersMiddleware: Middleware<MediaNodeConnectionContext>;
+	private consumersMiddleware: Middleware<MediaNodeConnectionContext>;
+	private pipeConsumersMiddleware: Middleware<MediaNodeConnectionContext>;
+	private dataConsumersMiddleware: Middleware<MediaNodeConnectionContext>;
+	private pipeDataConsumersMiddleware: Middleware<MediaNodeConnectionContext>;
 
 	constructor({
 		mediaNode,
@@ -93,6 +119,46 @@ export class Router extends EventEmitter {
 		this.appData = appData;
 
 		this.routerMiddleware = createRouterMiddleware({ router: this });
+		this.webRtcTransportsMiddleware = createWebRtcTransportsMiddleware({
+			routerId: this.id,
+			webRtcTransports: this.webRtcTransports,
+		});
+		this.pipeTransportsMiddleware = createPipeTransportsMiddleware({
+			routerId: this.id,
+			pipeTransports: this.pipeTransports,
+		});
+		this.producersMiddleware = createProducersMiddleware({
+			routerId: this.id,
+			producers: this.producers,
+		});
+		this.pipeProducersMiddleware = createPipeProducersMiddleware({
+			routerId: this.id,
+			pipeProducers: this.pipeProducers,
+		});
+		this.dataProducersMiddleware = createDataProducersMiddleware({
+			routerId: this.id,
+			dataProducers: this.dataProducers,
+		});
+		this.pipeDataProducersMiddleware = createPipeDataProducersMiddleware({
+			routerId: this.id,
+			pipeDataProducers: this.pipeDataProducers,
+		});
+		this.consumersMiddleware = createConsumersMiddleware({
+			routerId: this.id,
+			consumers: this.consumers,
+		});
+		this.pipeConsumersMiddleware = createPipeConsumersMiddleware({
+			routerId: this.id,
+			pipeConsumers: this.pipeConsumers,
+		});
+		this.dataConsumersMiddleware = createDataConsumersMiddleware({
+			routerId: this.id,
+			dataConsumers: this.dataConsumers,
+		});
+		this.pipeDataConsumersMiddleware = createPipeDataConsumersMiddleware({
+			routerId: this.id,
+			pipeDataConsumers: this.pipeDataConsumers,
+		});
 
 		this.handleConnection();
 	}
@@ -104,6 +170,16 @@ export class Router extends EventEmitter {
 		this.closed = true;
 
 		this.connection.pipeline.remove(this.routerMiddleware);
+		this.connection.pipeline.remove(this.webRtcTransportsMiddleware);
+		this.connection.pipeline.remove(this.pipeTransportsMiddleware);
+		this.connection.pipeline.remove(this.producersMiddleware);
+		this.connection.pipeline.remove(this.pipeProducersMiddleware);
+		this.connection.pipeline.remove(this.dataProducersMiddleware);
+		this.connection.pipeline.remove(this.pipeDataProducersMiddleware);
+		this.connection.pipeline.remove(this.consumersMiddleware);
+		this.connection.pipeline.remove(this.pipeConsumersMiddleware);
+		this.connection.pipeline.remove(this.dataConsumersMiddleware);
+		this.connection.pipeline.remove(this.pipeDataConsumersMiddleware);
 
 		if (!remoteClose) {
 			this.connection.notify({
@@ -125,6 +201,16 @@ export class Router extends EventEmitter {
 		this.connection.once('close', () => this.close(true));
 
 		this.connection.pipeline.use(this.routerMiddleware);
+		this.connection.pipeline.use(this.webRtcTransportsMiddleware);
+		this.connection.pipeline.use(this.pipeTransportsMiddleware);
+		this.connection.pipeline.use(this.producersMiddleware);
+		this.connection.pipeline.use(this.pipeProducersMiddleware);
+		this.connection.pipeline.use(this.dataProducersMiddleware);
+		this.connection.pipeline.use(this.pipeDataProducersMiddleware);
+		this.connection.pipeline.use(this.consumersMiddleware);
+		this.connection.pipeline.use(this.pipeConsumersMiddleware);
+		this.connection.pipeline.use(this.dataConsumersMiddleware);
+		this.connection.pipeline.use(this.pipeDataConsumersMiddleware);
 	}
 
 	@skipIfClosed

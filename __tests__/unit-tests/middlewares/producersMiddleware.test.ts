@@ -1,6 +1,6 @@
 import { Producer } from '../../../src/media/Producer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
-import { createProducerMiddleware } from '../../../src/middlewares/producerMiddleware';
+import { createProducersMiddleware } from '../../../src/middlewares/producersMiddleware';
 
 const next = jest.fn();
 
@@ -18,7 +18,15 @@ test.each([
 		},
 		close: jest.fn()
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const sut = createProducersMiddleware({
+		routerId: producer.router.id,
+		producers
+	});
 
 	const context = {
 		handled: false,
@@ -42,7 +50,15 @@ test('Should not handle unrelated methods', async () => {
 			id: 'id'
 		},
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const sut = createProducersMiddleware({
+		routerId: producer.router.id,
+		producers
+	});
 
 	const context = {
 		handled: false,
@@ -68,7 +84,15 @@ test('Should close producer', async () => {
 		},
 		close: spy
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const sut = createProducersMiddleware({
+		routerId: producer.router.id,
+		producers
+	});
 
 	const context = {
 		handled: false,
@@ -95,7 +119,15 @@ test('Should set score', async () => {
 		},
 		setScore: spy
 	} as unknown as Producer;
-	const sut = createProducerMiddleware({ producer });
+
+	const producers = new Map<string, Producer>();
+
+	producers.set(producer.id, producer);
+
+	const sut = createProducersMiddleware({
+		routerId: producer.router.id,
+		producers
+	});
 
 	const context = {
 		handled: false,

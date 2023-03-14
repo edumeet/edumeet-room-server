@@ -17,18 +17,19 @@ export const createRouterMiddleware = ({
 			message,
 		} = context;
 
-		if (router.id === message.data.routerId) {
-			switch (message.method) {
-				case 'routerClosed': {
-					router.close();
-					context.handled = true;
+		if (router.id !== message.data.routerId)
+			return next();
 
-					break;
-				}
+		switch (message.method) {
+			case 'routerClosed': {
+				router.close();
+				context.handled = true;
 
-				default: {
-					break;
-				}
+				break;
+			}
+
+			default: {
+				break;
 			}
 		}
 

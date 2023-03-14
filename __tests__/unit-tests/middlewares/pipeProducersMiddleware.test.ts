@@ -1,6 +1,6 @@
 import { Next } from 'edumeet-common';
 import { PipeProducer } from '../../../src/media/PipeProducer';
-import { createPipeProducerMiddleware } from '../../../src/middlewares/pipeProducerMiddleware';
+import { createPipeProducersMiddleware } from '../../../src/middlewares/pipeProducersMiddleware';
 import { PeerContext } from '../../../src/Peer';
 
 const ID = 'id';
@@ -14,7 +14,14 @@ test('Should not handle unrelated message', async () => {
 		}
 	} as unknown as PipeProducer;
 
-	const sut = createPipeProducerMiddleware({ pipeProducer });
+	const pipeProducers = new Map<string, PipeProducer>();
+
+	pipeProducers.set(pipeProducer.id, pipeProducer);
+
+	const sut = createPipeProducersMiddleware({
+		routerId: pipeProducer.router.id,
+		pipeProducers
+	});
 
 	const context = {
 		message: {
@@ -41,7 +48,14 @@ test('pipeProducerClosed() - Should close pipeProducer', async () => {
 		close
 	} as unknown as PipeProducer;
 
-	const sut = createPipeProducerMiddleware({ pipeProducer });
+	const pipeProducers = new Map<string, PipeProducer>();
+
+	pipeProducers.set(pipeProducer.id, pipeProducer);
+
+	const sut = createPipeProducersMiddleware({
+		routerId: pipeProducer.router.id,
+		pipeProducers
+	});
 
 	const context = {
 		message: {
