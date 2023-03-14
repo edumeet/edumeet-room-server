@@ -1,16 +1,12 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
-import { WebRtcTransport } from '../media/WebRtcTransport';
+import { Router } from '../media/Router';
 
 const logger = new Logger('WebRtcTransportsMiddleware');
 
 export const createWebRtcTransportsMiddleware = ({
-	routerId,
-	webRtcTransports,
-}: {
-	routerId: string;
-	webRtcTransports: Map<string, WebRtcTransport>;
-}): Middleware<MediaNodeConnectionContext> => {
+	routers,
+}: { routers: Map<string, Router>; }): Middleware<MediaNodeConnectionContext> => {
 	logger.debug('createWebRtcTransportsMiddleware()');
 
 	const middleware: Middleware<MediaNodeConnectionContext> = async (
@@ -18,18 +14,26 @@ export const createWebRtcTransportsMiddleware = ({
 		next
 	) => {
 		const {
-			message,
+			message: {
+				data: { transportId, routerId },
+				method,
+			},
 		} = context;
 
-		if (routerId !== message.data.routerId || !message.data.transportId)
+		if (!transportId)
 			return next();
 
-		const webRtcTransport = webRtcTransports.get(message.data.transportId);
+		const router = routers.get(routerId);
+
+		if (!router)
+			return next();
+
+		const webRtcTransport = router.webRtcTransports.get(transportId);
 
 		if (!webRtcTransport)
 			return next();
 
-		switch (message.method) {
+		switch (method) {
 			case 'webRtcTransportClosed': {
 				webRtcTransport.close();
 				context.handled = true;

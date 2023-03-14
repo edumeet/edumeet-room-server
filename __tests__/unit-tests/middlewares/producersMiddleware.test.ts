@@ -1,6 +1,7 @@
 import { Producer } from '../../../src/media/Producer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
 import { createProducersMiddleware } from '../../../src/middlewares/producersMiddleware';
+import { Router } from '../../../src/media/Router';
 
 const next = jest.fn();
 
@@ -23,10 +24,16 @@ test.each([
 
 	producers.set(producer.id, producer);
 
-	const sut = createProducersMiddleware({
-		routerId: producer.router.id,
+	const router = {
+		id: routerId,
 		producers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -55,10 +62,16 @@ test('Should not handle unrelated methods', async () => {
 
 	producers.set(producer.id, producer);
 
-	const sut = createProducersMiddleware({
-		routerId: producer.router.id,
+	const router = {
+		id: 'id',
 		producers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -89,10 +102,16 @@ test('Should close producer', async () => {
 
 	producers.set(producer.id, producer);
 
-	const sut = createProducersMiddleware({
-		routerId: producer.router.id,
+	const router = {
+		id: 'id',
 		producers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -124,10 +143,16 @@ test('Should set score', async () => {
 
 	producers.set(producer.id, producer);
 
-	const sut = createProducersMiddleware({
-		routerId: producer.router.id,
+	const router = {
+		id: 'id',
 		producers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createProducersMiddleware({ routers });
 
 	const context = {
 		handled: false,

@@ -128,42 +128,8 @@ describe('Router', () => {
 	});
 
 	it('close()', () => {
-		const routerMiddleware = router1['routerMiddleware'];
-		const webRtcTransportsMiddleware = router1['webRtcTransportsMiddleware'];
-		const pipeTransportsMiddleware = router1['pipeTransportsMiddleware'];
-		const producersMiddleware = router1['producersMiddleware'];
-		const pipeProducersMiddleware = router1['pipeProducersMiddleware'];
-		const dataProducersMiddleware = router1['dataProducersMiddleware'];
-		const pipeDataProducersMiddleware = router1['pipeDataProducersMiddleware'];
-		const consumersMiddleware = router1['consumersMiddleware'];
-		const pipeConsumersMiddleware = router1['pipeConsumersMiddleware'];
-		const dataConsumersMiddleware = router1['dataConsumersMiddleware'];
-		const pipeDataConsumersMiddleware = router1['pipeDataConsumersMiddleware'];
-
 		router1.close();
 		expect(router1.closed).toBe(true);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(routerMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(webRtcTransportsMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(pipeTransportsMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(producersMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(pipeProducersMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(dataProducersMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(pipeDataProducersMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(consumersMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(pipeConsumersMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(dataConsumersMiddleware);
-		expect(router1.connection.pipeline.remove)
-			.toHaveBeenCalledWith(pipeDataConsumersMiddleware);
 	});
 
 	it('close() - Should close transports', () => {

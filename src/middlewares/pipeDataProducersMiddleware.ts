@@ -1,16 +1,12 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
-import { PipeDataProducer } from '../media/PipeDataProducer';
+import { Router } from '../media/Router';
 
 const logger = new Logger('PipeDataProducersMiddleware');
 
 export const createPipeDataProducersMiddleware = ({
-	routerId,
-	pipeDataProducers,
-}: {
-	routerId: string;
-	pipeDataProducers: Map<string, PipeDataProducer>;
-}): Middleware<MediaNodeConnectionContext> => {
+	routers,
+}: { routers: Map<string, Router>; }): Middleware<MediaNodeConnectionContext> => {
 	logger.debug('createPipeDataProducersMiddleware()');
 
 	const middleware: Middleware<MediaNodeConnectionContext> = async (
@@ -18,18 +14,26 @@ export const createPipeDataProducersMiddleware = ({
 		next
 	) => {
 		const {
-			message,
+			message: {
+				data: { pipeDataProducerId, routerId },
+				method,
+			},
 		} = context;
 
-		if (routerId !== message.data.routerId || !message.data.pipeDataProducerId)
+		if (!pipeDataProducerId)
 			return next();
 
-		const pipeDataProducer = pipeDataProducers.get(message.data.pipeDataProducerId);
+		const router = routers.get(routerId);
+
+		if (!router)
+			return next();
+
+		const pipeDataProducer = router.pipeDataProducers.get(pipeDataProducerId);
 
 		if (!pipeDataProducer)
 			return next();
 
-		switch (message.method) {
+		switch (method) {
 			case 'pipeDataProducerClosed': {
 				pipeDataProducer.close(true);
 				context.handled = true;

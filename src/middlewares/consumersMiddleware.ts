@@ -1,16 +1,12 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { Consumer } from '../media/Consumer';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
+import { Router } from '../media/Router';
 
 const logger = new Logger('ConsumersMiddleware');
 
 export const createConsumersMiddleware = ({
-	routerId,
-	consumers,
-}: {
-	routerId: string;
-	consumers: Map<string, Consumer>;
-}): Middleware<MediaNodeConnectionContext> => {
+	routers,
+}: { routers: Map<string, Router>; }): Middleware<MediaNodeConnectionContext> => {
 	logger.debug('createConsumersMiddleware()');
 
 	const middleware: Middleware<MediaNodeConnectionContext> = async (
@@ -18,18 +14,26 @@ export const createConsumersMiddleware = ({
 		next
 	) => {
 		const {
-			message,
+			message: {
+				data: { consumerId, routerId, score, layers },
+				method,
+			},
 		} = context;
 
-		if (routerId !== message.data.routerId || !message.data.consumerId)
+		if (!consumerId)
 			return next();
 
-		const consumer = consumers.get(message.data.consumerId);
+		const router = routers.get(routerId);
+
+		if (!router)
+			return next();
+
+		const consumer = router.consumers.get(consumerId);
 
 		if (!consumer)
 			return next();
 
-		switch (message.method) {
+		switch (method) {
 			case 'consumerClosed': {
 				consumer.close(true);
 				context.handled = true;
@@ -52,8 +56,6 @@ export const createConsumersMiddleware = ({
 			}
 
 			case 'consumerScore': {
-				const { score } = message.data;
-
 				consumer.setScore(score);
 				context.handled = true;
 
@@ -61,8 +63,6 @@ export const createConsumersMiddleware = ({
 			}
 
 			case 'consumerLayersChanged': {
-				const { layers } = message.data;
-
 				consumer.setLayers(layers);
 				context.handled = true;
 

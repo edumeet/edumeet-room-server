@@ -1,16 +1,12 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { MediaNodeConnectionContext } from '../media/MediaNodeConnection';
-import { Producer } from '../media/Producer';
+import { Router } from '../media/Router';
 
 const logger = new Logger('ProducersMiddleware');
 
 export const createProducersMiddleware = ({
-	routerId,
-	producers,
-}: {
-	routerId: string;
-	producers: Map<string, Producer>;
-}): Middleware<MediaNodeConnectionContext> => {
+	routers,
+}: { routers: Map<string, Router>; }): Middleware<MediaNodeConnectionContext> => {
 	logger.debug('createProducersMiddleware()');
 
 	const middleware: Middleware<MediaNodeConnectionContext> = async (
@@ -18,18 +14,26 @@ export const createProducersMiddleware = ({
 		next
 	) => {
 		const {
-			message,
+			message: {
+				data: { producerId, routerId, score },
+				method,
+			},
 		} = context;
 
-		if (routerId !== message.data.routerId || !message.data.producerId)
+		if (!producerId)
 			return next();
 
-		const producer = producers.get(message.data.producerId);
+		const router = routers.get(routerId);
+
+		if (!router)
+			return next();
+
+		const producer = router.producers.get(producerId);
 
 		if (!producer)
 			return next();
 
-		switch (message.method) {
+		switch (method) {
 			case 'producerClosed': {
 				producer.close(true);
 				context.handled = true;
@@ -38,8 +42,6 @@ export const createProducersMiddleware = ({
 			}
 
 			case 'producerScore': {
-				const { score } = message.data;
-
 				producer.setScore(score);
 				context.handled = true;
 

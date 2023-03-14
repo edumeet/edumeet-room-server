@@ -1,5 +1,6 @@
 import { Next } from 'edumeet-common';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
+import { Router } from '../../../src/media/Router';
 import { createPipeConsumersMiddleware } from '../../../src/middlewares/pipeConsumersMiddleware';
 import { PeerContext } from '../../../src/Peer';
 
@@ -18,10 +19,16 @@ test('Should not handle unrelated message', async () => {
 
 	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
 
-	const sut = createPipeConsumersMiddleware({
-		routerId: pipeConsumer.router.id,
+	const router = {
+		id: ID,
 		pipeConsumers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createPipeConsumersMiddleware({ routers });
 
 	const context = {
 		message: {
@@ -52,10 +59,16 @@ test('pipeConsumerClosed() - Should close pipeConsumer', async () => {
 
 	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
 
-	const sut = createPipeConsumersMiddleware({
-		routerId: pipeConsumer.router.id,
+	const router = {
+		id: ID,
 		pipeConsumers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createPipeConsumersMiddleware({ routers });
 
 	const context = {
 		message: {
@@ -87,10 +100,16 @@ test('pipeConsumerPaused() - Should pause pipeConsumer', async () => {
 
 	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
 
-	const sut = createPipeConsumersMiddleware({
-		routerId: pipeConsumer.router.id,
+	const router = {
+		id: ID,
 		pipeConsumers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createPipeConsumersMiddleware({ routers });
 
 	const context = {
 		message: {
@@ -122,10 +141,16 @@ test('pipeConsumerResumed() - Should pause pipeConsumer', async () => {
 
 	pipeConsumers.set(pipeConsumer.id, pipeConsumer);
 
-	const sut = createPipeConsumersMiddleware({
-		routerId: pipeConsumer.router.id,
+	const router = {
+		id: ID,
 		pipeConsumers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createPipeConsumersMiddleware({ routers });
 
 	const context = {
 		message: {

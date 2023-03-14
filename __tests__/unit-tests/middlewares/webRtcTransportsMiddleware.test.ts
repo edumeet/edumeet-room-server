@@ -1,4 +1,5 @@
 import { Next } from 'edumeet-common';
+import { Router } from '../../../src/media/Router';
 import { WebRtcTransport } from '../../../src/media/WebRtcTransport';
 import { createWebRtcTransportsMiddleware } from '../../../src/middlewares/webRtcTransportsMiddleware';
 import { PeerContext } from '../../../src/Peer';
@@ -18,10 +19,16 @@ test('Should not handle unrelated message', async () => {
 
 	webRtcTransports.set(webRtcTransport.id, webRtcTransport);
 
-	const sut = createWebRtcTransportsMiddleware({
-		routerId: webRtcTransport.router.id,
+	const router = {
+		id: ID,
 		webRtcTransports
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createWebRtcTransportsMiddleware({ routers });
 
 	const context = {
 		message: {
@@ -52,10 +59,16 @@ test('webRtcTransportClosed() - Should close webRtcTransport', async () => {
 
 	webRtcTransports.set(webRtcTransport.id, webRtcTransport);
 
-	const sut = createWebRtcTransportsMiddleware({
-		routerId: webRtcTransport.router.id,
+	const router = {
+		id: ID,
 		webRtcTransports
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createWebRtcTransportsMiddleware({ routers });
 
 	const context = {
 		message: {

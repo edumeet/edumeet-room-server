@@ -1,5 +1,6 @@
 import { DataConsumer } from '../../../src/media/DataConsumer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
+import { Router } from '../../../src/media/Router';
 import { createDataConsumersMiddleware } from '../../../src/middlewares/dataConsumersMiddleware';
 
 const next = jest.fn();
@@ -23,10 +24,16 @@ test.each([
 
 	dataConsumers.set(dataConsumer.id, dataConsumer);
 
-	const sut = createDataConsumersMiddleware({
-		routerId: dataConsumer.router.id,
+	const router = {
+		id: routerId,
 		dataConsumers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createDataConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -55,10 +62,16 @@ test('Should not handle unrelated methods', async () => {
 
 	dataConsumers.set(dataConsumer.id, dataConsumer);
 
-	const sut = createDataConsumersMiddleware({
-		routerId: dataConsumer.router.id,
+	const router = {
+		id: 'id',
 		dataConsumers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createDataConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -89,10 +102,16 @@ test('Should close dataConsumer', async () => {
 
 	dataConsumers.set(dataConsumer.id, dataConsumer);
 
-	const sut = createDataConsumersMiddleware({
-		routerId: dataConsumer.router.id,
+	const router = {
+		id: 'id',
 		dataConsumers
-	});
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createDataConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
