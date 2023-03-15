@@ -1,18 +1,19 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
+import { MediaNodeConnection } from './MediaNodeConnection';
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
-import { createRouterMiddleware } from '../middlewares/routerMiddleware';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
 import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 import MediaNode from './MediaNode';
-import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { Logger, skipIfClosed } from 'edumeet-common';
 import { PipeDataProducer } from './PipeDataProducer';
 import { PipeDataConsumer } from './PipeDataConsumer';
 import { Producer } from './Producer';
 import { DataProducer } from './DataProducer';
+import { Consumer } from './Consumer';
+import { DataConsumer } from './DataConsumer';
 
 const logger = new Logger('Router');
 
@@ -69,11 +70,13 @@ export class Router extends EventEmitter {
 	public pipeProducers: Map<string, PipeProducer> = new Map();
 	public dataProducers: Map<string, DataProducer> = new Map();
 	public pipeDataProducers: Map<string, PipeDataProducer> = new Map();
+	public consumers: Map<string, Consumer> = new Map();
+	public pipeConsumers: Map<string, PipeConsumer> = new Map();
+	public dataConsumers: Map<string, DataConsumer> = new Map();
+	public pipeDataConsumers: Map<string, PipeDataConsumer> = new Map();
 
 	// Mapped by remote routerId
 	public routerPipePromises = new Map<string, Promise<PipeTransportPair>>();
-
-	private routerMiddleware: Middleware<MediaNodeConnectionContext>;
 
 	constructor({
 		mediaNode,
@@ -92,8 +95,6 @@ export class Router extends EventEmitter {
 		this.rtpCapabilities = rtpCapabilities;
 		this.appData = appData;
 
-		this.routerMiddleware = createRouterMiddleware({ router: this });
-
 		this.handleConnection();
 	}
 
@@ -102,8 +103,6 @@ export class Router extends EventEmitter {
 		logger.debug('close()');
 
 		this.closed = true;
-
-		this.connection.pipeline.remove(this.routerMiddleware);
 
 		if (!remoteClose) {
 			this.connection.notify({
@@ -123,8 +122,6 @@ export class Router extends EventEmitter {
 		logger.debug('handleConnection()');
 
 		this.connection.once('close', () => this.close(true));
-
-		this.connection.pipeline.use(this.routerMiddleware);
 	}
 
 	@skipIfClosed

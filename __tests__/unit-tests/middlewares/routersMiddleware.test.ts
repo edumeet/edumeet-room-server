@@ -1,6 +1,6 @@
 import { Next } from 'edumeet-common';
 import { Router } from '../../../src/media/Router';
-import { createRouterMiddleware } from '../../../src/middlewares/routerMiddleware';
+import { createRoutersMiddleware } from '../../../src/middlewares/routersMiddleware';
 import { PeerContext } from '../../../src/Peer';
 
 const ID = 'id';
@@ -12,9 +12,13 @@ test('Should not handle unrelated message', async () => {
 		router: {
 			id: ID
 		}
-	} as unknown as Router; 
+	} as unknown as Router;
 
-	const sut = createRouterMiddleware({ router });
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createRoutersMiddleware({ routers });
 
 	const context = {
 		message: {
@@ -34,13 +38,14 @@ test('routerClosed() - Should close router', async () => {
 	const close = jest.fn();
 	const router = {
 		id: ID,
-		router: {
-			id: ID
-		},
 		close
-	} as unknown as Router; 
+	} as unknown as Router;
 
-	const sut = createRouterMiddleware({ router });
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createRoutersMiddleware({ routers });
 
 	const context = {
 		message: {

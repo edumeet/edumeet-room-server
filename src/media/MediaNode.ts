@@ -1,6 +1,17 @@
 import { randomUUID } from 'crypto';
 import { IOClientConnection, Logger, skipIfClosed } from 'edumeet-common';
 import GeoPosition from '../loadbalancing/GeoPosition';
+import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
+import { createDataConsumersMiddleware } from '../middlewares/dataConsumersMiddleware';
+import { createDataProducersMiddleware } from '../middlewares/dataProducersMiddleware';
+import { createPipeConsumersMiddleware } from '../middlewares/pipeConsumersMiddleware';
+import { createPipeDataConsumersMiddleware } from '../middlewares/pipeDataConsumersMiddleware';
+import { createPipeDataProducersMiddleware } from '../middlewares/pipeDataProducersMiddleware';
+import { createPipeProducersMiddleware } from '../middlewares/pipeProducersMiddleware';
+import { createPipeTransportsMiddleware } from '../middlewares/pipeTransportsMiddleware';
+import { createProducersMiddleware } from '../middlewares/producersMiddleware';
+import { createRoutersMiddleware } from '../middlewares/routersMiddleware';
+import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 
@@ -30,6 +41,29 @@ export default class MediaNode {
 	public routers: Map<string, Router> = new Map();
 	public readonly geoPosition: GeoPosition;
 
+	private routersMiddleware =
+		createRoutersMiddleware({ routers: this.routers });
+	private webRtcTransportsMiddleware =
+		createWebRtcTransportsMiddleware({ routers: this.routers });
+	private pipeTransportsMiddleware =
+		createPipeTransportsMiddleware({ routers: this.routers });
+	private producersMiddleware =
+		createProducersMiddleware({ routers: this.routers });
+	private pipeProducersMiddleware =
+		createPipeProducersMiddleware({ routers: this.routers });
+	private dataProducersMiddleware =
+		createDataProducersMiddleware({ routers: this.routers });
+	private pipeDataProducersMiddleware =
+		createPipeDataProducersMiddleware({ routers: this.routers });
+	private consumersMiddleware =
+		createConsumersMiddleware({ routers: this.routers });
+	private pipeConsumersMiddleware =
+		createPipeConsumersMiddleware({ routers: this.routers });
+	private dataConsumersMiddleware =
+		createDataConsumersMiddleware({ routers: this.routers });
+	private pipeDataConsumersMiddleware =
+		createPipeDataConsumersMiddleware({ routers: this.routers });
+
 	constructor({
 		id,
 		hostname,
@@ -53,8 +87,9 @@ export default class MediaNode {
 		this.closed = true;
 
 		this.routers.forEach((router) => router.close(true));
-		this.connection?.close();
 		this.routers.clear();
+
+		this.connection?.close();
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -65,11 +100,9 @@ export default class MediaNode {
 		this.pendingRequests.set(requestUUID, roomId);
 
 		if (!this.connection) {
-			const socket = IOClientConnection.create({
-				url: `wss://${this.hostname}:${this.port}${this.#secret ? `?secret=${this.#secret}` : ''}`
-			});
+			this.connection = this.setupConnection();
 
-			this.connection = new MediaNodeConnection({ connection: socket });
+			this.connection.once('close', () => delete this.connection);
 		}
 
 		await this.connection.ready;
@@ -102,6 +135,7 @@ export default class MediaNode {
 					this.pendingRequests.size === 0
 				) {
 					this.connection?.close();
+
 					delete this.connection;
 				}
 			});
@@ -110,5 +144,43 @@ export default class MediaNode {
 		this.pendingRequests.delete(requestUUID);
 
 		return router;
+	}
+
+	private setupConnection(): MediaNodeConnection {
+		const socket = IOClientConnection.create({
+			url: `wss://${this.hostname}:${this.port}${this.#secret ? `?secret=${this.#secret}` : ''}`
+		});
+
+		const connection = new MediaNodeConnection({ connection: socket });
+
+		connection.pipeline.use(
+			this.routersMiddleware,
+			this.webRtcTransportsMiddleware,
+			this.pipeTransportsMiddleware,
+			this.producersMiddleware,
+			this.pipeProducersMiddleware,
+			this.dataProducersMiddleware,
+			this.pipeDataProducersMiddleware,
+			this.consumersMiddleware,
+			this.pipeConsumersMiddleware,
+			this.dataConsumersMiddleware,
+			this.pipeDataConsumersMiddleware
+		);
+
+		connection.once('close', () => {
+			connection.pipeline.remove(this.routersMiddleware);
+			connection.pipeline.remove(this.webRtcTransportsMiddleware);
+			connection.pipeline.remove(this.pipeTransportsMiddleware);
+			connection.pipeline.remove(this.producersMiddleware);
+			connection.pipeline.remove(this.pipeProducersMiddleware);
+			connection.pipeline.remove(this.dataProducersMiddleware);
+			connection.pipeline.remove(this.pipeDataProducersMiddleware);
+			connection.pipeline.remove(this.consumersMiddleware);
+			connection.pipeline.remove(this.pipeConsumersMiddleware);
+			connection.pipeline.remove(this.dataConsumersMiddleware);
+			connection.pipeline.remove(this.pipeDataConsumersMiddleware);
+		});
+
+		return connection;
 	}
 }

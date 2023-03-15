@@ -1,6 +1,7 @@
 import { DataConsumer } from '../../../src/media/DataConsumer';
 import { MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
-import { createDataConsumerMiddleware } from '../../../src/middlewares/dataConsumerMiddleware';
+import { Router } from '../../../src/media/Router';
+import { createDataConsumersMiddleware } from '../../../src/middlewares/dataConsumersMiddleware';
 
 const next = jest.fn();
 
@@ -18,7 +19,21 @@ test.each([
 		},
 		close: jest.fn()
 	} as unknown as DataConsumer;
-	const sut = createDataConsumerMiddleware({ dataConsumer });
+
+	const dataConsumers = new Map<string, DataConsumer>();
+
+	dataConsumers.set(dataConsumer.id, dataConsumer);
+
+	const router = {
+		id: routerId,
+		dataConsumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createDataConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -42,7 +57,21 @@ test('Should not handle unrelated methods', async () => {
 			id: 'id'
 		},
 	} as unknown as DataConsumer;
-	const sut = createDataConsumerMiddleware({ dataConsumer });
+	
+	const dataConsumers = new Map<string, DataConsumer>();
+
+	dataConsumers.set(dataConsumer.id, dataConsumer);
+
+	const router = {
+		id: 'id',
+		dataConsumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createDataConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
@@ -68,7 +97,21 @@ test('Should close dataConsumer', async () => {
 		},
 		close: spy
 	} as unknown as DataConsumer;
-	const sut = createDataConsumerMiddleware({ dataConsumer });
+	
+	const dataConsumers = new Map<string, DataConsumer>();
+
+	dataConsumers.set(dataConsumer.id, dataConsumer);
+
+	const router = {
+		id: 'id',
+		dataConsumers
+	} as unknown as Router;
+
+	const routers = new Map<string, Router>();
+
+	routers.set(router.id, router);
+
+	const sut = createDataConsumersMiddleware({ routers });
 
 	const context = {
 		handled: false,
