@@ -71,7 +71,7 @@ test('Should use geo candidates when geo strategy', () => {
 	const strategies = new Map<string, LBStrategy>();
 	const geoCandidates = [ mediaNode2 ];
 	const mockGeoStrategy = {
-		getCandidates: jest.fn().mockImplementation(() => {
+		sortOnDistance: jest.fn().mockImplementation(() => {
 			return geoCandidates;
 		})
 	};
@@ -80,7 +80,7 @@ test('Should use geo candidates when geo strategy', () => {
 			return geoCandidates;
 		})
 	};
-	const spyGetCandidates = jest.spyOn(mockGeoStrategy, 'getCandidates');
+	const spySortOnDistance = jest.spyOn(mockGeoStrategy, 'sortOnDistance');
 
 	strategies.set('geo', mockGeoStrategy);
 	const factory = new LBStrategyFactoryMock(
@@ -94,7 +94,7 @@ test('Should use geo candidates when geo strategy', () => {
     
 	expect(candidates[0]).toBe(mediaNode2.id);
 	expect(candidates[1]).toBe(mediaNode1.id);
-	expect(spyGetCandidates).toHaveBeenCalledTimes(1);
+	expect(spySortOnDistance).toHaveBeenCalledTimes(1);
 });
 
 test('Should return empty array on error', () => {
