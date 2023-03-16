@@ -15,7 +15,7 @@ class MockConnection extends EventEmitter {
 describe('MediaNodeConnection', () => {
 	let mockConnection: BaseConnection;
 	let mediaNodeConnection: MediaNodeConnection;
-	let fakeRequest: jest.SpyInstance; 
+	let fakeRequest: SocketMessage; 
 	let fakeRespond: jest.SpyInstance;  
 	let fakeReject: jest.SpyInstance;  
 	let spyMediaNodeConnectionClose: jest.SpyInstance;
@@ -29,7 +29,7 @@ describe('MediaNodeConnection', () => {
 	beforeEach(() => {
 		mockConnection = new MockConnection();
 		mediaNodeConnection = new MediaNodeConnection({ connection: mockConnection });
-		fakeRequest = jest.fn();
+		fakeRequest = { data: { load: '0.2' } } as unknown as SocketMessage;
 		fakeRespond = jest.fn();
 		fakeReject = jest.fn();
 		spyMediaNodeConnectionClose = jest.spyOn(mediaNodeConnection.connection, CLOSE_EVENT);
@@ -64,7 +64,9 @@ describe('MediaNodeConnection', () => {
 	});
 		
 	it('request() - Should call request on connection', () => {
-		const spyConnectionRequest = jest.spyOn(mockConnection, 'request');
+		const spyConnectionRequest = jest.spyOn(mockConnection, 'request').mockImplementation(async () => {
+			return { load: 0.12 };
+		});
 
 		mediaNodeConnection.request(FAKE_SOCKET_MESSAGE);
 
@@ -74,19 +76,20 @@ describe('MediaNodeConnection', () => {
 	describe('Events', () => {
 
 		it('notification - Should not call execute when method mediaNodeReady', async () => {
-			await mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD });
+			await mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 			expect(spyPipelineExecute).not.toHaveBeenCalled();
 		});
 		
 		it('notification - Should call execute when is not method mediaNodeReady', async () => {
-			await mockConnection.emit('notification', { method: OTHER_METHOD });
+			await mockConnection.emit('notification', { method: OTHER_METHOD, data: { load: 0.2 } });
+			expect(mediaNodeConnection.load).toBe(0.2);
 			expect(spyPipelineExecute).toHaveBeenCalled();
 		});
 
 		it('request - Should call reject when not handled by middleware', async () => {
 			await mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
-			expect(spyPipelineExecute).toHaveBeenCalled();
 			expect(fakeReject).toHaveBeenCalledWith('Server error');
+			expect(spyPipelineExecute).toHaveBeenCalled();
 		});
 		
 		it('request - Should call execute when is not method mediaNodeReady', async () => {
@@ -101,8 +104,8 @@ describe('MediaNodeConnection', () => {
 			mediaNodeConnection.pipeline = pipelineWithMiddleware;
 
 			await mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
-			expect(spyPipelineExecute).toHaveBeenCalled();
 			expect(fakeRespond).toHaveBeenCalled();
+			expect(spyPipelineExecute).toHaveBeenCalled();
 		});
 
 		it('close - Should call close on connection', async () => {

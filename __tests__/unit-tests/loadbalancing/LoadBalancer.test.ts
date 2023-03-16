@@ -1,6 +1,7 @@
 import LBStrategy from '../../../src/loadbalancing/LBStrategy';
 import LBStrategyFactory from '../../../src/loadbalancing/LBStrategyFactory';
 import LoadBalancer from '../../../src/loadbalancing/LoadBalancer';
+import LoadStrategy from '../../../src/loadbalancing/LoadStrategy';
 import StickyStrategy from '../../../src/loadbalancing/StickyStrategy';
 import MediaNode from '../../../src/media/MediaNode';
 import { Peer } from '../../../src/Peer';
@@ -74,11 +75,17 @@ test('Should use geo candidates when geo strategy', () => {
 			return geoCandidates;
 		})
 	};
+	const mockLoadStrategy = {
+		getCandidates: jest.fn().mockImplementation(() => {
+			return geoCandidates;
+		})
+	};
 	const spyGetCandidates = jest.spyOn(mockGeoStrategy, 'getCandidates');
 
 	strategies.set('geo', mockGeoStrategy);
 	const factory = new LBStrategyFactoryMock(
 		null as unknown as StickyStrategy,
+		mockLoadStrategy as unknown as LoadStrategy,
 		strategies
 	) as unknown as LBStrategyFactory;
 	const sut = new LoadBalancer(factory);
@@ -88,4 +95,21 @@ test('Should use geo candidates when geo strategy', () => {
 	expect(candidates[0]).toBe(mediaNode2.id);
 	expect(candidates[1]).toBe(mediaNode1.id);
 	expect(spyGetCandidates).toHaveBeenCalledTimes(1);
+});
+
+test('Should return empty array on error', () => {
+	const room = {} as unknown as Room;
+	const peer = {} as unknown as Peer;
+	const copyOfMediaNodes: MediaNode[] = [];
+
+	const sticky = jest.fn().mockImplementation(() => {
+		{ getCandidates: throw Error(); }
+	}) as unknown as StickyStrategy;
+	const factory = new LBStrategyFactoryMock(sticky) as unknown as LBStrategyFactory;
+	const sut = new LoadBalancer(factory);
+
+	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
+
+	expect(candidates).toEqual([]);
+
 });
