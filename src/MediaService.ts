@@ -10,7 +10,7 @@ import { Config } from './Config';
 
 const logger = new Logger('MediaService');
 
-let index = 0;
+const index = 0;
 
 export interface RouterData {
 	roomId: string;
@@ -71,33 +71,30 @@ export default class MediaService {
 
 		let mediaNodeCandidate: MediaNode | undefined;
 
-		// If we have candidates from LoadBalancer try those, else fall back to round-robin
+		// TODO: try all valid candidates, dont assume the first one works
 		if (candidateIds) {
 			mediaNodeCandidate = this.mediaNodes.get(candidateIds[0]);
-		} else {
-			mediaNodeCandidate = this.mediaNodes.items[index];
-			index += 1;
-			index %= this.mediaNodes.length;
-		}
+		} 
 
-		if (!mediaNodeCandidate)
+		if (!mediaNodeCandidate) {
 			throw new Error('no media nodes available');
-
-		const router = await mediaNodeCandidate.getRouter({
-			roomId: room.id,
-			appData: {
+		} else {
+			const router = await mediaNodeCandidate.getRouter({
 				roomId: room.id,
-				pipePromises: new Map<string, Promise<void>>(),
+				appData: {
+					roomId: room.id,
+					pipePromises: new Map<string, Promise<void>>(),
+				}
+			});
+
+			if (!room.parentClosed)
+				room.addRouter(router);
+			else {
+				router.close();
+				throw new Error('room closed');
 			}
-		});
 
-		if (!room.parentClosed)
-			room.addRouter(router);
-		else {
-			router.close();
-			throw new Error('room closed');
-		}
-
-		return router;
+			return router;
+		}		
 	}
 }
