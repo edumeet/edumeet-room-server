@@ -9,12 +9,12 @@ const logger = new Logger('StickyStrategy');
  * Try to assign peers to a media-node where room is active.
  */
 export default class StickyStrategy extends LBStrategy {
-	public getCandidates(mediaNodes: MediaNode[], room: Room) {
+	public getCandidates(allMediaNodes: MediaNode[], room: Room) {
 		logger.debug('getCandidates() [room.id: %s]', room.id);
 		const candidates: MediaNode[] = [];
 		const candidateIds = room.getActiveMediaNodes();
 
-		mediaNodes.forEach((mediaNode) => {
+		allMediaNodes.forEach((mediaNode) => {
 			if (candidateIds.has(mediaNode.id)) {
 				candidates.push(mediaNode);
 			}
