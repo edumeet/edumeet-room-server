@@ -1,6 +1,7 @@
 import { Logger } from 'edumeet-common';
 import GeoStrategy from './GeoStrategy';
 import LBStrategy, { LB_STRATEGIES } from './LBStrategy';
+import LoadStrategy from './LoadStrategy';
 import StickyStrategy from './StickyStrategy';
 
 const logger = new Logger('LBStrategyFactory');
@@ -30,6 +31,10 @@ export default class LBStrategyFactory {
 
 	public createStickyStrategy() {
 		return new StickyStrategy();
+	}
+
+	public createLoadStrategy() {
+		return new LoadStrategy();
 	}
 
 	public createStrategies() {
