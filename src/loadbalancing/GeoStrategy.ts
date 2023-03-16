@@ -17,31 +17,10 @@ export default class GeoStrategy extends LBStrategy {
 		this.threshold = threshold;
 	}
 
-	public getCandidates(
-		allMediaNodes: MediaNode[],
-		currentCandidates: MediaNode[], 
-		peer: Peer) {
-		logger.debug('getCandidates() [peer.id %s]', peer.id);
-
-		if (currentCandidates.length > 0) {
-			const filteredCandidates = this.filterOnThreshold(currentCandidates, peer);
-
-			if (filteredCandidates.length > 0) {
-				if (filteredCandidates.length > 1) {
-					return this.sortOnDistance(filteredCandidates, peer);
-				}
-				
-				return filteredCandidates;
-			}
-		}
-		
-		return this.sortOnDistance(allMediaNodes, peer);
-	}
-
 	/**
 	 * Remove media-nodes outside of threshold.
 	 */
-	private filterOnThreshold(mediaNodes: MediaNode[], peer: Peer) {
+	public filterOnThreshold(mediaNodes: MediaNode[], peer: Peer) {
 		logger.debug('filterOnThreshold() [peer.id: %s]', peer.id);
 		try {
 			const clientPos = this.getClientPosition(peer);
@@ -65,7 +44,7 @@ export default class GeoStrategy extends LBStrategy {
 	/**
 	 * Sort media-nodes on geographical position.
 	 */
-	private sortOnDistance(mediaNodes: MediaNode[], peer: Peer) {
+	public sortOnDistance(mediaNodes: MediaNode[], peer: Peer) {
 		logger.debug('sortOnDistance() [peer.id: %s]', peer.id);
 		try {
 			const clientPos = this.getClientPosition(peer);

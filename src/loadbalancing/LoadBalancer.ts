@@ -38,24 +38,20 @@ export default class LoadBalancer {
 	}: LoadBalancerOptions): LbCandidates {
 		try {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
-			let mediaNodes: MediaNode[];
 
-			mediaNodes = this.stickyStrategy.getCandidates(copyOfMediaNodes, room);
+			const loadCandidates = this.loadStrategy.getCandidates(copyOfMediaNodes);
+			const stickyCandidates = this.stickyStrategy.getCandidates(loadCandidates, room);
 
-			const geoStrategy = this.strategies.get(
-				LB_STRATEGIES.GEO
-			) as unknown as GeoStrategy;
+			if (stickyCandidates.length > 0) {
+				const filteredCandidates = this.filterOnGeoPosition(stickyCandidates, peer);
 
-			if (this.strategies.has(LB_STRATEGIES.GEO)) {
-				mediaNodes = geoStrategy.getCandidates(copyOfMediaNodes, mediaNodes, peer);
-			}
-			mediaNodes = this.loadStrategy.getCandidates(copyOfMediaNodes, mediaNodes);
-
-			if (mediaNodes.length > 0) {
-				return this.createCandidates(mediaNodes);
-			} else {
-				return this.createCandidates(copyOfMediaNodes);
-			}
+				if (filteredCandidates.length > 0) {
+					return this.createCandidates(filteredCandidates);
+				}
+			} 				
+			const sortedCandidates = this.sortOnGeoPosition(loadCandidates, peer);
+			
+			return this.createCandidates(sortedCandidates);
 
 		} catch (err) {
 			if (err instanceof Error) logger.error('Error while getting candidates');
@@ -72,6 +68,31 @@ export default class LoadBalancer {
 		});
 		
 		return ids;
+	}
+
+	private filterOnGeoPosition(mediaNodes: MediaNode[], peer: Peer): MediaNode[] {
+		const geoStrategy = this.strategies.get(
+			LB_STRATEGIES.GEO
+		) as unknown as GeoStrategy;
+
+		if (this.strategies.has(LB_STRATEGIES.GEO)) {
+			return geoStrategy.filterOnThreshold(mediaNodes, peer);
+		} else {
+			return mediaNodes;
+		}
+
+	}
+	
+	private sortOnGeoPosition(mediaNodes: MediaNode[], peer: Peer): MediaNode[] {
+		const geoStrategy = this.strategies.get(
+			LB_STRATEGIES.GEO
+		) as unknown as GeoStrategy;
+
+		if (this.strategies.has(LB_STRATEGIES.GEO)) {
+			return geoStrategy.sortOnDistance(mediaNodes, peer);
+		}
+		
+		return mediaNodes;
 	}
 }
 

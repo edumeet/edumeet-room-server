@@ -14,24 +14,8 @@ export default class LoadStrategy extends LBStrategy {
 		super();
 		this.threshold = threshold;
 	}
-    
-	public getCandidates(
-		allMediaNodes: MediaNode[],
-		currentCandidates: MediaNode[], 
-	): MediaNode[] {
-		logger.debug('getCandidates() [currentCandidates.length: %s]', currentCandidates.length);
-		if (currentCandidates.length > 0) {
-			const filteredCandidates = this.filterOnLoadThreshold(currentCandidates);
 
-			if (filteredCandidates.length > 0) {
-				return filteredCandidates;
-			}
-		}
-		
-		return this.sortOnLoad(allMediaNodes); 
-	}
-
-	private sortOnLoad(nodesToSort: MediaNode[]): MediaNode[] {
+	public getCandidates(nodesToSort: MediaNode[]): MediaNode[] {
 		const filteredNodes = this.filterOnLoadThreshold(nodesToSort);
 		
 		filteredNodes.forEach((node) =>
