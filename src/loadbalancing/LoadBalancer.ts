@@ -5,6 +5,7 @@ import Room from '../Room';
 import GeoStrategy from './GeoStrategy';
 import LBStrategy, { LB_STRATEGIES } from './LBStrategy';
 import LBStrategyFactory from './LBStrategyFactory';
+import LoadStrategy from './LoadStrategy';
 import StickyStrategy from './StickyStrategy';
 
 const logger = new Logger('LoadBalancer');
@@ -16,15 +17,17 @@ export interface LoadBalancerOptions {
 }
 
 /**
- * Sort media-nodes according to load balancing strategies.
+ * Sort media-nodes using load balancing strategies.
  */
 export default class LoadBalancer {
 	private strategies: Map<string, LBStrategy>;
 	private stickyStrategy: StickyStrategy;
+	private loadStrategy: LoadStrategy;
 
 	constructor(factory: LBStrategyFactory) {
 		logger.debug('constructor() [factory: %s]', factory);
 		this.stickyStrategy = factory.createStickyStrategy();
+		this.loadStrategy = factory.createLoadStrategy();
 		this.strategies = factory.createStrategies();
 	}
 
@@ -46,7 +49,8 @@ export default class LoadBalancer {
 			if (this.strategies.has(LB_STRATEGIES.GEO)) {
 				mediaNodes = geoStrategy.getCandidates(copyOfMediaNodes, mediaNodes, peer);
 			}
-		
+			mediaNodes = this.loadStrategy.getCandidates(copyOfMediaNodes, mediaNodes);
+
 			if (mediaNodes.length > 0) {
 				return this.createCandidates(mediaNodes);
 			} else {
