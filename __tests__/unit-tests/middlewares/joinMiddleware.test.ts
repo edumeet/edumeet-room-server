@@ -1,4 +1,4 @@
-import { List } from 'edumeet-common';
+import { List, MediaKind } from 'edumeet-common';
 import { userRoles } from '../../../src/common/authorization';
 import { MiddlewareOptions } from '../../../src/common/types';
 import { DataProducer } from '../../../src/media/DataProducer';
@@ -84,16 +84,17 @@ test('join() - Should join peer', async () => {
 		.mockImplementation(async () => { return; });
 	const spyCreateDataConsumer = jest.spyOn(consuming, 'createDataConsumer')
 		.mockImplementation(async () => { return; });
-	const fakePeer ={
+	const fakePeer = {
 		peerInfo: 'getPeer',
 		producers: new Map<string, Producer>(),
-		dataProducers: new Map<string, DataProducer>()
+		dataProducers: new Map<string, DataProducer>(),
 	};
 	const fakeProducer = {
 		id: 'id',
 		appData: {
 			sessionId: SESSION_ID
-		}
+		},
+		kind: MediaKind.VIDEO
 	} as unknown as Producer;
 	const fakeDataProducer = {
 		id: 'id',
@@ -177,7 +178,7 @@ test('join() - Should not return lobbyPeers on missing permission', async () => 
 		displayName: '',
 		picture: '',
 		rtpCapabilities: '',
-		roles: [ ]
+		roles: []
 	} as unknown as Peer;
 	const context = {
 		peer,

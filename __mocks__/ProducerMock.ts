@@ -1,3 +1,4 @@
+import { MediaKind } from 'edumeet-common';
 import { EventEmitter } from 'events';
 
 export default class ProducerMock extends EventEmitter {
@@ -5,6 +6,7 @@ export default class ProducerMock extends EventEmitter {
 	appData = {
 		remoteClosed: false
 	};
+	kind = MediaKind.VIDEO;
 
 	close = jest.fn();
 	resume = jest.fn();

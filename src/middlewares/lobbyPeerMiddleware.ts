@@ -55,6 +55,21 @@ export const createLobbyPeerMiddleware = ({
 				break;
 			}
 
+			case 'changeAudioOnly': {
+				const { audioOnly } = message.data;
+
+				peer.audioOnly = audioOnly;
+
+				room.notifyPeers('lobby:changeAudioOnly', {
+					peerId: peer.id,
+					audioOnly
+				}, peer);
+
+				context.handled = true;
+
+				break;
+			}
+
 			default: {
 				break;
 			}
