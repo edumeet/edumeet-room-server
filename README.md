@@ -12,6 +12,12 @@ Make a file called `config.json` in the `/config` folder. An example configurati
 
 Note that if you don't provide a value for `tls.cert` and `tls.key` the server will start in HTTP mode.
 
+### Reverse proxy
+We use geo position based on client ipv4 address when doing load balancing.
+If you're running room-server service behind a reverse proxy, you need to forward client ipv4 address in http header `x-forwarded-for`.
+
+As ipv6 is not supported in [the library we use for geoip lookup](https://github.com/geoip-lite/node-geoip), deploying edumeet using ipv6 is not recommend.
+
 ### Docker
 
 Running the service as a docker container.
