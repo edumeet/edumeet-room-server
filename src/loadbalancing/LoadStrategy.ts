@@ -1,4 +1,4 @@
-import { Logger } from 'edumeet-common';
+import { KDPoint, Logger } from 'edumeet-common';
 import MediaNode from '../media/MediaNode';
 import LBStrategy from './LBStrategy';
 
@@ -15,16 +15,32 @@ export default class LoadStrategy extends LBStrategy {
 		this.threshold = threshold;
 	}
 
-	public getCandidates(nodesToSort: MediaNode[]): MediaNode[] {
-		const filteredNodes = this.filterOnLoadThreshold(nodesToSort);
+	public filterOnLoad(pointsToFilter: KDPoint[]): KDPoint[] {
+		const filteredNodes = this.filterOnLoadThreshold(pointsToFilter);
 		
-		filteredNodes.forEach((node) =>
-			logger.debug('getCandidates() [node.id %s, node.load %s]', node.id, node.load));
-		
-		return filteredNodes.sort((a, b) => a.load - b.load);
+		filteredNodes.forEach((point) => {
+			const mediaNode = point.appData.mediaNode as MediaNode;
+
+			logger.debug('filterOnLoad() [node.id %s, node.load %s]', mediaNode.id, mediaNode.load);
+		});
+
+		return this.sortOnLoad(filteredNodes);
 	}
 
-	private filterOnLoadThreshold(nodesToFilter: MediaNode[]): MediaNode[] {
-		return nodesToFilter.filter((node) => node.load < this.threshold);
+	private filterOnLoadThreshold(pointsToFilter: KDPoint[]): KDPoint[] {
+		return pointsToFilter.filter((point) => {
+			const mediaNode = point.appData.mediaNode as MediaNode;
+			
+			return mediaNode.load < this.threshold;
+		});
+	}
+
+	private sortOnLoad(pointsToSort: KDPoint[]): KDPoint[] {
+		return pointsToSort.sort((a, b) => {
+			const mediaNode1 = a.appData.mediaNode as MediaNode;
+			const mediaNode2 = b.appData.mediaNode as MediaNode;
+			
+			return mediaNode1.load - mediaNode2.load;
+		});
 	}
 }

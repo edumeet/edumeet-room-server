@@ -1,9 +1,8 @@
-import { Logger } from 'edumeet-common';
+import { KDPoint, KDTree, Logger } from 'edumeet-common';
 import MediaNode from '../media/MediaNode';
 import { Peer } from '../Peer';
 import Room from '../Room';
 import GeoStrategy from './GeoStrategy';
-import LBStrategy, { LB_STRATEGIES } from './LBStrategy';
 import LBStrategyFactory from './LBStrategyFactory';
 import LoadStrategy from './LoadStrategy';
 import StickyStrategy from './StickyStrategy';
@@ -13,45 +12,57 @@ const logger = new Logger('LoadBalancer');
 export interface LoadBalancerOptions {
 	room: Room,
 	peer: Peer,
-	copyOfMediaNodes: MediaNode[]
+	kdTree: KDTree
 }
 
 /**
  * Sort media-nodes using load balancing strategies.
  */
 export default class LoadBalancer {
-	private strategies: Map<string, LBStrategy>;
 	private stickyStrategy: StickyStrategy;
 	private loadStrategy: LoadStrategy;
+	private geoStrategy: GeoStrategy;
 
-	constructor(factory: LBStrategyFactory) {
+	constructor(factory: LBStrategyFactory, defaultClientPosition: KDPoint) {
 		logger.debug('constructor() [factory: %s]', factory);
 		this.stickyStrategy = factory.createStickyStrategy();
 		this.loadStrategy = factory.createLoadStrategy();
-		this.strategies = factory.createStrategies();
+		this.geoStrategy = factory.createGeoStrategy(defaultClientPosition);
 	}
 
 	public getCandidates({
-		copyOfMediaNodes,
 		room,
-		peer
-	}: LoadBalancerOptions): LbCandidates {
+		peer,
+		kdTree
+	}: LoadBalancerOptions): KDPoint[] {
 		try {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
 
-			const loadCandidates = this.loadStrategy.getCandidates(copyOfMediaNodes);
-			const stickyCandidates = this.stickyStrategy.getCandidates(loadCandidates, room);
+			const stickyCandidates = this.stickyStrategy.getCandidates(room);
+			const loadCandidates = this.loadStrategy.filterOnLoad(stickyCandidates);
 
-			if (stickyCandidates.length > 0) {
-				const filteredCandidates = this.filterOnGeoPosition(stickyCandidates, peer);
-
-				if (filteredCandidates.length > 0) {
-					return this.createCandidates(filteredCandidates);
+			const clientPosition = this.geoStrategy.getClientPosition(peer);
+			const geoCandidates = this.geoStrategy.filterOnThreshold(
+				loadCandidates,
+				clientPosition
+			);
+			const kdtreeCandidates = kdTree.nearestNeighbors(
+				clientPosition,
+				5,
+				(point) => {
+					const node = point.appData.mediaNode as unknown as MediaNode;
+					
+					return node.load < 0.85;
 				}
-			} 				
-			const sortedCandidates = this.sortOnGeoPosition(loadCandidates, peer);
-			
-			return this.createCandidates(sortedCandidates);
+			);
+
+			if (kdtreeCandidates) {
+				kdtreeCandidates.forEach((candidate) => {
+					geoCandidates.push(candidate[0]);	
+				});
+			}
+		
+			return geoCandidates;
 
 		} catch (err) {
 			if (err instanceof Error) logger.error('Error while getting candidates');
@@ -59,41 +70,4 @@ export default class LoadBalancer {
 			return [];
 		}
 	}
-
-	private createCandidates(mediaNodes: MediaNode[]): LbCandidates {
-		const ids: string[] = [];	
-
-		mediaNodes.forEach((node) => {
-			ids.push(node.id);
-		});
-		
-		return ids;
-	}
-
-	private filterOnGeoPosition(mediaNodes: MediaNode[], peer: Peer): MediaNode[] {
-		const geoStrategy = this.strategies.get(
-			LB_STRATEGIES.GEO
-		) as unknown as GeoStrategy;
-
-		if (this.strategies.has(LB_STRATEGIES.GEO)) {
-			return geoStrategy.filterOnThreshold(mediaNodes, peer);
-		} else {
-			return mediaNodes;
-		}
-
-	}
-	
-	private sortOnGeoPosition(mediaNodes: MediaNode[], peer: Peer): MediaNode[] {
-		const geoStrategy = this.strategies.get(
-			LB_STRATEGIES.GEO
-		) as unknown as GeoStrategy;
-
-		if (this.strategies.has(LB_STRATEGIES.GEO)) {
-			return geoStrategy.sortOnDistance(mediaNodes, peer);
-		}
-		
-		return mediaNodes;
-	}
 }
-
-export type LbCandidates = string[]

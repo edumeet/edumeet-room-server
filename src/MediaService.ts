@@ -3,14 +3,11 @@ import { Peer } from './Peer';
 import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
-import { List, Logger, skipIfClosed } from 'edumeet-common';
-import LoadBalancer, { LbCandidates } from './loadbalancing/LoadBalancer';
-import GeoPosition from './loadbalancing/GeoPosition';
+import { KDTree, KDPoint, List, Logger, skipIfClosed } from 'edumeet-common';
+import LoadBalancer from './loadbalancing/LoadBalancer';
 import { Config } from './Config';
 
 const logger = new Logger('MediaService');
-
-const index = 0;
 
 export interface RouterData {
 	roomId: string;
@@ -20,18 +17,21 @@ export interface RouterData {
 export interface MediaServiceOptions {
 	loadBalancer: LoadBalancer;
 	config: Config
+	kdTree: KDTree
 }
 
 export default class MediaService {
 	public closed = false;
 	public mediaNodes = List<MediaNode>();
 	private loadBalancer: LoadBalancer;
+	private kdTree: KDTree;
 
-	constructor({ loadBalancer, config } : MediaServiceOptions) {
+	constructor({ loadBalancer, kdTree, config } : MediaServiceOptions) {
 		logger.debug('constructor()');
 
-		this.loadMediaNodes(config);
 		this.loadBalancer = loadBalancer;
+		this.kdTree = kdTree;
+		this.loadMediaNodes(config);
 	}
 
 	@skipIfClosed
@@ -49,31 +49,33 @@ export default class MediaService {
 		logger.debug('loadMediaNodes()');
 
 		for (const { hostname, port, secret, longitude, latitude } of config.mediaNodes) {
-			const geoPosition = new GeoPosition({ longitude, latitude });
-
-			this.mediaNodes.add(new MediaNode({
-				id: randomUUID(),
+			const kdPoint = new KDPoint([ latitude, longitude ]);
+			const mediaNode = new MediaNode({
+				id: randomUUID(), 
 				hostname,
 				port,
 				secret,
-				geoPosition
-			}));
+				kdPoint
+			});
+
+			this.mediaNodes.add();
+			this.kdTree.addNode(new KDPoint([ longitude, latitude ], { mediaNode }));
 		}
+		this.kdTree.rebalance();
 	}
 
 	@skipIfClosed
 	public async getRouter(room: Room, peer: Peer): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
-		const copyOfMediaNodes = [ ...this.mediaNodes.items ];
-		const candidateIds: LbCandidates = this.loadBalancer.getCandidates(
-			{ copyOfMediaNodes, room, peer });
+		const candidates: KDPoint[] = this.loadBalancer.getCandidates(
+			{ room, peer, kdTree: this.kdTree });
 
 		let mediaNodeCandidate: MediaNode | undefined;
 
 		// TODO: try all valid candidates, dont assume the first one works
-		if (candidateIds) {
-			mediaNodeCandidate = this.mediaNodes.get(candidateIds[0]);
+		if (candidates?.length > 0) {
+			mediaNodeCandidate = candidates[0].appData.mediaNode as MediaNode;
 		} 
 
 		if (!mediaNodeCandidate) {

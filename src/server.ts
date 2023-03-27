@@ -7,7 +7,7 @@ import http from 'http';
 import ServerManager from './ServerManager';
 import { Server as IOServer } from 'socket.io';
 import { interactiveServer } from './interactiveServer';
-import { Logger } from 'edumeet-common';
+import { Logger, KDTree, KDPoint } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
 import LoadBalancer from './loadbalancing/LoadBalancer';
@@ -20,10 +20,13 @@ const logger = new Logger('Server');
 
 logger.debug('Starting...');
 
-const lbStrategyFactory = new LBStrategyFactory(actualConfig.loadBalancingStrategies);
-const loadBalancer = new LoadBalancer(lbStrategyFactory);
-
-const mediaService = new MediaService({ loadBalancer, config: actualConfig });
+const defaultClientPosition = new KDPoint(
+	[ actualConfig.mediaNodes[0].latitude,
+		actualConfig.mediaNodes[0].longitude ]
+);
+const loadBalancer = new LoadBalancer(new LBStrategyFactory(), defaultClientPosition);
+const kdTree = new KDTree([]);
+const mediaService = new MediaService({ loadBalancer, config: actualConfig, kdTree });
 const serverManager = new ServerManager({ mediaService });
 
 interactiveServer(serverManager);

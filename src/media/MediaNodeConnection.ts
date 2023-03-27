@@ -124,6 +124,7 @@ export class MediaNodeConnection extends EventEmitter {
 		logger.debug('request() [method: %s]', request.method);
 
 		try {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const response: any = await this.connection.request(request);
 
 			this._load = response.load;

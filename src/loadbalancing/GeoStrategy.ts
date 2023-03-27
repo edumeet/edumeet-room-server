@@ -1,8 +1,7 @@
-import MediaNode from '../media/MediaNode';
 import { Peer } from '../Peer';
 import LBStrategy from './LBStrategy';
-import { Logger } from 'edumeet-common';
-import GeoPosition from './GeoPosition';
+import { KDPoint, KDTree, Logger } from 'edumeet-common';
+import * as geoip from 'geoip-lite';
 
 const logger = new Logger('GeoStrategy');
 
@@ -11,72 +10,45 @@ const logger = new Logger('GeoStrategy');
  */
 export default class GeoStrategy extends LBStrategy {
 	private threshold: number;
+	private defaultClientPosition: KDPoint;
 
-	constructor(threshold = 2000) {
+	constructor(defaultClientPosition: KDPoint, threshold = 2000) {
 		super();
+		this.defaultClientPosition = defaultClientPosition;
 		this.threshold = threshold;
 	}
 
 	/**
 	 * Remove media-nodes outside of threshold.
 	 */
-	public filterOnThreshold(mediaNodes: MediaNode[], peer: Peer) {
-		logger.debug('filterOnThreshold() [peer.id: %s]', peer.id);
+	public filterOnThreshold(points: KDPoint[], peerPosition: KDPoint) {
+		logger.debug('filterOnThreshold() [peerPosition: %s]', peerPosition);
 		try {
-			const clientPos = this.getClientPosition(peer);
+			const filteredCandidates = points.filter((point) => {
+				const distance = KDTree.getDistance(peerPosition, point);
 
-			const filteredCandidates = mediaNodes.filter((candidate) => {
-				const distance = clientPos.getDistance(candidate.geoPosition);
-
-				if (distance > this.threshold) return false;
-				
-				return true;
+				return distance < this.threshold;
 			});
 			
 			return filteredCandidates;
 		} catch (err) {
 			if (err instanceof Error) logger.error(err.message);
 			
-			return mediaNodes;
-		}
-	}
-
-	/**
-	 * Sort media-nodes on geographical position.
-	 */
-	public sortOnDistance(mediaNodes: MediaNode[], peer: Peer) {
-		logger.debug('sortOnDistance() [peer.id: %s]', peer.id);
-		try {
-			const clientPos = this.getClientPosition(peer);
-
-			const sortedCandidates = mediaNodes.sort((a, b) => {
-				const aPos = a.geoPosition;
-				const bPos = b.geoPosition;
-				const aDistance = clientPos.getDistance(aPos);
-				const bDistance = clientPos.getDistance(bPos);
-
-				return aDistance - bDistance;	
-			});
-		
-			return sortedCandidates;
-
-		} catch (err) {
-			if (err instanceof Error) logger.error(err.message);
-			
-			return mediaNodes;
+			return points;
 		}
 	}
 
 	/**
 	 * Get client position using
 	 * 1.) socket.handshake.address
-	 * 2.) socket.handshake.headers['x-forwardeded-for'] 
+	 * 2.) socket.handshake.headers['x-forwarded-for'] 
+	 * 3.) fallback to default client position
 	 */
-	private getClientPosition(peer: Peer) {
+	public getClientPosition(peer: Peer): KDPoint {
 		logger.debug('getClientPosition() [peer.id: %s]', peer.id);
 		try {
 			const address = peer.getAddress().address;
-			const clientPos = GeoPosition.create({ address });
+			const clientPos = this.createKDPoint({ address });
 			
 			return clientPos;
 		} catch (err) {
@@ -85,13 +57,26 @@ export default class GeoStrategy extends LBStrategy {
 			const forwardedFor = peer.getAddress().forwardedFor;
 
 			if (forwardedFor) {
-				const clientPos = GeoPosition.create({ address: forwardedFor });
+				const clientPos = this.createKDPoint({ address: forwardedFor });
 				
 				return clientPos;
 			}
 		} catch (err) {
 		}
+		
+		return this.defaultClientPosition;
+	}
+	
+	private createKDPoint({ address }: { address: string }): KDPoint {
+		logger.debug('create() [address: %s]', address);
+		const geo = geoip.lookup(address);
 
-		throw Error('Could not create client geoPosition');
+		if (!geo) {
+			throw Error('Geoposition not found');
+		} else {
+			const [ latitude, longitude ] = geo.ll;
+			
+			return new KDPoint([ latitude, longitude ]);
+		}
 	}
 }
