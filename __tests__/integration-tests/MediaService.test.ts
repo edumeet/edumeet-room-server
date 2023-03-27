@@ -4,6 +4,7 @@ import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import MediaService from '../../src/MediaService';
 import { Config } from '../../src/Config';
+import { KDPoint, KDTree } from 'edumeet-common';
 
 /**
  * Requires mediaNode running with config
@@ -13,12 +14,13 @@ import { Config } from '../../src/Config';
  */
 
 test('getRouter() should throw on no mediaNodes', async () => {
-	const factory = new LBStrategyFactory([]);
-	const loadBalancer = new LoadBalancer(factory);
+	const factory = new LBStrategyFactory();
+	const loadBalancer = new LoadBalancer(factory, new KDPoint([ 40, 40 ]));
 	const config = {
 		mediaNodes: []
 	} as unknown as Config;
-	const sut = new MediaService({ loadBalancer, config });
+	const kdTree = new KDTree([]);
+	const sut = new MediaService({ loadBalancer, config, kdTree });
 
 	const roomOptions = {
 		id: 'roomId',
@@ -46,9 +48,11 @@ test('getRouter() should get router', async () => {
 			}
 		]
 	} as unknown as Config;
-	const factory = new LBStrategyFactory([]);
-	const loadBalancer = new LoadBalancer(factory);
-	const sut = new MediaService({ loadBalancer, config });
+	const kdTree = new KDTree([]);
+
+	const factory = new LBStrategyFactory();
+	const loadBalancer = new LoadBalancer(factory, new KDPoint([ 40, 40 ]));
+	const sut = new MediaService({ loadBalancer, config, kdTree });
 
 	const roomOptions = {
 		id: 'roomId',
