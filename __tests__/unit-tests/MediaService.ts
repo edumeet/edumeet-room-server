@@ -6,6 +6,7 @@ import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
 import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
 import { Config } from '../../src/Config';
+import { KDPoint, KDTree } from 'edumeet-common';
 
 const config = {
 	listenPort: 3000,
@@ -16,15 +17,17 @@ const config = {
 		
 describe('MediaService', () => {
 	it('Has correct properties', () => {
+		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
 		const loadBalancer = {} as unknown as LoadBalancer;
-		const sut = new MediaService({ loadBalancer, config });
+		const sut = new MediaService({ loadBalancer, config, kdTree });
 
 		expect(sut.closed).toBe(false);
 	});
 
 	it('close()', () => {
+		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
 		const loadBalancer = {} as unknown as LoadBalancer;
-		const sut = new MediaService({ loadBalancer, config });
+		const sut = new MediaService({ loadBalancer, config, kdTree });
 
 		sut.close();
 		expect(sut.closed).toBe(true);
@@ -37,21 +40,12 @@ describe('MediaService', () => {
 		let fakeMediaNode1: MediaNode;
 		let mockGetRouter: jest.SpyInstance;
 		let spyMediaNode1GetRouter: jest.SpyInstance;
-		let fakeRoom: Room;
 		let fakePeer: Peer;
-		let spyRoomAddRouter: jest.SpyInstance;
-		let loadBalancer: LoadBalancer;
-		let mediaService: MediaService;
 
 		beforeEach(() => {
 			mockGetRouter = jest.fn().mockImplementation(async () => {	
 				return { close: jest.fn() } as unknown as Router;
 			});
-			fakeRoom = {
-				id: 'id',
-				parentClose: false,
-				addRouter: jest.fn()
-			} as unknown as Room;
 			fakePeer = {
 				id: 'id'
 			} as unknown as Peer;
@@ -59,64 +53,111 @@ describe('MediaService', () => {
 				id: 'id1',
 				getRouter: mockGetRouter
 			} as unknown as MediaNode;
-			spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
 			spyMediaNode1GetRouter = jest.spyOn(fakeMediaNode1, 'getRouter');
-			loadBalancer = { getCandidates: jest.fn().mockImplementation(() => {
-				return [ fakeMediaNode1.id ];
-			}) } as unknown as LoadBalancer; 
-			mediaService = new MediaService({ loadBalancer, config });
 		});
 		afterEach(() => {
 			jest.clearAllMocks();
 		});
 
 		it('getRouter() - Should add router to room when parent not closed', async () => {
-			mediaService.mediaNodes.add(fakeMediaNode1);
-
-			expect(mediaService.mediaNodes.length).toBe(1);
+			const fakePoint = {
+				appData: {
+					mediaNode: fakeMediaNode1
+				}
+			} as unknown as KDPoint;
+			const spyGetCandidates = jest.fn().mockReturnValue([ fakePoint ]);
+			const loadBalancer = {
+				getCandidates: spyGetCandidates
+			} as unknown as LoadBalancer; 
+			const spyRoomAddRouter = jest.fn();
+			const fakeRoom = {
+				id: 'id',
+				parentClose: false,
+				addRouter: spyRoomAddRouter
+			} as unknown as Room;
+			const kdTree = { rebalance: jest.fn() 
+			} as unknown as KDTree;
+			const sut = new MediaService({ loadBalancer, config, kdTree });
 			
-			await mediaService.getRouter(fakeRoom, fakePeer);
+			await sut.getRouter(fakeRoom, fakePeer);
 
 			expect(spyRoomAddRouter).toHaveBeenCalled();
+			expect(spyGetCandidates).toHaveBeenCalled();
 		});
 		
 		it('getRouter() - Should throw when parent room have closed', async () => {
+			const fakePoint = {
+				appData: {
+					mediaNode: fakeMediaNode1
+				}
+			} as unknown as KDPoint;
+			const spyGetCandidates = jest.fn().mockReturnValue([ fakePoint ]);
+			const loadBalancer = {
+				getCandidates: spyGetCandidates
+			} as unknown as LoadBalancer; 
+			const fakeRoom = {
+				id: 'id',
+				parentClose: false,
+				addRouter: jest.fn()
+			} as unknown as Room;
 			const roomWithClosedParent = { ...fakeRoom, parentClosed: true } as unknown as Room;
-
-			mediaService.mediaNodes.add(fakeMediaNode1);
+			const spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
 			
-			await expect(mediaService.getRouter(roomWithClosedParent, fakePeer)).
+			const kdTree = { rebalance: jest.fn()
+			} as unknown as KDTree;
+			const sut = new MediaService({ loadBalancer, config, kdTree });
+
+			await expect(sut.getRouter(roomWithClosedParent, fakePeer)).
 				rejects.toThrowError(ERROR_MSG_ROOM_CLOSED);
 			expect(spyRoomAddRouter).not.toHaveBeenCalled();
 		});
 		
 		it('getRouter() - Should throw on no mediaNodes', async () => {
+			const loadBalancer = { getCandidates: jest.fn().mockImplementation(() => {
+				return [];
+			}) } as unknown as LoadBalancer; 
+			const fakeRoom = {
+				id: 'id',
+				parentClose: false,
+				addRouter: jest.fn()
+			} as unknown as Room;
+
 			jest.spyOn(loadBalancer, 'getCandidates').mockImplementation(() => {
 				return [];
 			});
-			await expect(mediaService.getRouter(fakeRoom, fakePeer)).
+			const kdTree = { rebalance: jest.fn()
+			} as unknown as KDTree;
+			const sut = new MediaService({ loadBalancer, config, kdTree });
+
+			await expect(sut.getRouter(fakeRoom, fakePeer)).
 				rejects.toThrowError(ERROR_MSG_NO_MEDIA_NODES);
 		});
 		
-		it('getRouter() - Should call getRouter on mediaNode', async () => {
-			mediaService.mediaNodes.add(fakeMediaNode1);
-			
-			await mediaService.getRouter(fakeRoom, fakePeer);
-
-			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(1);
-		});
-		
 		it('getRouter() - Should use candidates given by loadbalancer', async () => {
-			const fakeMediaNode2 = {
+			const fakeRoom = {
+				id: 'id',
+				parentClose: false,
+				addRouter: jest.fn()
+			} as unknown as Room;
+			const fakeMediaNode2= {
 				id: 'id2',
 				getRouter: jest.fn(),
 			} as unknown as MediaNode;
+			const fakePoint = {
+				appData: {
+					mediaNode: fakeMediaNode2
+				}
+			};
 			const spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
 
-			loadBalancer = {
-				getCandidates: () => { return [ fakeMediaNode2.id ]; } 
+			const loadBalancer = {
+				getCandidates: () => { return [ fakePoint ]; } 
 			} as unknown as LoadBalancer;
-			const sut = new MediaService({ loadBalancer, config });
+			const spyNearestNeighbors = jest.fn().mockReturnValue([ [ fakePoint, 150 ] ]);
+			const kdTree = {
+				nearestNeighbors: spyNearestNeighbors,
+				rebalance: jest.fn() } as unknown as KDTree;
+			const sut = new MediaService({ loadBalancer, config, kdTree });
 
 			sut.mediaNodes.add(fakeMediaNode1);
 			sut.mediaNodes.add(fakeMediaNode2);

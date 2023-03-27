@@ -5,10 +5,7 @@ import MediaNode from '../../src/media/MediaNode';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../../src/common/types';
 import { PipeTransport } from '../../src/media/PipeTransport';
-import { MediaKind } from 'edumeet-common';
-import GeoPosition from '../../src/loadbalancing/GeoPosition';
-
-const geoPosition = {} as unknown as GeoPosition;
+import { KDPoint, MediaKind } from 'edumeet-common';
 
 describe('PipeTransport', () => {
 	let pipeTransport: PipeTransport;
@@ -32,12 +29,14 @@ describe('PipeTransport', () => {
 		},
 	} as unknown as MediaNodeConnection;
 
+	const fakePoint = {} as unknown as KDPoint;
+
 	const mediaNode = new MediaNode({
 		id: 'testId1',
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
-		geoPosition
+		kdPoint: fakePoint
 	});
 
 	const router = new Router({

@@ -1,14 +1,13 @@
+import { KDPoint } from 'edumeet-common';
 import 'jest';
-import GeoPosition from '../../src/loadbalancing/GeoPosition';
 import MediaNode from '../../src/media/MediaNode';
 import { MediaNodeConnection } from '../../src/media/MediaNodeConnection';
-
-const geoPosition = {} as unknown as GeoPosition;
 
 describe('MediaNode', () => {
 	let mediaNode: MediaNode;
 	const roomId = 'testRoomId';
 	const roomId2 = 'testRoomId2';
+	const fakePoint = {} as unknown as KDPoint;
 
 	beforeEach(() => {
 		mediaNode = new MediaNode({
@@ -16,7 +15,7 @@ describe('MediaNode', () => {
 			hostname: 'testHostname',
 			port: 1234,
 			secret: 'testSecret',
-			geoPosition
+			kdPoint: fakePoint
 		});
 
 		mediaNode.connection = {

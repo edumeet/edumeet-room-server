@@ -1,5 +1,5 @@
 import 'jest';
-import { IOServerConnection } from 'edumeet-common';
+import { IOServerConnection, KDTree } from 'edumeet-common';
 import MediaService from '../../src/MediaService';
 import ServerManager from '../../src/ServerManager';
 import { Socket } from 'socket.io';
@@ -10,10 +10,11 @@ describe('ServerManager', () => {
 	let serverManager: ServerManager;
 	const config = { mediaNodes: [] } as unknown as Config;
 	const loadBalancer = {} as unknown as LoadBalancer;
+	const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
 
 	beforeEach(() => {
 		serverManager = new ServerManager({
-			mediaService: new MediaService({ loadBalancer, config }) 
+			mediaService: new MediaService({ loadBalancer, config, kdTree }) 
 		});
 	});
 

@@ -1,4 +1,5 @@
-import LBStrategy from '../../../src/loadbalancing/LBStrategy';
+import { KDPoint, KDTree } from 'edumeet-common';
+import GeoStrategy from '../../../src/loadbalancing/GeoStrategy';
 import LBStrategyFactory from '../../../src/loadbalancing/LBStrategyFactory';
 import LoadBalancer from '../../../src/loadbalancing/LoadBalancer';
 import LoadStrategy from '../../../src/loadbalancing/LoadStrategy';
@@ -8,107 +9,88 @@ import { Peer } from '../../../src/Peer';
 import Room from '../../../src/Room';
 import LBStrategyFactoryMock from '../../../__mocks__/LBStrategyFactoryMock';
 
-const mediaNode1 = {} as unknown as MediaNode;
-const mediaNode2 = {} as unknown as MediaNode;
+const mediaNode1 = { id: 'id1' } as unknown as MediaNode;
+const mediaNode2 = { id: 'id2' } as unknown as MediaNode;
 
-test('Should return original order on no candidates', () => {
+test('Should use candidates from kdtree on no sticky', () => {
 	const room = {} as unknown as Room;
 	const peer = {} as unknown as Peer;
-	const copyOfMediaNodes: MediaNode[] = [];
-
-	copyOfMediaNodes.push(mediaNode1);
-	copyOfMediaNodes.push(mediaNode2);
+	const spyGetStickyCandidates = jest.fn().mockReturnValue([]);
 	const sticky = {
-		getCandidates: jest.fn().mockImplementation(() => {
-			return [];
-		})
-	};
+		getCandidates: spyGetStickyCandidates 
+	} as unknown as StickyStrategy;
 	const factory = new LBStrategyFactoryMock(sticky) as unknown as LBStrategyFactory;
-	const spyCreateSticky = jest.spyOn(factory, 'createStickyStrategy');
-	const spyCreateStrategies = jest.spyOn(factory, 'createStrategies');
-	const sut = new LoadBalancer(factory);
-	const spyStickyGetCandidates = jest.spyOn(sticky, 'getCandidates');
+	const point1 = { appData: { mediaNode: mediaNode1 } } as unknown as KDPoint;
+	const point2 = { appData: { mediaNode: mediaNode2 } } as unknown as KDPoint;
+	const sut = new LoadBalancer(factory, point1);
+	const spyNearestNeighbors = jest.fn().mockReturnValue(
+		[ [ point1, 50 ], [ point2, 50 ] ]
+	);
+	const kdTree = {
+		nearestNeighbors: spyNearestNeighbors
+	} as unknown as KDTree;
 
-	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
+	const candidates = sut.getCandidates({ room, peer, kdTree });
 
-	expect(spyCreateSticky).toHaveBeenCalledTimes(1);
-	expect(spyCreateStrategies).toHaveBeenCalledTimes(1);
-	expect(spyStickyGetCandidates).toHaveBeenCalledTimes(1);
-	expect(candidates[0]).toBe(copyOfMediaNodes[0].id);
-	expect(candidates[1]).toBe(copyOfMediaNodes[1].id);
+	expect(spyGetStickyCandidates).toHaveBeenCalledTimes(1);
+	expect(spyNearestNeighbors).toHaveBeenCalledTimes(1);
+	expect(candidates.length).toBe(2);
+	expect(candidates[0].appData.mediaNode).toBe(mediaNode1);
+	expect(candidates[1].appData.mediaNode).toBe(mediaNode2);
 });
 
-test('Should return candidates on sticky candidates', () => {
+test('Should use valid sticky candidates', () => {
 	const room = {} as unknown as Room;
 	const peer = {} as unknown as Peer;
-	const copyOfMediaNodes: MediaNode[] = [];
 
-	copyOfMediaNodes.push(mediaNode1);
-	copyOfMediaNodes.push(mediaNode2);
-
-	const stickyCandidates = [ mediaNode2 ];
+	const fakePoint1 = {
+		appData: {
+			mediaNode: mediaNode1
+		}
+	} as unknown as KDPoint;
+	const fakePoint2 = {
+		appData: {
+			mediaNode: mediaNode2
+		}
+	} as unknown as KDPoint;
 	const sticky = {
-		getCandidates: jest.fn().mockImplementation(() => {
-			return stickyCandidates;
-		})
+		getCandidates: jest.fn().mockReturnValue([ fakePoint2 ])
 	};
-	const factory = new LBStrategyFactoryMock(sticky) as unknown as LBStrategyFactory;
-	const sut = new LoadBalancer(factory);
-
-	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
-
-	expect(candidates[0]).toBe(copyOfMediaNodes[1].id);
-	expect(candidates[1]).toBe(stickyCandidates[0].id);
-});
-
-test('Should use geo candidates when geo strategy', () => {
-	const room = {} as unknown as Room;
-	const peer = {} as unknown as Peer;
-	const copyOfMediaNodes: MediaNode[] = [];
-
-	copyOfMediaNodes.push(mediaNode1);
-	copyOfMediaNodes.push(mediaNode2);
-	const strategies = new Map<string, LBStrategy>();
-	const geoCandidates = [ mediaNode2 ];
-	const mockGeoStrategy = {
-		sortOnDistance: jest.fn().mockImplementation(() => {
-			return geoCandidates;
-		})
-	};
-	const mockLoadStrategy = {
-		getCandidates: jest.fn().mockImplementation(() => {
-			return geoCandidates;
-		})
-	};
-	const spySortOnDistance = jest.spyOn(mockGeoStrategy, 'sortOnDistance');
-
-	strategies.set('geo', mockGeoStrategy);
+	const load = {
+		filterOnLoad: jest.fn().mockReturnValue([ fakePoint2 ])
+	} as unknown as LoadStrategy;
+	const geo = {
+		getClientPosition: jest.fn(),
+		filterOnThreshold: jest.fn().mockReturnValue([ fakePoint2 ])
+	} as unknown as GeoStrategy;
 	const factory = new LBStrategyFactoryMock(
-		null as unknown as StickyStrategy,
-		mockLoadStrategy as unknown as LoadStrategy,
-		strategies
+		sticky,
+		load,
+		geo
 	) as unknown as LBStrategyFactory;
-	const sut = new LoadBalancer(factory);
+	const sut = new LoadBalancer(factory, fakePoint1);
 
-	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
-    
-	expect(candidates[0]).toBe(mediaNode2.id);
-	expect(candidates[1]).toBe(mediaNode1.id);
-	expect(spySortOnDistance).toHaveBeenCalledTimes(1);
+	const kdTree = {
+		nearestNeighbors: jest.fn().mockReturnValue([ [ fakePoint1, 50 ] ])
+	} as unknown as KDTree;
+	const candidates = sut.getCandidates({ room, peer, kdTree });
+
+	expect(candidates[0].appData.mediaNode).toBe(mediaNode2);
+	expect(candidates[1].appData.mediaNode).toBe(mediaNode1);
 });
 
 test('Should return empty array on error', () => {
 	const room = {} as unknown as Room;
 	const peer = {} as unknown as Peer;
-	const copyOfMediaNodes: MediaNode[] = [];
 
 	const sticky = jest.fn().mockImplementation(() => {
 		{ getCandidates: throw Error(); }
 	}) as unknown as StickyStrategy;
 	const factory = new LBStrategyFactoryMock(sticky) as unknown as LBStrategyFactory;
-	const sut = new LoadBalancer(factory);
+	const sut = new LoadBalancer(factory, {} as unknown as KDPoint);
 
-	const candidates = sut.getCandidates({ copyOfMediaNodes, room, peer });
+	const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
+	const candidates = sut.getCandidates({ room, peer, kdTree });
 
 	expect(candidates).toEqual([]);
 

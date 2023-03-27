@@ -6,10 +6,9 @@ import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParamete
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
 import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup-client/lib/Transport';
 import { SctpParameters } from 'mediasoup-client/lib/SctpParameters';
-import { MediaKind } from 'edumeet-common';
-import GeoPosition from '../../src/loadbalancing/GeoPosition';
+import { KDPoint, MediaKind } from 'edumeet-common';
 
-const geoPosition = {} as unknown as GeoPosition;
+const fakePoint = {} as unknown as KDPoint;
 
 describe('WebRtcTransport', () => {
 	let webRtcTransport: WebRtcTransport;
@@ -40,7 +39,7 @@ describe('WebRtcTransport', () => {
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
-		geoPosition
+		kdPoint: fakePoint
 	});
 
 	const router = new Router({

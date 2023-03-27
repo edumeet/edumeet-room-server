@@ -6,6 +6,7 @@ import { Router } from '../../src/media/Router';
 import { userRoles } from '../../src/common/authorization';
 import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
 import { Config } from '../../src/Config';
+import { KDPoint, KDTree } from 'edumeet-common';
 
 describe('Room', () => {
 	let room1: Room;
@@ -26,12 +27,14 @@ describe('Room', () => {
 	const roomName3 = 'testRoomName3';
 	const config = { mediaNodes: [] } as unknown as Config;
 	const loadBalancer = {} as unknown as LoadBalancer;	
+	const kdPoint = new KDPoint([ 59.9139, 10.7522 ], { name: 'Oslo', load: 0.2 });
 
 	beforeEach(() => {
-		
+		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
+
 		room1 = new Room({
 			id: roomId1,
-			mediaService: new MediaService({ loadBalancer, config }),
+			mediaService: new MediaService({ loadBalancer, config, kdTree }),
 			name: roomName1,
 		});
 
@@ -75,7 +78,9 @@ describe('Room', () => {
 
 		beforeEach(() => {
 			router = {
-				mediaNode: jest.fn(),
+				mediaNode: {
+					kdPoint 
+				},
 				connection: jest.fn(),
 				id: jest.fn(),
 				rtpCapabilities: jest.fn(),
@@ -97,6 +102,14 @@ describe('Room', () => {
 			room1.addRouter(router);
 			expect(room1.routers.length).toBe(1);
 			expect(spyAdd).toHaveBeenCalled();
+		});
+		
+		it('addRouter() - should have one active mediaNode', () => {
+			room1.addRouter(router);
+			const result = room1.getActiveMediaNodes();
+
+			expect(result.length).toBe(1);
+			expect(result[0]).toBe(kdPoint);
 		});
 
 		it('pushRouter() - should not add same router twice', () => {
@@ -433,14 +446,16 @@ describe('Room', () => {
 		let room3: Room;
 
 		beforeEach(() => {
+			const kdTree = { rebalance: jest.fn() } as unknown as KDTree;	
+
 			room2 = new Room({
 				id: roomId2,
-				mediaService: new MediaService({ loadBalancer, config }),
+				mediaService: new MediaService({ loadBalancer, config, kdTree }),
 				name: roomName2,
 			});
 			room3 = new Room({
 				id: roomId3,
-				mediaService: new MediaService({ loadBalancer, config }),
+				mediaService: new MediaService({ loadBalancer, config, kdTree }),
 				name: roomName3,
 				parent: room2
 			});
