@@ -40,6 +40,7 @@ export interface PeerInfo {
 	displayName?: string;
 	picture?: string;
 	roles: number[];
+	audioOnly: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
 }
@@ -69,6 +70,7 @@ export class Peer extends EventEmitter {
 	public connections = List<BaseConnection>();
 	public displayName: string;
 	public picture?: string;
+	#audioOnly = false;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	#escapeMeeting = false;
@@ -125,6 +127,14 @@ export class Peer extends EventEmitter {
 		this.transports.clear();
 
 		this.emit('close');
+	}
+
+	public get audioOnly(): boolean {
+		return this.#audioOnly;
+	}
+
+	public set audioOnly(value: boolean) {
+		this.#audioOnly = value;
 	}
 
 	public get raisedHand(): boolean {
@@ -284,6 +294,7 @@ export class Peer extends EventEmitter {
 			id: this.id,
 			displayName: this.displayName,
 			picture: this.picture,
+			audioOnly: this.audioOnly,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			roles: this.roles.map((role) => role.id),
