@@ -49,6 +49,8 @@ export const createLockMiddleware = ({
 					peerId: peer.id,
 				}, peer);
 
+				room.promoteAllPeers();
+				
 				context.handled = true;
 
 				break;
