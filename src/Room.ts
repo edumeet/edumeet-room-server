@@ -25,7 +25,7 @@ import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddlewa
 import { MiddlewareOptions } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
-import { KDPoint, List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 
 const logger = new Logger('Room');
