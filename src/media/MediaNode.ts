@@ -184,7 +184,6 @@ export default class MediaNode {
 	}
 
 	public get load(): number {
-		if (this.connection) return this.connection.load || 0;
-		else return 0;
+		return this.connection?.load ?? 0;
 	}
 }

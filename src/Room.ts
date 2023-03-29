@@ -278,12 +278,10 @@ export default class Room extends EventEmitter {
 	}
 
 	public getActiveMediaNodes(): MediaNode[] {
-		const uniqueMedianodes = [ ...new Set(
+		return [ ...new Set(
 			this.routers.items.map(
 				(r) => r.mediaNode as unknown as MediaNode
 			)
 		) ];
-		
-		return uniqueMedianodes;
 	}
 }

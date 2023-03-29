@@ -38,15 +38,17 @@ export default class LoadBalancer {
 	): MediaNode[] {
 		try {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
-			let candidates: MediaNode[] = [];
-
 			// Get sticky candidates
+			let candidates = room.getActiveMediaNodes()
+				.filter((m) => m.load < this.cpuLoadThreshold)
+				.sort((a, b) => a.load - b.load);
+
 			candidates = room.getActiveMediaNodes();
 			candidates = candidates.filter(
 				(mediaNode) => mediaNode.load < this.cpuLoadThreshold
 			);
 			candidates.sort((a, b) => a.load - b.load); // Sort mediaNodes based on cpu load
-			const peerGeoPosition = this.getClientPosition(peer) || this.defaultClientPosition;
+			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 
 			candidates = this.filterOnGeoThreshold(candidates, peerGeoPosition);
 			
@@ -62,13 +64,8 @@ export default class LoadBalancer {
 			);
 
 			// Merge candidates
-			if (kdtreeCandidates) {
-				kdtreeCandidates.forEach((candidate) => {
-					const mediaNodeToPush = candidate[0].appData.mediaNode as MediaNode;
-
-					candidates.push(mediaNodeToPush);	
-				});
-			}
+			kdtreeCandidates?.forEach(([ c ]) => 
+				candidates.push(c.appData.mediaNode as MediaNode));
 		
 			return candidates;
 
@@ -116,12 +113,8 @@ export default class LoadBalancer {
 	 */
 	public filterOnGeoThreshold(mediaNodes: MediaNode[], peerPosition: KDPoint) {
 		logger.debug('filterOnGeoThreshold() [peerPosition: %s]', peerPosition);
-		const nodesInsideThreshold = mediaNodes.filter((mediaNode) => {
-			const distance = KDTree.getDistance(peerPosition, mediaNode.kdPoint);
-
-			return distance < this.geoDistanceThreshold;
-		});
-			
-		return nodesInsideThreshold;
+		
+		return mediaNodes.filter(({ kdPoint }) => 
+			KDTree.getDistance(peerPosition, kdPoint) < this.geoDistanceThreshold);
 	}
 }
