@@ -10,8 +10,7 @@ import { interactiveServer } from './interactiveServer';
 import { Logger, KDTree, KDPoint } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
-import LoadBalancer from './loadbalancing/LoadBalancer';
-import LBStrategyFactory from './loadbalancing/LBStrategyFactory';
+import LoadBalancer from './LoadBalancer';
 import { Config } from './Config';
 
 const actualConfig = config as Config;
@@ -24,9 +23,9 @@ const defaultClientPosition = new KDPoint(
 	[ actualConfig.mediaNodes[0].latitude,
 		actualConfig.mediaNodes[0].longitude ]
 );
-const loadBalancer = new LoadBalancer(new LBStrategyFactory(), defaultClientPosition);
 const kdTree = new KDTree([]);
-const mediaService = new MediaService({ loadBalancer, config: actualConfig, kdTree });
+const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
+const mediaService = MediaService.create(loadBalancer, kdTree, actualConfig);
 const serverManager = new ServerManager({ mediaService });
 
 interactiveServer(serverManager);

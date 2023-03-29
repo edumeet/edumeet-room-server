@@ -26,6 +26,7 @@ import { MiddlewareOptions } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { KDPoint, List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import MediaNode from './media/MediaNode';
 
 const logger = new Logger('Room');
 
@@ -55,7 +56,6 @@ export default class Room extends EventEmitter {
 	private initialMediaMiddleware: Middleware<PeerContext>;
 	private joinMiddleware: Middleware<PeerContext>;
 	private peerMiddlewares: Middleware<PeerContext>[] = [];
-	private activeMediaNodes: Set<KDPoint>;
 
 	constructor({ id, name, mediaService, parent }: RoomOptions) {
 		logger.debug('constructor() [id: %s, parent: %s]', id, parent?.id);
@@ -65,7 +65,6 @@ export default class Room extends EventEmitter {
 		this.id = id;
 		this.name = name;
 		this.parent = parent;
-		this.activeMediaNodes = new Set();
 
 		const middlewareOptions = {
 			room: this,
@@ -130,7 +129,6 @@ export default class Room extends EventEmitter {
 	}
 
 	public addRouter(router: Router): void {
-		this.activeMediaNodes.add(router.mediaNode.kdPoint);
 		if (this.parent)
 			this.parent.addRouter(router);
 		else
@@ -279,13 +277,13 @@ export default class Room extends EventEmitter {
 		}
 	}
 
-	public getActiveMediaNodes(): KDPoint[] {
-		const activeMediaNodes: KDPoint[] = [];
-
-		this.activeMediaNodes.forEach((mediaNode) => {
-			activeMediaNodes.push(mediaNode);
-		});
-
-		return activeMediaNodes;
+	public getActiveMediaNodes(): MediaNode[] {
+		const uniqueMedianodes = [ ...new Set(
+			this.routers.items.map(
+				(r) => r.mediaNode as unknown as MediaNode
+			)
+		) ];
+		
+		return uniqueMedianodes;
 	}
 }
