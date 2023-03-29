@@ -64,7 +64,7 @@ export default class LoadBalancer {
 			return candidates;
 
 		} catch (err) {
-			if (err instanceof Error) logger.error('Error while getting candidates');
+			logger.error(err);	
 			
 			return [];
 		}
