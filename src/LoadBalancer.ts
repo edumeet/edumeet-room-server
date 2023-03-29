@@ -42,12 +42,6 @@ export default class LoadBalancer {
 			let candidates = room.getActiveMediaNodes()
 				.filter((m) => m.load < this.cpuLoadThreshold)
 				.sort((a, b) => a.load - b.load);
-
-			candidates = room.getActiveMediaNodes();
-			candidates = candidates.filter(
-				(mediaNode) => mediaNode.load < this.cpuLoadThreshold
-			);
-			candidates.sort((a, b) => a.load - b.load); // Sort mediaNodes based on cpu load
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 
 			candidates = this.filterOnGeoThreshold(candidates, peerGeoPosition);
