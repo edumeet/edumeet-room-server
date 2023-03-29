@@ -12,5 +12,4 @@ export interface Config {
 		latitude: number;
 		longitude: number;
 	}>;
-	loadBalancingStrategies?: Array<string>;
 }
