@@ -4,9 +4,9 @@ import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
 import { userRoles } from '../../src/common/authorization';
-import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
+import LoadBalancer from '../../src/LoadBalancer';
 import { Config } from '../../src/Config';
-import { KDPoint, KDTree } from 'edumeet-common';
+import { KDTree } from 'edumeet-common';
 
 describe('Room', () => {
 	let room1: Room;
@@ -27,14 +27,14 @@ describe('Room', () => {
 	const roomName3 = 'testRoomName3';
 	const config = { mediaNodes: [] } as unknown as Config;
 	const loadBalancer = {} as unknown as LoadBalancer;	
-	const kdPoint = new KDPoint([ 59.9139, 10.7522 ], { name: 'Oslo', load: 0.2 });
 
 	beforeEach(() => {
 		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
+		const mediaService = MediaService.create(loadBalancer, kdTree, config);
 
 		room1 = new Room({
 			id: roomId1,
-			mediaService: new MediaService({ loadBalancer, config, kdTree }),
+			mediaService, 
 			name: roomName1,
 		});
 
@@ -79,10 +79,10 @@ describe('Room', () => {
 		beforeEach(() => {
 			router = {
 				mediaNode: {
-					kdPoint 
+					id: 'mediaNodeId'
 				},
 				connection: jest.fn(),
-				id: jest.fn(),
+				id: 'routerId',
 				rtpCapabilities: jest.fn(),
 				appData: {},
 				close: jest.fn()
@@ -109,7 +109,7 @@ describe('Room', () => {
 			const result = room1.getActiveMediaNodes();
 
 			expect(result.length).toBe(1);
-			expect(result[0]).toBe(kdPoint);
+			expect(result[0].id).toBe('mediaNodeId');
 		});
 
 		it('pushRouter() - should not add same router twice', () => {
@@ -447,15 +447,16 @@ describe('Room', () => {
 
 		beforeEach(() => {
 			const kdTree = { rebalance: jest.fn() } as unknown as KDTree;	
+			const mediaService = MediaService.create(loadBalancer, kdTree, config);
 
 			room2 = new Room({
 				id: roomId2,
-				mediaService: new MediaService({ loadBalancer, config, kdTree }),
+				mediaService, 
 				name: roomName2,
 			});
 			room3 = new Room({
 				id: roomId3,
-				mediaService: new MediaService({ loadBalancer, config, kdTree }),
+				mediaService,
 				name: roomName3,
 				parent: room2
 			});

@@ -3,7 +3,7 @@ import { IOServerConnection, KDTree } from 'edumeet-common';
 import MediaService from '../../src/MediaService';
 import ServerManager from '../../src/ServerManager';
 import { Socket } from 'socket.io';
-import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
+import LoadBalancer from '../../src/LoadBalancer';
 import { Config } from '../../src/Config';
 
 describe('ServerManager', () => {
@@ -13,8 +13,10 @@ describe('ServerManager', () => {
 	const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
 
 	beforeEach(() => {
+		const mediaService = MediaService.create(loadBalancer, kdTree, config);
+
 		serverManager = new ServerManager({
-			mediaService: new MediaService({ loadBalancer, config, kdTree }) 
+			mediaService 
 		});
 	});
 
