@@ -1,8 +1,8 @@
-import { Next } from 'edumeet-common';
+import { List, Next } from 'edumeet-common';
 import { userRoles } from '../../../src/common/authorization';
 import { MiddlewareOptions } from '../../../src/common/types';
 import { createLockMiddleware } from '../../../src/middlewares/lockMiddleware';
-import { PeerContext } from '../../../src/Peer';
+import { Peer, PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
 
 const SESSION_ID = 'sessionId';
@@ -132,9 +132,12 @@ test('unlockRoom() - Should throw on not authorized', async () => {
 
 test('unlockRoom() - Should unlock room on happy path', async () => {
 	const spyNotifyPeers = jest.fn();
+	const spyPromoteAllPeers = jest.fn();
 	const room = {
 		sessionId: SESSION_ID,
 		notifyPeers: spyNotifyPeers,
+		lobbyPeers: List<Peer>(),
+		promoteAllPeers: spyPromoteAllPeers,
 		locked: true
 	} as unknown as Room;
 
@@ -154,8 +157,10 @@ test('unlockRoom() - Should unlock room on happy path', async () => {
 		}
 	} as unknown as PeerContext;
 
+	expect(spyPromoteAllPeers).not.toHaveBeenCalled();
 	await sut(context, next);
 
+	expect(spyPromoteAllPeers).toHaveBeenCalled();
 	expect(context.handled).toBeTruthy();
 	expect(spyNotifyPeers).toHaveBeenCalled();
 	expect(room.locked).toBeFalsy();
