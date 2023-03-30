@@ -1,5 +1,4 @@
-import LBStrategyFactory from '../../src/loadbalancing/LBStrategyFactory';
-import LoadBalancer from '../../src/loadbalancing/LoadBalancer';
+import LoadBalancer from '../../src/LoadBalancer';
 import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import MediaService from '../../src/MediaService';
@@ -14,13 +13,13 @@ import { KDPoint, KDTree } from 'edumeet-common';
  */
 
 test('getRouter() should throw on no mediaNodes', async () => {
-	const factory = new LBStrategyFactory();
-	const loadBalancer = new LoadBalancer(factory, new KDPoint([ 40, 40 ]));
 	const config = {
 		mediaNodes: []
 	} as unknown as Config;
 	const kdTree = new KDTree([]);
-	const sut = new MediaService({ loadBalancer, config, kdTree });
+	const defaultClientPosition = new KDPoint([ 50, 10 ]);
+	const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
+	const sut = MediaService.create(loadBalancer, kdTree, config);
 
 	const roomOptions = {
 		id: 'roomId',
@@ -50,9 +49,9 @@ test('getRouter() should get router', async () => {
 	} as unknown as Config;
 	const kdTree = new KDTree([]);
 
-	const factory = new LBStrategyFactory();
-	const loadBalancer = new LoadBalancer(factory, new KDPoint([ 40, 40 ]));
-	const sut = new MediaService({ loadBalancer, config, kdTree });
+	const defaultClientPosition = new KDPoint([ 50, 10 ]);
+	const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
+	const sut = MediaService.create(loadBalancer, kdTree, config);
 
 	const roomOptions = {
 		id: 'roomId',
@@ -64,6 +63,12 @@ test('getRouter() should get router', async () => {
 		roomId: 'roomId'
 	};
 	const peer = new Peer(peerOptions);
+	const clientAddress = {
+		address: '127.0.0.1',
+		forwardedFor: undefined
+	};
+
+	jest.spyOn(peer, 'getAddress').mockReturnValue(clientAddress);
 
 	expect(room.routers.length).toBe(0);
 
