@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { IOClientConnection, Logger, skipIfClosed } from 'edumeet-common';
+import { IOClientConnection, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
 import { createDataConsumersMiddleware } from '../middlewares/dataConsumersMiddleware';
 import { createDataProducersMiddleware } from '../middlewares/dataProducersMiddleware';
@@ -26,6 +26,7 @@ interface MediaNodeOptions {
 	hostname: string;
 	port: number;
 	secret: string;
+	kdPoint: KDPoint
 }
 
 export default class MediaNode {
@@ -34,6 +35,7 @@ export default class MediaNode {
 	public hostname: string;
 	public port: number;
 	#secret: string;
+	public readonly kdPoint: KDPoint;
 	public connection?: MediaNodeConnection;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
@@ -65,7 +67,8 @@ export default class MediaNode {
 		id,
 		hostname,
 		port,
-		secret
+		secret,
+		kdPoint
 	}: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
@@ -73,6 +76,7 @@ export default class MediaNode {
 		this.hostname = hostname;
 		this.port = port;
 		this.#secret = secret;
+		this.kdPoint = kdPoint;
 	}
 
 	@skipIfClosed
@@ -177,5 +181,9 @@ export default class MediaNode {
 		});
 
 		return connection;
+	}
+
+	public get load(): number {
+		return this.connection?.load ?? 0;
 	}
 }

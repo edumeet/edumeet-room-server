@@ -25,6 +25,7 @@ export class MediaNodeConnection extends EventEmitter {
 	public closed = false;
 	public connection: BaseConnection;
 	public pipeline = Pipeline<MediaNodeConnectionContext>();
+	private _load: number | undefined;
 
 	private resolveReady!: () => void;
 	public ready = new Promise<void>((resolve) => {
@@ -58,7 +59,9 @@ export class MediaNodeConnection extends EventEmitter {
 		logger.debug('addConnection()');
 
 		this.connection.on('notification', async (notification) => {
-			if (notification.method === 'mediaNodeReady')
+			this._load = notification.data.load;
+
+			if (notification.method === 'mediaNodeReady') 
 				return this.resolveReady();
 
 			try {
@@ -79,6 +82,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 		this.connection.on('request', async (request, respond, reject) => {
 			try {
+				this._load = request.data.load;
 				const context = {
 					message: request,
 					response: {},
@@ -120,9 +124,18 @@ export class MediaNodeConnection extends EventEmitter {
 		logger.debug('request() [method: %s]', request.method);
 
 		try {
-			return await this.connection.request(request);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const response: any = await this.connection.request(request);
+
+			this._load = response.load;
+			
+			return response;
 		} catch (error) {
 			logger.error('request() [error: %o]', error);
 		}
+	}
+
+	public get load(): number | undefined {
+		return this._load;
 	}
 }

@@ -30,4 +30,4 @@ jobs:
     - run: cp config/config.example.json config/config.json
     - run: yarn lint
     - run: yarn build
-    - run: yarn test
+    - run: yarn test:unit

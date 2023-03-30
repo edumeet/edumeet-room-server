@@ -1,28 +1,57 @@
-import config from '../config/config.json';
 import Room from './Room';
 import { Peer } from './Peer';
 import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
-import { List, Logger, skipIfClosed } from 'edumeet-common';
+import { KDTree, KDPoint, List, Logger, skipIfClosed } from 'edumeet-common';
+import LoadBalancer from './LoadBalancer';
+import { Config } from './Config';
 
 const logger = new Logger('MediaService');
-
-let index = 0;
 
 export interface RouterData {
 	roomId: string;
 	pipePromises: Map<string, Promise<void>>;
 }
 
+export interface MediaServiceOptions {
+	loadBalancer: LoadBalancer;
+}
+
 export default class MediaService {
 	public closed = false;
 	public mediaNodes = List<MediaNode>();
+	private loadBalancer: LoadBalancer;
 
-	constructor() {
-		logger.debug('constructor()');
+	constructor({ loadBalancer } : MediaServiceOptions) {
+		logger.debug('constructor() [loadBalancer: %s]', loadBalancer);
 
-		this.loadMediaNodes();
+		this.loadBalancer = loadBalancer;
+	}
+
+	public static create(
+		loadBalancer: LoadBalancer,
+		kdTree: KDTree,
+		config: Config
+	) {
+		logger.debug('create() [loadBalancer: %s, kdtree: %s, config: %s]', loadBalancer, kdTree, config);
+		const mediaService = new MediaService({ loadBalancer });
+
+		for (const { hostname, port, secret, longitude, latitude } of config.mediaNodes) {
+			const mediaNode = new MediaNode({
+				id: randomUUID(), 
+				hostname,
+				port,
+				secret,
+				kdPoint: new KDPoint([ longitude, latitude ])
+			});
+
+			mediaService.mediaNodes.add(mediaNode);
+			kdTree.addNode(new KDPoint([ longitude, latitude ], { mediaNode }));
+		}
+		kdTree.rebalance();
+		
+		return mediaService; 
 	}
 
 	@skipIfClosed
@@ -36,46 +65,31 @@ export default class MediaService {
 	}
 
 	@skipIfClosed
-	private loadMediaNodes(): void {
-		logger.debug('loadMediaNodes()');
-
-		for (const { hostname, port, secret } of config.mediaNodes) {
-			this.mediaNodes.add(new MediaNode({
-				id: randomUUID(),
-				hostname,
-				port,
-				secret,
-			}));
-		}
-	}
-
-	@skipIfClosed
 	public async getRouter(room: Room, peer: Peer): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
-		const mediaNode = this.mediaNodes.items[index];
+		const candidates: MediaNode[] = this.loadBalancer.getCandidates(room, peer);
 
-		index += 1;
-		index %= this.mediaNodes.length;
-
-		if (!mediaNode)
+		// TODO: try all valid candidates, dont assume the first one works
+		if (candidates.length === 0) {
 			throw new Error('no media nodes available');
-
-		const router = await mediaNode.getRouter({
-			roomId: room.id,
-			appData: {
+		} else {
+			const router = await candidates[0].getRouter({
 				roomId: room.id,
-				pipePromises: new Map<string, Promise<void>>(),
+				appData: {
+					roomId: room.id,
+					pipePromises: new Map<string, Promise<void>>(),
+				}
+			});
+
+			if (!room.parentClosed)
+				room.addRouter(router);
+			else {
+				router.close();
+				throw new Error('room closed');
 			}
-		});
 
-		if (!room.parentClosed)
-			room.addRouter(router);
-		else {
-			router.close();
-			throw new Error('room closed');
-		}
-
-		return router;
+			return router;
+		}		
 	}
 }

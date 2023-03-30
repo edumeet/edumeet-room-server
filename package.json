@@ -1,6 +1,6 @@
 {
 	"name": "edumeet-room-server",
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"description": "Edumeet room server",
 	"main": "dist/src/server.js",
 	"author": "Håvar Aambø Fosstveit <havar@fosstveit.net>",
@@ -12,14 +12,16 @@
 		"lint": "eslint . --ext .ts",
 		"lint:fix": "eslint . --ext .ts --fix",
 		"connect": "node connect.js",
-		"test": "jest",
-		"test:coverage": "jest --coverage --coverageDirectory coverage",
+		"test:unit": "jest __tests__/unit-tests",
+		"test:integration": "jest __tests__/integration-tests",
+		"test:coverage": "jest __tests__/unit-tests --coverage --coverageDirectory coverage",
 		"test:watch": "jest --watch",
 		"prepare": "husky install"
 	},
 	"devDependencies": {
 		"@tsconfig/node18": "^1.0.1",
 		"@types/debug": "^4.1.7",
+		"@types/geoip-lite": "^1.4.1",
 		"@types/jest": "^29.4.0",
 		"@types/jsonwebtoken": "^8.5.1",
 		"@types/node": "^18.14.0",
@@ -35,7 +37,8 @@
 	},
 	"dependencies": {
 		"debug": "^4.3.4",
-		"edumeet-common": "edumeet/edumeet-common#0.2.6",
+		"edumeet-common": "edumeet/edumeet-common#0.5.0",
+		"geoip-lite": "^1.4.7",
 		"jsonwebtoken": "^8.5.1",
 		"socket.io": "^4.6.1",
 		"socket.io-client": "^4.6.1"

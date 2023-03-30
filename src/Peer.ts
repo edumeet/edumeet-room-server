@@ -13,6 +13,7 @@ import {
 	BaseConnection,
 	InboundNotification,
 	InboundRequest,
+	IOServerConnection,
 	List,
 	Logger,
 	Pipeline,
@@ -21,6 +22,7 @@ import {
 } from 'edumeet-common';
 import { DataProducer } from './media/DataProducer';
 import { DataConsumer } from './media/DataConsumer';
+import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
 
 const logger = new Logger('Peer');
 
@@ -38,6 +40,7 @@ export interface PeerInfo {
 	displayName?: string;
 	picture?: string;
 	roles: number[];
+	audioOnly: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
 }
@@ -67,6 +70,7 @@ export class Peer extends EventEmitter {
 	public connections = List<BaseConnection>();
 	public displayName: string;
 	public picture?: string;
+	#audioOnly = false;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	#escapeMeeting = false;
@@ -123,6 +127,14 @@ export class Peer extends EventEmitter {
 		this.transports.clear();
 
 		this.emit('close');
+	}
+
+	public get audioOnly(): boolean {
+		return this.#audioOnly;
+	}
+
+	public set audioOnly(value: boolean) {
+		this.#audioOnly = value;
 	}
 
 	public get raisedHand(): boolean {
@@ -271,11 +283,18 @@ export class Peer extends EventEmitter {
 		return jwt.sign({ id: this.id }, signingkey, { noTimestamp: true });
 	}
 
+	public getAddress(): clientAddress {
+		const connection = this.connections.items[0] as unknown as IOServerConnection;
+		
+		return connection.address;
+	}
+
 	public get peerInfo(): PeerInfo {
 		return {
 			id: this.id,
 			displayName: this.displayName,
 			picture: this.picture,
+			audioOnly: this.audioOnly,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			roles: this.roles.map((role) => role.id),

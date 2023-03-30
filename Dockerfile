@@ -12,4 +12,4 @@ RUN yarn run build
 
 EXPOSE ${8443}
 
-ENTRYPOINT DEBUG=edumeet-room-server:* yarn run prodstart $0 $@
+ENTRYPOINT DEBUG=edumeet:* yarn run prodstart $0 $@
