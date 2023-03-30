@@ -1,12 +1,11 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection, MediaNodeConnectionContext } from './MediaNodeConnection';
+import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { PipeConsumer, PipeConsumerOptions } from './PipeConsumer';
 import { PipeProducer, PipeProducerOptions } from './PipeProducer';
-import { createPipeTransportsMiddleware } from '../middlewares/pipeTransportsMiddleware';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../common/types';
-import { Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { Logger, skipIfClosed } from 'edumeet-common';
 import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
 import { PipeDataProducer, PipeDataProducerOptions } from './PipeDataProducer';
 import { PipeDataConsumer, PipeDataConsumerOptions } from './PipeDataConsumer';

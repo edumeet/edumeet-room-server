@@ -4,101 +4,122 @@ import MediaService from '../../src/MediaService';
 import Room from '../../src/Room';
 import { Peer } from '../../src/Peer';
 import MediaNode from '../../src/media/MediaNode';
+import LoadBalancer from '../../src/LoadBalancer';
+import { Config } from '../../src/Config';
+import { KDTree } from 'edumeet-common';
 
+const config = {
+	listenPort: 3000,
+	listenHost: 3000,
+	mediaNodes: [],
+} as unknown as Config;
+		
 describe('MediaService', () => {
-	let mediaService: MediaService;
-
-	beforeEach(() => {
-		mediaService = new MediaService();
-		mediaService.mediaNodes.clear(); // We don't want nodes from config
-	});
-
-	afterEach(() => {
-		jest.restoreAllMocks();
-	});
-
 	it('Has correct properties', () => {
-		expect(mediaService.closed).toBe(false);
+		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
+		const loadBalancer = {} as unknown as LoadBalancer;
+		const sut = MediaService.create(loadBalancer, kdTree, config); 
+
+		expect(sut.closed).toBe(false);
 	});
 
 	it('close()', () => {
-		mediaService.close();
-		expect(mediaService.closed).toBe(true);
-		expect(mediaService.mediaNodes.length).toBe(0);
+		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
+		const loadBalancer = {} as unknown as LoadBalancer;
+		const sut = MediaService.create(loadBalancer, kdTree, config); 
+
+		sut.close();
+		expect(sut.closed).toBe(true);
+		expect(sut.mediaNodes.length).toBe(0);
 	});
 
 	describe('Router', () => {
 		const ERROR_MSG_NO_MEDIA_NODES = 'no media nodes available';
 		const ERROR_MSG_ROOM_CLOSED = 'room closed';
 		let fakeMediaNode1: MediaNode;
-		let fakeMediaNode2: MediaNode;
-		let mockGetRouter1: jest.SpyInstance;
-		let mockGetRouter2: jest.SpyInstance;
-		let spyMediaNode1GetRouter: jest.SpyInstance;
-		let spyMediaNode2GetRouter: jest.SpyInstance;
-		let fakeRoom: Room;
+		let mockGetRouter: jest.SpyInstance;
 		let fakePeer: Peer;
-		let spyRoomAddRouter: jest.SpyInstance;
 
 		beforeEach(() => {
-			mockGetRouter1 = jest.fn().mockImplementation(async () => {	
+			mockGetRouter = jest.fn().mockImplementation(async () => {	
 				return { close: jest.fn() } as unknown as Router;
 			});
-			mockGetRouter2 = jest.fn().mockImplementation(async () => {	
-				return { close: jest.fn() } as unknown as Router;
-			});
-			fakeRoom = {
-				id: 'id',
-				parentClose: false,
-				addRouter: jest.fn()
-			} as unknown as Room;
 			fakePeer = {
 				id: 'id'
 			} as unknown as Peer;
 			fakeMediaNode1 = {
-				getRouter: mockGetRouter1
+				id: 'id1',
+				getRouter: mockGetRouter
 			} as unknown as MediaNode;
-			fakeMediaNode2 = {
-				getRouter: mockGetRouter2
-			} as unknown as MediaNode;
-			spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
-			spyMediaNode1GetRouter = jest.spyOn(fakeMediaNode1, 'getRouter');
-			spyMediaNode2GetRouter = jest.spyOn(fakeMediaNode2, 'getRouter');
+		});
+		afterEach(() => {
+			jest.clearAllMocks();
 		});
 
 		it('getRouter() - Should add router to room when parent not closed', async () => {
-			mediaService.mediaNodes.add(fakeMediaNode1);
-			expect(mediaService.mediaNodes.length).toBe(1);
+			const spyGetCandidates = jest.fn().mockReturnValue([ fakeMediaNode1 ]);
+			const loadBalancer = {
+				getCandidates: spyGetCandidates
+			} as unknown as LoadBalancer; 
+			const spyRoomAddRouter = jest.fn();
+			const fakeRoom = {
+				id: 'id',
+				parentClose: false,
+				addRouter: spyRoomAddRouter
+			} as unknown as Room;
+			const kdTree = { rebalance: jest.fn() 
+			} as unknown as KDTree;
 			
-			await mediaService.getRouter(fakeRoom, fakePeer);
+			const sut = MediaService.create(loadBalancer, kdTree, config); 
+
+			await sut.getRouter(fakeRoom, fakePeer);
 
 			expect(spyRoomAddRouter).toHaveBeenCalled();
+			expect(spyGetCandidates).toHaveBeenCalled();
 		});
 		
 		it('getRouter() - Should throw when parent room have closed', async () => {
+			const spyGetCandidates = jest.fn().mockReturnValue([ fakeMediaNode1 ]);
+			const loadBalancer = {
+				getCandidates: spyGetCandidates
+			} as unknown as LoadBalancer; 
+			const fakeRoom = {
+				id: 'id',
+				parentClose: false,
+				addRouter: jest.fn()
+			} as unknown as Room;
 			const roomWithClosedParent = { ...fakeRoom, parentClosed: true } as unknown as Room;
-
-			mediaService.mediaNodes.add(fakeMediaNode1);
+			const spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
 			
-			await expect(mediaService.getRouter(roomWithClosedParent, fakePeer)).
+			const kdTree = {
+				rebalance: jest.fn(),
+				nearestNeigbours: jest.fn().mockReturnValue([]) } as unknown as KDTree;
+
+			const sut = MediaService.create(loadBalancer, kdTree, config); 
+
+			await expect(sut.getRouter(roomWithClosedParent, fakePeer)).
 				rejects.toThrowError(ERROR_MSG_ROOM_CLOSED);
 			expect(spyRoomAddRouter).not.toHaveBeenCalled();
 		});
 		
-		it('getRouter() - Should spread routers across mediaNodes', async () => {
-			mediaService.mediaNodes.add(fakeMediaNode1);
-			mediaService.mediaNodes.add(fakeMediaNode2);
-			
-			mediaService.getRouter(fakeRoom, fakePeer);
-			mediaService.getRouter(fakeRoom, fakePeer);
-
-			expect(spyMediaNode1GetRouter).toHaveBeenCalledTimes(1);
-			expect(spyMediaNode2GetRouter).toHaveBeenCalledTimes(1);
-		});
-		
-		// This needs to be last since index is set to NaN
 		it('getRouter() - Should throw on no mediaNodes', async () => {
-			await expect(mediaService.getRouter(fakeRoom, fakePeer)).
+			const loadBalancer = { getCandidates: jest.fn().mockImplementation(() => {
+				return [];
+			}) } as unknown as LoadBalancer; 
+			const fakeRoom = {
+				id: 'id',
+				parentClose: false,
+				addRouter: jest.fn()
+			} as unknown as Room;
+
+			jest.spyOn(loadBalancer, 'getCandidates').mockImplementation(() => {
+				return [];
+			});
+			const kdTree = { rebalance: jest.fn()
+			} as unknown as KDTree;
+			const sut = MediaService.create(loadBalancer, kdTree, config); 
+
+			await expect(sut.getRouter(fakeRoom, fakePeer)).
 				rejects.toThrowError(ERROR_MSG_NO_MEDIA_NODES);
 		});
 	});

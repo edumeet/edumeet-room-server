@@ -1,3 +1,4 @@
+import { KDPoint } from 'edumeet-common';
 import 'jest';
 import MediaNode from '../../src/media/MediaNode';
 import { MediaNodeConnection } from '../../src/media/MediaNodeConnection';
@@ -6,6 +7,7 @@ describe('MediaNode', () => {
 	let mediaNode: MediaNode;
 	const roomId = 'testRoomId';
 	const roomId2 = 'testRoomId2';
+	const fakePoint = {} as unknown as KDPoint;
 
 	beforeEach(() => {
 		mediaNode = new MediaNode({
@@ -13,6 +15,7 @@ describe('MediaNode', () => {
 			hostname: 'testHostname',
 			port: 1234,
 			secret: 'testSecret',
+			kdPoint: fakePoint
 		});
 
 		mediaNode.connection = {

@@ -26,6 +26,7 @@ import { MiddlewareOptions } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import MediaNode from './media/MediaNode';
 
 const logger = new Logger('Room');
 
@@ -274,5 +275,13 @@ export default class Room extends EventEmitter {
 		for (const peer of peers) {
 			peer.notify({ method, data });
 		}
+	}
+
+	public getActiveMediaNodes(): MediaNode[] {
+		return [ ...new Set(
+			this.routers.items.map(
+				(r) => r.mediaNode as unknown as MediaNode
+			)
+		) ];
 	}
 }

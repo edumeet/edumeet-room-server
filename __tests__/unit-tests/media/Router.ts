@@ -11,7 +11,7 @@ import { EventEmitter } from 'events';
 import { DataProducer } from '../../../src/media/DataProducer';
 import { PipeDataProducer } from '../../../src/media/PipeDataProducer';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
-import { MediaKind } from 'edumeet-common';
+import { KDPoint, MediaKind } from 'edumeet-common';
 
 class MockMediaNodeConnection extends EventEmitter {
 	pipeline = { use: jest.fn(), remove: jest.fn() };
@@ -70,6 +70,8 @@ type PipeTransportPair = {
 	[key: string]: PipeTransport;
 };
 
+const fakePoint = {} as unknown as KDPoint;
+
 describe('Router', () => {
 	let router1: Router;
 	let router2: Router;
@@ -80,6 +82,7 @@ describe('Router', () => {
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
+		kdPoint: fakePoint
 	});
 
 	const mediaNode2 = new MediaNode({
@@ -87,6 +90,7 @@ describe('Router', () => {
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
+		kdPoint: fakePoint
 	});
 
 	let mockConnection1: MediaNodeConnection;

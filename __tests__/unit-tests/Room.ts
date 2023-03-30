@@ -4,6 +4,9 @@ import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
 import { userRoles } from '../../src/common/authorization';
+import LoadBalancer from '../../src/LoadBalancer';
+import { Config } from '../../src/Config';
+import { KDTree } from 'edumeet-common';
 
 describe('Room', () => {
 	let room1: Room;
@@ -22,11 +25,16 @@ describe('Room', () => {
 	const roomName1 = 'testRoomName1';
 	const roomName2 = 'testRoomName2';
 	const roomName3 = 'testRoomName3';
+	const config = { mediaNodes: [] } as unknown as Config;
+	const loadBalancer = {} as unknown as LoadBalancer;	
 
 	beforeEach(() => {
+		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
+		const mediaService = MediaService.create(loadBalancer, kdTree, config);
+
 		room1 = new Room({
 			id: roomId1,
-			mediaService: new MediaService(),
+			mediaService, 
 			name: roomName1,
 		});
 
@@ -70,9 +78,11 @@ describe('Room', () => {
 
 		beforeEach(() => {
 			router = {
-				mediaNode: jest.fn(),
+				mediaNode: {
+					id: 'mediaNodeId'
+				},
 				connection: jest.fn(),
-				id: jest.fn(),
+				id: 'routerId',
 				rtpCapabilities: jest.fn(),
 				appData: {},
 				close: jest.fn()
@@ -92,6 +102,14 @@ describe('Room', () => {
 			room1.addRouter(router);
 			expect(room1.routers.length).toBe(1);
 			expect(spyAdd).toHaveBeenCalled();
+		});
+		
+		it('addRouter() - should have one active mediaNode', () => {
+			room1.addRouter(router);
+			const result = room1.getActiveMediaNodes();
+
+			expect(result.length).toBe(1);
+			expect(result[0].id).toBe('mediaNodeId');
 		});
 
 		it('pushRouter() - should not add same router twice', () => {
@@ -428,14 +446,17 @@ describe('Room', () => {
 		let room3: Room;
 
 		beforeEach(() => {
+			const kdTree = { rebalance: jest.fn() } as unknown as KDTree;	
+			const mediaService = MediaService.create(loadBalancer, kdTree, config);
+
 			room2 = new Room({
 				id: roomId2,
-				mediaService: new MediaService(),
+				mediaService, 
 				name: roomName2,
 			});
 			room3 = new Room({
 				id: roomId3,
-				mediaService: new MediaService(),
+				mediaService,
 				name: roomName3,
 				parent: room2
 			});

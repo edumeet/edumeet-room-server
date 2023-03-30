@@ -7,25 +7,11 @@ import http from 'http';
 import ServerManager from './ServerManager';
 import { Server as IOServer } from 'socket.io';
 import { interactiveServer } from './interactiveServer';
-import { Logger } from 'edumeet-common';
+import { Logger, KDTree, KDPoint } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
-
-interface Config {
-	listenHost: string;
-	listenPort: string;
-	tls?: {
-		cert: string;
-		key: string;
-	};
-	mediaNodes?: Array<{
-		hostname: string;
-		port: number;
-		secret: string;
-		latitude: number;
-		longitude: number;
-	}>;
-}
+import LoadBalancer from './LoadBalancer';
+import { Config } from './Config';
 
 const actualConfig = config as Config;
 
@@ -33,7 +19,13 @@ const logger = new Logger('Server');
 
 logger.debug('Starting...');
 
-const mediaService = new MediaService();
+const defaultClientPosition = new KDPoint(
+	[ actualConfig.mediaNodes[0].latitude,
+		actualConfig.mediaNodes[0].longitude ]
+);
+const kdTree = new KDTree([]);
+const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
+const mediaService = MediaService.create(loadBalancer, kdTree, actualConfig);
 const serverManager = new ServerManager({ mediaService });
 
 interactiveServer(serverManager);

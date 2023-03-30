@@ -13,6 +13,7 @@ import {
 	BaseConnection,
 	InboundNotification,
 	InboundRequest,
+	IOServerConnection,
 	List,
 	Logger,
 	Pipeline,
@@ -21,6 +22,7 @@ import {
 } from 'edumeet-common';
 import { DataProducer } from './media/DataProducer';
 import { DataConsumer } from './media/DataConsumer';
+import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
 
 const logger = new Logger('Peer');
 
@@ -279,6 +281,12 @@ export class Peer extends EventEmitter {
 
 	private assignToken(): string {
 		return jwt.sign({ id: this.id }, signingkey, { noTimestamp: true });
+	}
+
+	public getAddress(): clientAddress {
+		const connection = this.connections.items[0] as unknown as IOServerConnection;
+		
+		return connection.address;
 	}
 
 	public get peerInfo(): PeerInfo {
