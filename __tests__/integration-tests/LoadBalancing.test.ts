@@ -43,7 +43,6 @@ const nodeFarAway = {
 	id: 'id3',
 	kdPoint: new KDPoint([ 16.8833,	 101.8833 ])
 } as unknown as MediaNode;
-const kdPointFarAway = new KDPoint([ 16.8833,	 101.8833 ], { mediaNode: nodeFarAway });
 const nodeHighLoad = {
 	load: 0.9,
 	id: 'id4',
