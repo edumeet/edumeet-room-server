@@ -157,8 +157,10 @@ test('unlockRoom() - Should unlock room on happy path', async () => {
 		}
 	} as unknown as PeerContext;
 
+	expect(spyPromoteAllPeers).not.toHaveBeenCalled();
 	await sut(context, next);
 
+	expect(spyPromoteAllPeers).toHaveBeenCalled();
 	expect(context.handled).toBeTruthy();
 	expect(spyNotifyPeers).toHaveBeenCalled();
 	expect(room.locked).toBeFalsy();
