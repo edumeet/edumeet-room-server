@@ -73,7 +73,9 @@ export default class MediaService {
 		// TODO: try all valid candidates, dont assume the first one works
 		if (candidates.length === 0) {
 			throw new Error('no media nodes available');
+			// notify client
 		} else {
+		// for await loop over candidates, bail out on success
 			const router = await candidates[0].getRouter({
 				roomId: room.id,
 				appData: {
@@ -91,5 +93,6 @@ export default class MediaService {
 
 			return router;
 		}		
+		// hail mary attempt, loop until loadbalancer.getNearest returns [].length === 0
 	}
 }

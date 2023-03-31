@@ -101,6 +101,7 @@ export class MediaNodeConnection extends EventEmitter {
 			} catch (error) {
 				logger.error('request() [error: %o]', error);
 
+				// Mark media-node as unhealthy
 				reject('Server error');
 			}
 		});
@@ -112,11 +113,7 @@ export class MediaNodeConnection extends EventEmitter {
 	public notify(notification: SocketMessage): void {
 		logger.debug('notify() [method: %s]', notification.method);
 
-		try {
-			this.connection.notify(notification);
-		} catch (error) {
-			logger.error('notify() [error: %o]', error);
-		}
+		this.connection.notify(notification);
 	}
 
 	@skipIfClosed
@@ -127,11 +124,12 @@ export class MediaNodeConnection extends EventEmitter {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const response: any = await this.connection.request(request);
 
-			this._load = response.load;
+			this._load = response?.load;
 			
 			return response;
 		} catch (error) {
 			logger.error('request() [error: %o]', error);
+			// Mark media-node as unhealthy
 		}
 	}
 

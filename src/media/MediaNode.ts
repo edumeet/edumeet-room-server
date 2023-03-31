@@ -91,6 +91,18 @@ export default class MediaNode {
 		this.connection?.close();
 	}
 
+	public markAsUnhealthy() {
+		// set health
+		// start logic for going back to healthy (with back off)
+	}
+
+	private getBackToHealthy() {
+		// this.timeOut = 4
+		// try catch, increase this.timeOut
+		// exponential back-off 5s 5s 5s 30s 30s 30s 5m 5m 5m 15m 15m 15m
+		// fetch http request to medianode health endpoint
+	}
+
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
 
@@ -104,6 +116,10 @@ export default class MediaNode {
 			this.connection.once('close', () => delete this.connection);
 		}
 
+		// media-node health handling
+		// wrap into timeout logic. 
+		// set self as unhealthy
+		// throw error, medianode will catch and iterate over next candidate
 		await this.connection.ready;
 
 		const {
