@@ -56,10 +56,9 @@ export class MediaNodeConnection extends EventEmitter {
 
 	@skipIfClosed
 	private handleConnection(): void {
-		logger.debug('addConnection()');
 
 		this.connection.on('notification', async (notification) => {
-			this._load = notification.data.load;
+			this._load = notification.data?.load;
 
 			if (notification.method === 'mediaNodeReady') 
 				return this.resolveReady();
@@ -82,7 +81,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 		this.connection.on('request', async (request, respond, reject) => {
 			try {
-				this._load = request.data.load;
+				this._load = request.data?.load;
 				const context = {
 					message: request,
 					response: {},
@@ -95,6 +94,7 @@ export class MediaNodeConnection extends EventEmitter {
 					respond(context.response);
 				else {
 					logger.debug('request() unhandled request [method: %s]', request.method);
+					// How does this branch relate to media node health?
 
 					reject('Server error');
 				}
@@ -102,6 +102,7 @@ export class MediaNodeConnection extends EventEmitter {
 				logger.error('request() [error: %o]', error);
 
 				// Mark media-node as unhealthy
+				this.emit('connectionError');	
 				reject('Server error');
 			}
 		});
@@ -120,17 +121,12 @@ export class MediaNodeConnection extends EventEmitter {
 	public async request(request: SocketMessage): Promise<unknown> {
 		logger.debug('request() [method: %s]', request.method);
 
-		try {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const response: any = await this.connection.request(request);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const response: any = await this.connection.request(request);
 
-			this._load = response?.load;
+		this._load = response?.load;
 			
-			return response;
-		} catch (error) {
-			logger.error('request() [error: %o]', error);
-			// Mark media-node as unhealthy
-		}
+		return response;
 	}
 
 	public get load(): number | undefined {

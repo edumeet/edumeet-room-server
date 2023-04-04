@@ -70,29 +70,31 @@ export default class MediaService {
 
 		const candidates: MediaNode[] = this.loadBalancer.getCandidates(room, peer);
 
-		// TODO: try all valid candidates, dont assume the first one works
-		if (candidates.length === 0) {
-			throw new Error('no media nodes available');
-			// notify client
-		} else {
 		// for await loop over candidates, bail out on success
-			const router = await candidates[0].getRouter({
-				roomId: room.id,
-				appData: {
+		for await (const c of candidates) {
+			try {
+				const router = await c.getRouter({
 					roomId: room.id,
-					pipePromises: new Map<string, Promise<void>>(),
+					appData: {
+						roomId: room.id,
+						pipePromises: new Map<string, Promise<void>>(),
+					}
+				});
+
+				if (!room.parentClosed)
+					room.addRouter(router);
+				else {
+					router.close();
+					throw new Error('room closed');
 				}
-			});
-
-			if (!room.parentClosed)
-				room.addRouter(router);
-			else {
-				router.close();
-				throw new Error('room closed');
+				
+				return router;
+			} catch (error) {
+				logger.error('getRouter() [error %o]', error);
 			}
-
-			return router;
 		}		
-		// hail mary attempt, loop until loadbalancer.getNearest returns [].length === 0
+		// TODO: hail mary attempt, loop until loadbalancer.getNearest returns [].length === 0
+		throw new Error('no media nodes available');
+		// TODO: notify client
 	}
 }
