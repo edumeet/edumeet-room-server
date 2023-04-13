@@ -28,8 +28,9 @@ export class MediaNodeConnection extends EventEmitter {
 	private _load: number | undefined;
 
 	private resolveReady!: () => void;
-	public ready = new Promise<void>((resolve) => {
+	public ready = new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
+		setTimeout(() => { reject('Timeout waiting for media-node connection'); }, 3000);
 	});
 
 	constructor({
@@ -60,8 +61,10 @@ export class MediaNodeConnection extends EventEmitter {
 		this.connection.on('notification', async (notification) => {
 			this._load = notification.data?.load;
 
-			if (notification.method === 'mediaNodeReady') 
-				return this.resolveReady();
+			if (notification.method === 'mediaNodeReady') {
+				
+				return this.resolveReady(); 
+			}
 
 			try {
 				const context = {
@@ -94,15 +97,11 @@ export class MediaNodeConnection extends EventEmitter {
 					respond(context.response);
 				else {
 					logger.debug('request() unhandled request [method: %s]', request.method);
-					// How does this branch relate to media node health?
-
 					reject('Server error');
 				}
 			} catch (error) {
 				logger.error('request() [error: %o]', error);
 
-				// Mark media-node as unhealthy
-				this.emit('connectionError');	
 				reject('Server error');
 			}
 		});

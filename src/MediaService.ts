@@ -71,9 +71,9 @@ export default class MediaService {
 		const candidates: MediaNode[] = this.loadBalancer.getCandidates(room, peer);
 
 		// We filter out unhealthy candidates, do this in getNearestNeighbors() instead
-		candidates.filter((c) => c.health.status !== false);
+		candidates.filter((c) => c.health === true);
 		// for await loop over candidates, bail out on success
-		for await (const c of candidates) {
+		for (const c of candidates) {
 			try {
 				const router = await c.getRouter({
 					roomId: room.id,
