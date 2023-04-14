@@ -95,10 +95,6 @@ export default class MediaNode {
 		this.connection?.close();
 	}
 
-	public markAsUnhealthy() {
-		logger.debug('markAsUnhealthy()');
-	}
-
 	private async retryConnection(): Promise<void> {
 		if (this.retryTimeoutHandle) {
 			return;
@@ -115,24 +111,25 @@ export default class MediaNode {
 		let retryCount = 0;
 
 		do {
-			logger.debug('retryCount %s', retryCount);
+			logger.debug('retryConnection() retryCount [%s]', retryCount);
 			const timeoutPromise = new Promise((_, reject) => {
-				this.retryTimeoutHandle = setTimeout(() => reject(new Error('Timeout')), backoffIntervals[retryCount]);
+				this.retryTimeoutHandle = setTimeout(
+					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
 			});
 			const healthPromise = axios.get(`https://${this.hostname}:${this.port}/health`);
 
 			try {
 				await Promise.race([ timeoutPromise, healthPromise ]);
 
-				clearInterval(this.retryTimeoutHandle);
 				this.health = true;
 			} catch (error) {
 				logger.error(error);
-				clearInterval(this.retryTimeoutHandle);
+			} finally {
+				clearTimeout(this.retryTimeoutHandle);
 			}
 			retryCount++;
 		} while (retryCount <= backoffIntervals.length && this.health === false);
-		clearTimeout(this.retryTimeoutHandle);
+		delete this.retryTimeoutHandle;
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -145,49 +142,57 @@ export default class MediaNode {
 			this.connection.once('close', () => delete this.connection);
 		}
 		try {
-			await this.connection.ready; // wrap in timeoutPromise in media node connection
+			await this.connection.ready;
 		} catch (error) {
 			this.connection.close();
 			this.pendingRequests.delete(requestUUID); 
+			this.retryConnection();
 			throw error;	
 		}
 
-		const {
-			id,
-			rtpCapabilities
-		} = await this.connection?.request({
-			method: 'getRouter',
-			data: { roomId }
-		}) as RouterOptions;
-
-		let router = this.routers.get(id);
-
-		if (!router) {
-			router = new Router({
-				mediaNode: this,
-				connection: this.connection,
+		try {
+			const {
 				id,
-				rtpCapabilities,
-				appData
-			});
+				rtpCapabilities
+			} = await this.connection?.request({
+				method: 'getRouter',
+				data: { roomId }
+			}) as RouterOptions;
 
-			this.routers.set(id, router);
-			router.once('close', () => {
-				this.routers.delete(id);
+			let router = this.routers.get(id);
 
-				if (
-					this.routers.size === 0 &&
+			if (!router) {
+				router = new Router({
+					mediaNode: this,
+					connection: this.connection,
+					id,
+					rtpCapabilities,
+					appData
+				});
+
+				this.routers.set(id, router);
+				router.once('close', () => {
+					this.routers.delete(id);
+
+					if (
+						this.routers.size === 0 &&
 								this.pendingRequests.size === 0
-				) {
-					this.connection?.close();
-					delete this.connection;
-				}
-			});
-		} 
-		
-		this.pendingRequests.delete(requestUUID); 
-		
-		return router;
+					) {
+						this.connection?.close();
+						delete this.connection;
+					}
+				});
+			} 
+			
+			return router;
+
+		} catch (error) {
+			logger.error(error);
+			this.retryConnection();
+			throw error;
+		} finally {
+			this.pendingRequests.delete(requestUUID); 
+		}
 	}
 
 	private setupConnection(): MediaNodeConnection {
@@ -223,10 +228,6 @@ export default class MediaNode {
 			connection.pipeline.remove(this.pipeConsumersMiddleware);
 			connection.pipeline.remove(this.dataConsumersMiddleware);
 			connection.pipeline.remove(this.pipeDataConsumersMiddleware);
-		});
-
-		connection.addListener('connectionError', () => {
-			this.markAsUnhealthy();
 		});
 
 		return connection;

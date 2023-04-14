@@ -30,7 +30,7 @@ export class MediaNodeConnection extends EventEmitter {
 	private resolveReady!: () => void;
 	public ready = new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
-		setTimeout(() => { reject('Timeout waiting for media-node connection'); }, 3000);
+		setTimeout(() => { reject('Timeout waiting for media-node connection'); }, 750);
 	});
 
 	constructor({
