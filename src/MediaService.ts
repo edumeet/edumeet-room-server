@@ -1,4 +1,4 @@
-import Room from './Room';
+import Room, { RoomClosedError } from './Room';
 import { Peer } from './Peer';
 import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
@@ -85,12 +85,13 @@ export default class MediaService {
 					room.addRouter(router);
 				else {
 					router.close();
-					throw new Error('room closed');
+					throw new RoomClosedError('room closed');
 				}
 				
 				return router;
 			} catch (error) {
 				logger.error('getRouter() [error %o]', error);
+				if (error instanceof RoomClosedError) throw error;
 			}
 		}		
 		// TODO: hail mary attempt, loop until loadbalancer.getCandidates() returns [].length === 0

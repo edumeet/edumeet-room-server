@@ -37,6 +37,14 @@ interface RoomOptions {
 	parent?: Room;
 }
 
+export class RoomClosedError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'RoomClosedError';
+	}
+
+}
+
 export default class Room extends EventEmitter {
 	public id: string;
 	public name?: string;
