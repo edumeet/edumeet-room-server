@@ -141,12 +141,6 @@ export default class MediaNode {
 		}
 		try {
 			await this.connection.ready;
-			if (this.retryTimeoutHandle) {
-				logger.debug('getRouter() canceling retryConnection()');
-				this.health = true;
-				clearTimeout(this.retryTimeoutHandle);
-				delete this.retryTimeoutHandle;
-			}
 		} catch (error) {
 			this.connection.close();
 			this.pendingRequests.delete(requestUUID); 
