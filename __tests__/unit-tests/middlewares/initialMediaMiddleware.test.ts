@@ -75,7 +75,7 @@ test('getRouterRtpCapabilities() - should get rtpCapabilities', async () => {
 	expect(context.handled).toBeTruthy();
 });
 
-test('Should get router form mediaService on missing peer router', async () => {
+test('Should get router from mediaService on missing peer router', async () => {
 	const room = {
 		sessionId: SESSION_ID
 	} as Room;
