@@ -71,8 +71,7 @@ export default class MediaService {
 		const candidates: MediaNode[] = this.loadBalancer.getCandidates(room, peer);
 
 		// TODO: Filter out unhealthy media-nodes in LoadBalancer
-		candidates.filter((c) => c.health === true);
-		for (const c of candidates) {
+		for (const c of candidates.filter((node) => node.health === true)) {
 			try {
 				const router = await c.getRouter({
 					roomId: room.id,
