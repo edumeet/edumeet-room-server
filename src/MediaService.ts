@@ -70,9 +70,8 @@ export default class MediaService {
 
 		const candidates: MediaNode[] = this.loadBalancer.getCandidates(room, peer);
 
-		// We filter out unhealthy candidates, do this in getNearestNeighbors() instead
+		// TODO: Filter out unhealthy media-nodes in LoadBalancer
 		candidates.filter((c) => c.health === true);
-		// for await loop over candidates, bail out on success
 		for (const c of candidates) {
 			try {
 				const router = await c.getRouter({
@@ -95,7 +94,7 @@ export default class MediaService {
 				logger.error('getRouter() [error %o]', error);
 			}
 		}		
-		// TODO: hail mary attempt, loop until loadbalancer.getNearest returns [].length === 0
+		// TODO: hail mary attempt, loop until loadbalancer.getCandidates() returns [].length === 0
 		throw new Error('no media nodes available');
 		// TODO: notify client
 	}
