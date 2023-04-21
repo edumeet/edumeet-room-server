@@ -100,8 +100,6 @@ export default class MediaNode {
 			return;
 		}
 		this.health = false;
-		logger.debug('retryConnection()');
-
 		const backoffIntervals = [
 			5000, 5000, 5000,
 			30000, 30000, 30000,
@@ -120,7 +118,7 @@ export default class MediaNode {
 
 			try {
 				await Promise.race([ timeoutPromise, healthPromise ]);
-
+				logger.debug('retryConnection() got connection to media-node');
 				this.health = true;
 			} catch (error) {
 				logger.error(error);
@@ -143,6 +141,12 @@ export default class MediaNode {
 		}
 		try {
 			await this.connection.ready;
+			if (this.retryTimeoutHandle) {
+				logger.debug('getRouter() canceling retryConnection()');
+				this.health = true;
+				clearTimeout(this.retryTimeoutHandle);
+				delete this.retryTimeoutHandle;
+			}
 		} catch (error) {
 			this.connection.close();
 			this.pendingRequests.delete(requestUUID); 
