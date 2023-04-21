@@ -28,9 +28,10 @@ export class MediaNodeConnection extends EventEmitter {
 	private _load: number | undefined;
 
 	private resolveReady!: () => void;
+	private resolveReadyTimeoutHandle: NodeJS.Timeout | undefined;
 	public ready = new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
-		setTimeout(() => { reject('Timeout waiting for media-node connection'); }, 750);
+		this.resolveReadyTimeoutHandle = setTimeout(() => { reject('Timeout waiting for media-node connection'); }, 750);
 	});
 
 	constructor({
@@ -62,6 +63,7 @@ export class MediaNodeConnection extends EventEmitter {
 			this._load = notification.data?.load;
 
 			if (notification.method === 'mediaNodeReady') {
+				clearTimeout(this.resolveReadyTimeoutHandle);
 				
 				return this.resolveReady(); 
 			}
