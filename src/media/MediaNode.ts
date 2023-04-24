@@ -96,6 +96,7 @@ export default class MediaNode {
 	}
 
 	private async retryConnection(): Promise<void> {
+		logger.debug('retryConnection()');
 		if (this.retryTimeoutHandle) {
 			return;
 		}
@@ -109,7 +110,6 @@ export default class MediaNode {
 		let retryCount = 0;
 
 		do {
-			logger.debug('retryConnection() retryCount [%s]', retryCount);
 			const timeoutPromise = new Promise((_, reject) => {
 				this.retryTimeoutHandle = setTimeout(
 					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
@@ -118,7 +118,6 @@ export default class MediaNode {
 
 			try {
 				await Promise.race([ timeoutPromise, healthPromise ]);
-				logger.debug('retryConnection() got connection to media-node');
 				this.health = true;
 			} catch (error) {
 				logger.error(error);
