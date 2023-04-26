@@ -78,7 +78,7 @@ test('getRouterRtpCapabilities() - should get rtpCapabilities', async () => {
 test('Should get router form mediaService on missing peer router', async () => {
 	const room = {
 		sessionId: SESSION_ID
-	} as Room;
+	} as unknown as Room;
 	const spyGetRouter = jest.fn();
 	const mediaService = {
 		getRouter: spyGetRouter
@@ -107,7 +107,7 @@ test('Should get router form mediaService on missing peer router', async () => {
 test('createWebRtcTransport() - Should throw on no transport', async () => {
 	const room = {
 		sessionId: SESSION_ID
-	} as Room;
+	} as unknown as Room;
 	const options = { room } as MiddlewareOptions;
 	const sut = createInitialMediaMiddleware(options);
 	const peer = {
@@ -132,7 +132,7 @@ test('createWebRtcTransport() - Should throw on no transport', async () => {
 test('createWebRtcTransport() - Should transport life cycle', async () => {
 	const room = {
 		sessionId: SESSION_ID
-	} as Room;
+	} as unknown as Room;
 	const transport = new MockTransport();
 	const spyCreateTransport = jest.fn().mockImplementation(() => {
 		return transport;
@@ -183,7 +183,7 @@ test('createWebRtcTransport() - Should transport life cycle', async () => {
 test('connectWebRtcTransport() - Should connect transport', async () => {
 	const room = {
 		sessionId: SESSION_ID
-	} as Room;
+	} as unknown as Room;
 	const mediaService = {} as unknown as MediaService;
 	const options = { room, mediaService } as MiddlewareOptions;
 	const sut = createInitialMediaMiddleware(options);
@@ -216,7 +216,7 @@ test('connectWebRtcTransport() - Should connect transport', async () => {
 test('connectWebRtcTransport() - Should throw on no transport', async () => {
 	const room = {
 		sessionId: SESSION_ID
-	} as Room;
+	} as unknown as Room;
 	const mediaService = {} as unknown as MediaService;
 	const options = { room, mediaService } as MiddlewareOptions;
 	const sut = createInitialMediaMiddleware(options);
@@ -243,7 +243,7 @@ test('connectWebRtcTransport() - Should throw on no transport', async () => {
 test('restartIce() - Should handle ice restart', async () => {
 	const room = {
 		sessionId: SESSION_ID
-	} as Room;
+	} as unknown as Room;
 	const mediaService = {} as unknown as MediaService;
 	const options = { room, mediaService } as MiddlewareOptions;
 	const sut = createInitialMediaMiddleware(options);
@@ -270,7 +270,7 @@ test('restartIce() - Should handle ice restart', async () => {
 test('restartIce() - Should throw on no transport', async () => {
 	const room = {
 		sessionId: SESSION_ID
-	} as Room;
+	} as unknown as Room;
 	const mediaService = {} as unknown as MediaService;
 	const options = { room, mediaService } as MiddlewareOptions;
 	const sut = createInitialMediaMiddleware(options);
