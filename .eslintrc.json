@@ -42,6 +42,7 @@
 			"beforeBlockComment": true,
 			"beforeLineComment": false
 		}],
+		"max-len": 0,
 		"newline-after-var": 2,
 		"newline-before-return": 2,
 		"newline-per-chained-call": 2,
