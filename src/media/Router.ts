@@ -14,6 +14,8 @@ import { Producer } from './Producer';
 import { DataProducer } from './DataProducer';
 import { Consumer } from './Consumer';
 import { DataConsumer } from './DataConsumer';
+import { ActiveSpeakerObserver, ActiveSpeakerObserverOptions } from './ActiveSpeakerObserver';
+import { AudioLevelObserver, AudioLevelObserverOptions } from './AudioLevelObserver';
 
 const logger = new Logger('Router');
 
@@ -74,6 +76,8 @@ export class Router extends EventEmitter {
 	public pipeConsumers: Map<string, PipeConsumer> = new Map();
 	public dataConsumers: Map<string, DataConsumer> = new Map();
 	public pipeDataConsumers: Map<string, PipeDataConsumer> = new Map();
+	public activeSpeakerObservers: Map<string, ActiveSpeakerObserver> = new Map();
+	public audioLevelObservers: Map<string, AudioLevelObserver> = new Map();
 
 	// Mapped by remote routerId
 	public routerPipePromises = new Map<string, Promise<PipeTransportPair>>();
@@ -141,6 +145,66 @@ export class Router extends EventEmitter {
 		}) as { canConsume: boolean };
 
 		return canConsume;
+	}
+
+	@skipIfClosed
+	public async createActiveSpeakerObserver({
+		interval,
+		appData = {}
+	}: ActiveSpeakerObserverOptions): Promise<ActiveSpeakerObserver> {
+		logger.debug('createActiveSpeakerObserver()');
+
+		const {
+			id,
+		} = await this.connection.request({
+			method: 'createActiveSpeakerObserver',
+			data: {
+				routerId: this.id,
+				interval,
+			}
+		}) as ActiveSpeakerObserverOptions;
+
+		const activeSpeakerObserver = new ActiveSpeakerObserver({
+			router: this,
+			connection: this.connection,
+			id,
+			appData,
+		});
+
+		this.activeSpeakerObservers.set(id, activeSpeakerObserver);
+		activeSpeakerObserver.once('close', () => this.activeSpeakerObservers.delete(id));
+
+		return activeSpeakerObserver;
+	}
+
+	@skipIfClosed
+	public async createAudioLevelObserver({
+		interval,
+		appData = {}
+	}: AudioLevelObserverOptions): Promise<AudioLevelObserver> {
+		logger.debug('createAudioLevelObserver()');
+
+		const {
+			id,
+		} = await this.connection.request({
+			method: 'createAudioLevelObserver',
+			data: {
+				routerId: this.id,
+				interval,
+			}
+		}) as AudioLevelObserverOptions;
+
+		const audioLevelObserver = new AudioLevelObserver({
+			router: this,
+			connection: this.connection,
+			id,
+			appData,
+		});
+
+		this.audioLevelObservers.set(id, audioLevelObserver);
+		audioLevelObserver.once('close', () => this.audioLevelObservers.delete(id));
+
+		return audioLevelObserver;
 	}
 
 	@skipIfClosed
