@@ -144,7 +144,7 @@ export class Peer extends EventEmitter {
 	}
 
 	public set recordable(value: boolean) {
-		this.recordable = value;
+		this.#recordable = value;
 		this.recordableTimestamp = Date.now();
 	}
 
