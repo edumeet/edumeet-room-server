@@ -8,9 +8,12 @@ const logger = new Logger('FileMiddleware');
 
 export const createFileMiddleware = ({
 	room,
+	breakoutRoom,
 	fileHistory,
 }: MiddlewareOptions): Middleware<PeerContext> => {
 	logger.debug('createFileMiddleware() [room: %s]', room.id);
+
+	const actualRoom = breakoutRoom ?? room;
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -21,7 +24,7 @@ export const createFileMiddleware = ({
 			message,
 		} = context;
 
-		if (!thisSession(room, message))
+		if (!thisSession(actualRoom, message))
 			return next();
 		
 		switch (message.method) {
@@ -39,7 +42,7 @@ export const createFileMiddleware = ({
 
 				fileHistory.push(file);
 
-				room.notifyPeers('sendFile', {
+				actualRoom.notifyPeers('sendFile', {
 					peerId: peer.id,
 					file,
 				}, peer);

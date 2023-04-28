@@ -30,7 +30,7 @@ interface PeerOptions {
 	id: string;
 	displayName?: string;
 	picture?: string;
-	roomId: string;
+	sessionId: string;
 	connection?: BaseConnection;
 	token?: string;
 }
@@ -43,6 +43,7 @@ export interface PeerInfo {
 	audioOnly: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
+	sessionId: string;
 }
 
 export interface PeerContext {
@@ -60,6 +61,7 @@ export declare interface Peer {
 
 	on(event: 'gotRole', listener: (newRole: Role) => void): this;
 	on(event: 'lostRole', listener: (oldRole: Role) => void): this;
+	on(event: 'sessionIdChanged', listener: (sessionId: string) => void): this;
 }
 /* eslint-enable no-unused-vars */
 
@@ -84,7 +86,8 @@ export class Peer extends EventEmitter {
 	public producers = new Map<string, Producer>();
 	public dataConsumers = new Map<string, DataConsumer>();
 	public dataProducers = new Map<string, DataProducer>();
-	public roomId: string;
+	public parentSessionId: string;
+	#sessionId: string;
 	public pipeline = Pipeline<PeerContext>();
 	public readonly token: string;
 
@@ -93,7 +96,7 @@ export class Peer extends EventEmitter {
 		token,
 		displayName,
 		picture,
-		roomId,
+		sessionId,
 		connection,
 	}: PeerOptions) {
 		logger.debug('constructor() [id: %s]', id);
@@ -101,7 +104,8 @@ export class Peer extends EventEmitter {
 		super();
 
 		this.id = id;
-		this.roomId = roomId;
+		this.#sessionId = sessionId;
+		this.parentSessionId = sessionId;
 		this.displayName = displayName ?? 'Guest';
 		this.picture = picture;
 		this.token = token ?? this.assignToken();
@@ -127,6 +131,23 @@ export class Peer extends EventEmitter {
 		this.transports.clear();
 
 		this.emit('close');
+	}
+
+	public get inParent(): boolean {
+		return this.parentSessionId === this.sessionId;
+	}
+
+	public set sessionId(sessionId: string) {
+		const oldSessionId = this.#sessionId;
+
+		this.#sessionId = sessionId;
+
+		if (oldSessionId !== sessionId)
+			this.emit('sessionIdChanged', sessionId);
+	}
+
+	public get sessionId(): string {
+		return this.#sessionId;
 	}
 
 	public get audioOnly(): boolean {
@@ -298,6 +319,7 @@ export class Peer extends EventEmitter {
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			roles: this.roles.map((role) => role.id),
+			sessionId: this.sessionId,
 		};
 	}
 }

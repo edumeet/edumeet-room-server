@@ -27,6 +27,7 @@ import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
+import BreakoutRoom from './BreakoutRoom';
 
 const logger = new Logger('Room');
 
@@ -34,7 +35,6 @@ interface RoomOptions {
 	id: string;
 	name?: string;
 	mediaService: MediaService;
-	parent?: Room;
 }
 
 export default class Room extends EventEmitter {
@@ -44,10 +44,9 @@ export default class Room extends EventEmitter {
 	public closed = false;
 	public locked = false;
 	public readonly creationTimestamp = Date.now();
-	
-	public parent?: Room;
+
 	public routers = List<Router>();
-	public rooms = List<Room>();
+	public breakoutRooms = new Map<string, BreakoutRoom>();
 	public pendingPeers = List<Peer>();
 	public peers = List<Peer>();
 	public lobbyPeers = List<Peer>();
@@ -57,14 +56,13 @@ export default class Room extends EventEmitter {
 	private joinMiddleware: Middleware<PeerContext>;
 	private peerMiddlewares: Middleware<PeerContext>[] = [];
 
-	constructor({ id, name, mediaService, parent }: RoomOptions) {
-		logger.debug('constructor() [id: %s, parent: %s]', id, parent?.id);
+	constructor({ id, name, mediaService }: RoomOptions) {
+		logger.debug('constructor() [id: %s]', id);
 
 		super();
 
 		this.id = id;
 		this.name = name;
-		this.parent = parent;
 
 		const middlewareOptions = {
 			room: this,
@@ -95,48 +93,34 @@ export default class Room extends EventEmitter {
 
 		this.closed = true;
 
-		if (!this.parent) {
-			this.pendingPeers.items.forEach((p) => p.close());
-			this.peers.items.forEach((p) => p.close());
-			this.lobbyPeers.items.forEach((p) => p.close());
-		}
+		this.pendingPeers.items.forEach((p) => p.close());
+		this.peers.items.forEach((p) => p.close());
+		this.lobbyPeers.items.forEach((p) => p.close());
 
-		this.rooms.items.forEach((r) => r.close());
+		this.breakoutRooms.forEach((r) => r.close());
 		this.routers.items.forEach((r) => r.close());
 
 		this.pendingPeers.clear();
 		this.peers.clear();
 		this.lobbyPeers.clear();
-		this.rooms.clear();
+		this.breakoutRooms.clear();
 		this.routers.clear();
 
 		this.emit('close');
-	}
-
-	public get parentClosed(): boolean {
-		return this.parent?.parentClosed ?? this.closed;
 	}
 
 	public get empty(): boolean {
 		return this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
 	}
 
-	public addRoom(room: Room): void {
-		logger.debug('addRoom() [id: %s]', room.id);
+	public addBreakoutRoom(breakoutRoom: BreakoutRoom): void {
+		logger.debug('addBreakoutRoom() [sessionId: %s]', breakoutRoom.sessionId);
 
-		this.rooms.add(room);
-		room.once('close', () => this.rooms.remove(room));
+		this.breakoutRooms.set(breakoutRoom.sessionId, breakoutRoom);
+		breakoutRoom.once('close', () => this.breakoutRooms.delete(breakoutRoom.sessionId));
 	}
 
 	public addRouter(router: Router): void {
-		if (this.parent)
-			this.parent.addRouter(router);
-		else
-			this.pushRouter(router);
-	}
-
-	@skipIfClosed
-	private pushRouter(router: Router): void {
 		if (this.routers.has(router)) return;
 
 		this.routers.add(router);
@@ -194,7 +178,7 @@ export default class Room extends EventEmitter {
 		}
 
 		// If the Room is the root room and there are no more peers in it, close
-		if (this.empty && !this.parent)
+		if (this.empty)
 			this.close();
 	}
 

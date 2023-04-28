@@ -24,7 +24,8 @@ export const createInitialMediaMiddleware = ({
 		if (!thisSession(room, message))
 			return next();
 
-		if (!peer.router) peer.router = await mediaService.getRouter(room, peer);
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		if (!peer.router) peer.router = await mediaService!.getRouter(room, peer);
 
 		switch (message.method) {
 			case 'getRouterRtpCapabilities': {

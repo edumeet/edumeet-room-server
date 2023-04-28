@@ -50,13 +50,26 @@ export const createConsumer = async (
 
 		const consumer = await consumingTransport.consume({
 			producerId: producer.id,
-			rtpCapabilities: consumerPeer.rtpCapabilities
+			rtpCapabilities: consumerPeer.rtpCapabilities,
 		});
 
 		if (consumerPeer.closed)
 			return consumer.close();
 
 		consumerPeer.consumers.set(consumer.id, consumer);
+
+		// The consuming peer went to a different session, maybe close the consumer
+		consumerPeer.on('sessionIdChanged', (sessionId) => {
+			if (sessionId !== producerPeer.sessionId && !producerPeer.inParent)
+				consumer.close();
+		});
+
+		// The producing peer went to a different session, maybe close the consumer
+		producerPeer.on('sessionIdChanged', (sessionId) => {
+			if (sessionId !== consumerPeer.sessionId && !producerPeer.inParent)
+				consumer.close();
+		});
+
 		consumer.once('close', () => {
 			consumerPeer.consumers.delete(consumer.id);
 
@@ -140,6 +153,19 @@ export const createDataConsumer = async (
 			return dataConsumer.close();
 
 		consumerPeer.dataConsumers.set(dataConsumer.id, dataConsumer);
+
+		// The consuming peer went to a different session, maybe close the consumer
+		consumerPeer.on('sessionIdChanged', (sessionId) => {
+			if (sessionId !== producerPeer.sessionId && !producerPeer.inParent)
+				dataConsumer.close();
+		});
+
+		// The producing peer went to a different session, maybe close the consumer
+		producerPeer.on('sessionIdChanged', (sessionId) => {
+			if (sessionId !== consumerPeer.sessionId && !producerPeer.inParent)
+				dataConsumer.close();
+		});
+
 		dataConsumer.once('close', () => {
 			consumerPeer.dataConsumers.delete(dataConsumer.id);
 

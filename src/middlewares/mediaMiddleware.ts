@@ -9,8 +9,11 @@ const logger = new Logger('MediaMiddleware');
 
 export const createMediaMiddleware = ({
 	room,
+	breakoutRoom,
 }: MiddlewareOptions): Middleware<PeerContext> => {
 	logger.debug('createMediaMiddleware() [room: %s]', room.id);
+
+	const actualRoom = breakoutRoom ?? room;
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -22,7 +25,7 @@ export const createMediaMiddleware = ({
 			response
 		} = context;
 
-		if (!thisSession(room, message))
+		if (!thisSession(actualRoom, message))
 			return next();
 
 		switch (message.method) {
@@ -40,7 +43,6 @@ export const createMediaMiddleware = ({
 				appData = {
 					...appData,
 					peerId: peer.id,
-					sessionId: room.sessionId
 				};
 
 				const producer = await transport.produce({ kind, rtpParameters, appData });
@@ -66,13 +68,12 @@ export const createMediaMiddleware = ({
 				context.handled = true;
 
 				(async () => {
-					for (const consumerPeer of room.getPeers(peer)) {
+					for (const consumerPeer of actualRoom.getPeers(peer)) {
 						// Avoid to create video consumer if a peer is in audio-only mode
-						if (
-							producer.kind === MediaKind.AUDIO ||
-							(producer.kind === MediaKind.VIDEO && !consumerPeer.audioOnly)
-						)
-							await createConsumer(consumerPeer, peer, producer);
+						if (consumerPeer.audioOnly && producer.kind === MediaKind.VIDEO)
+							continue;
+
+						await createConsumer(consumerPeer, peer, producer);
 					}
 				})();
 
@@ -136,7 +137,6 @@ export const createMediaMiddleware = ({
 				appData = {
 					...appData,
 					peerId: peer.id,
-					sessionId: room.sessionId
 				};
 
 				const dataProducer = await transport.produceData({
@@ -162,7 +162,7 @@ export const createMediaMiddleware = ({
 				context.handled = true;
 
 				(async () => {
-					for (const consumerPeer of room.getPeers(peer)) {
+					for (const consumerPeer of actualRoom.getPeers(peer)) {
 						await createDataConsumer(consumerPeer, peer, dataProducer);
 					}
 				})();

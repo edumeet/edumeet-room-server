@@ -82,7 +82,7 @@ export default class MediaService {
 				}
 			});
 
-			if (!room.parentClosed)
+			if (!room.closed)
 				room.addRouter(router);
 			else {
 				router.close();
@@ -90,6 +90,6 @@ export default class MediaService {
 			}
 
 			return router;
-		}		
+		}
 	}
 }

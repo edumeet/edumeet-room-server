@@ -1,17 +1,17 @@
-import { Logger, Middleware } from 'edumeet-common';
+import { Logger, MediaKind, Middleware } from 'edumeet-common';
 import { hasPermission, Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
-import Room from '../Room';
+import BreakoutRoom from '../BreakoutRoom';
+import { createConsumer, createDataConsumer } from '../common/consuming';
 
 const logger = new Logger('BreakoutMiddleware');
 
 export const createBreakoutMiddleware = ({
 	room,
-	mediaService,
 }: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createBreakoutMiddleware() [room: %s]', room.id);
+	logger.debug('createBreakoutMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -27,31 +27,60 @@ export const createBreakoutMiddleware = ({
 			return next();
 		
 		switch (message.method) {
-			case 'createRoom': {
+			case 'createBreakoutRoom': {
 				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
 					throw new Error('peer not authorized');
 
 				const { name } = message.data;
-				const newRoom = new Room({ id: room.id, name, mediaService, parent: room });
+				const newBreakoutRoom = new BreakoutRoom({ parent: room, name });
 
-				response.name = newRoom.name;
-				response.sessionId = newRoom.sessionId;
-				room.addRoom(newRoom);
-				room.notifyPeers('newRoom', { name: room.name, sessionId: room.sessionId }, peer);
+				room.addBreakoutRoom(newBreakoutRoom);
+				room.notifyPeers('newBreakoutRoom', { name, sessionId: newBreakoutRoom.sessionId }, peer);
+
+				response.sessionId = newBreakoutRoom.sessionId;
+
 				context.handled = true;
 
 				break;
 			}
 
-			case 'joinRoom': {
+			case 'joinBreakoutRoom': {
 				const { sessionId } = message.data;
-				const roomToJoin = room.rooms.get(sessionId);
+				const roomToJoin = room.breakoutRooms.get(sessionId);
 
 				if (!roomToJoin)
-					throw new Error('room not found');
+					throw new Error('BreakoutRoom not found');
 
 				roomToJoin.addPeer(peer);
+
+				response.chatHistory = roomToJoin.chatHistory;
+				response.fileHistory = roomToJoin.fileHistory;
+
 				context.handled = true;
+
+				Promise.all([
+					(async () => {
+						for (const joinedPeer of roomToJoin.getPeers(peer)) {
+							for (const producer of joinedPeer.producers.values()) {
+								if (!producer.closed) {
+									// Avoid to create video consumer if a peer is in audio-only mode
+									if (peer.audioOnly && producer.kind === MediaKind.VIDEO)
+										continue;
+
+									await createConsumer(peer, joinedPeer, producer);
+								}
+							}
+						}
+					})(),
+					(async () => {
+						for (const joinedPeer of roomToJoin.getPeers(peer)) {
+							for (const dataProducer of joinedPeer.dataProducers.values()) {
+								if (!dataProducer.closed)
+									await createDataConsumer(peer, joinedPeer, dataProducer);
+							}
+						}
+					})()
+				]);
 
 				break;
 			}

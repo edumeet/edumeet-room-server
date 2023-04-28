@@ -13,10 +13,6 @@ export const createPeerMiddleware = ({
 		context,
 		next
 	) => {
-		// None of these are allowed in a room with a parent
-		if (room.parent)
-			return next();
-
 		const {
 			peer,
 			message,
