@@ -41,6 +41,7 @@ export interface PeerInfo {
 	picture?: string;
 	roles: number[];
 	audioOnly: boolean;
+	recordable?: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
 }
@@ -306,6 +307,7 @@ export class Peer extends EventEmitter {
 			displayName: this.displayName,
 			picture: this.picture,
 			audioOnly: this.audioOnly,
+			recordable: this.recordable,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			roles: this.roles.map((role) => role.id),
