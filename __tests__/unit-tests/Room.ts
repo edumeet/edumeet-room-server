@@ -18,13 +18,8 @@ describe('Room', () => {
 	let spyRemovePendingPeer: jest.SpyInstance;
 	let spyAddLobbyPeer: jest.SpyInstance;
 	let spyRemoveLobbyPeer: jest.SpyInstance;
-	let spyRemoveRoom: jest.SpyInstance;
 	const roomId1 = 'testRoom1';
-	const roomId2 = 'testRoom2';
-	const roomId3 = 'testRoom3';
 	const roomName1 = 'testRoomName1';
-	const roomName2 = 'testRoomName2';
-	const roomName3 = 'testRoomName3';
 	const config = { mediaNodes: [] } as unknown as Config;
 	const loadBalancer = {} as unknown as LoadBalancer;	
 
@@ -46,8 +41,6 @@ describe('Room', () => {
 		spyRemovePendingPeer = jest.spyOn(room1.pendingPeers, 'remove');
 		spyAddLobbyPeer = jest.spyOn(room1.lobbyPeers, 'add');
 		spyRemoveLobbyPeer = jest.spyOn(room1.lobbyPeers, 'remove');
-
-		spyRemoveRoom = jest.spyOn(room1.rooms, 'remove');
 	});
 
 	it('Has correct properties', () => {
@@ -59,7 +52,7 @@ describe('Room', () => {
 		expect(room1.locked).toBe(false);
 
 		expect(room1.routers.length).toBe(0);
-		expect(room1.rooms.length).toBe(0);
+		expect(room1.breakoutRooms.size).toBe(0);
 		expect(room1.pendingPeers.length).toBe(0);
 		expect(room1.peers.length).toBe(0);
 		expect(room1.lobbyPeers.length).toBe(0);
@@ -111,13 +104,6 @@ describe('Room', () => {
 			expect(result.length).toBe(1);
 			expect(result[0].id).toBe('mediaNodeId');
 		});
-
-		it('pushRouter() - should not add same router twice', () => {
-			room1.addRouter(router);
-			room1['pushRouter'](router);
-			expect(spyAdd.mock.calls.length).toBe(1);
-		});
-
 	});
 
 	describe('Peers', () => {
@@ -127,11 +113,11 @@ describe('Room', () => {
 		beforeEach(() => {
 			peer1 = new Peer({
 				id: 'test',
-				roomId: roomId1,
+				sessionId: roomId1,
 			});
 			peer2 = new Peer({
 				id: 'test2',
-				roomId: roomId1,
+				sessionId: roomId1,
 			});
 		});
 
@@ -345,7 +331,7 @@ describe('Room', () => {
 		it('removePeer() - peer leaves, have pending peer', () => {
 			const pendingPeer = new Peer({
 				id: 'test2',
-				roomId: roomId1,
+				sessionId: roomId1,
 			});
 
 			room1.joinPeer(pendingPeer);
@@ -357,7 +343,7 @@ describe('Room', () => {
 		it('removePeer() - peer leaves, peer in lobby', () => {
 			const lobbyPeer = new Peer({
 				id: 'test2',
-				roomId: roomId1,
+				sessionId: roomId1,
 			});
 
 			room1.joinPeer(peer1);
@@ -369,7 +355,7 @@ describe('Room', () => {
 		it('removePeer() - peer leaves, peer in lobby', () => {
 			const lobbyPeer = new Peer({
 				id: 'test2',
-				roomId: roomId1,
+				sessionId: roomId1,
 			});
 
 			room1.joinPeer(peer1);
@@ -438,51 +424,6 @@ describe('Room', () => {
 				method: 'test',
 				data: { test: 'test' },
 			});
-		});
-	});
-
-	describe('Multiple rooms', () => {
-		let room2: Room;
-		let room3: Room;
-
-		beforeEach(() => {
-			const kdTree = { rebalance: jest.fn() } as unknown as KDTree;	
-			const mediaService = MediaService.create(loadBalancer, kdTree, config);
-
-			room2 = new Room({
-				id: roomId2,
-				mediaService, 
-				name: roomName2,
-			});
-			room3 = new Room({
-				id: roomId3,
-				mediaService,
-				name: roomName3,
-				parent: room2
-			});
-
-		});
-
-		it('parentClosed - should return false on non-closed parent', () => {
-			expect(room3.parentClosed).toBe(false);
-		});
-
-		it('parentClosed - should return true when parent is closed', () => {
-			room2.close();
-			expect(room3.parentClosed).toBe(true);
-		});
-
-		it('addRoom() - should have one room', () => {
-			expect(room1.rooms.length).toBe(0);
-			room1.addRoom(room2);
-			expect(room1.rooms.length).toBe(1);
-		});
-
-		it('close() - Parent Should remove child room when it calls close()', () => {
-			room1.addRoom(room2);
-			room2.close();
-
-			expect(spyRemoveRoom).toHaveBeenCalled();
 		});
 	});
 });

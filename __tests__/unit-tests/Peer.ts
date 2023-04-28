@@ -59,7 +59,7 @@ describe('Peer', () => {
 
 		peer = new Peer({
 			id: peerId,
-			roomId,
+			sessionId: roomId,
 			displayName,
 			picture,
 			connection
@@ -75,7 +75,7 @@ describe('Peer', () => {
 		expect(peer.closed).toBe(false);
 		expect(peer.displayName).toBe(displayName);
 		expect(peer.picture).toBe(picture);
-		expect(peer.roomId).toBe(roomId);
+		expect(peer.sessionId).toBe(roomId);
 		expect(peer.connections.items[0]).toBe(connection);
 		expect(peer.token).toBeDefined();
 	});

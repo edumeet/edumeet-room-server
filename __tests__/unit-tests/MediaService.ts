@@ -78,30 +78,6 @@ describe('MediaService', () => {
 			expect(spyGetCandidates).toHaveBeenCalled();
 		});
 		
-		it('getRouter() - Should throw when parent room have closed', async () => {
-			const spyGetCandidates = jest.fn().mockReturnValue([ fakeMediaNode1 ]);
-			const loadBalancer = {
-				getCandidates: spyGetCandidates
-			} as unknown as LoadBalancer; 
-			const fakeRoom = {
-				id: 'id',
-				parentClose: false,
-				addRouter: jest.fn()
-			} as unknown as Room;
-			const roomWithClosedParent = { ...fakeRoom, parentClosed: true } as unknown as Room;
-			const spyRoomAddRouter = jest.spyOn(fakeRoom, 'addRouter');
-			
-			const kdTree = {
-				rebalance: jest.fn(),
-				nearestNeigbours: jest.fn().mockReturnValue([]) } as unknown as KDTree;
-
-			const sut = MediaService.create(loadBalancer, kdTree, config); 
-
-			await expect(sut.getRouter(roomWithClosedParent, fakePeer)).
-				rejects.toThrowError(ERROR_MSG_ROOM_CLOSED);
-			expect(spyRoomAddRouter).not.toHaveBeenCalled();
-		});
-		
 		it('getRouter() - Should throw on no mediaNodes', async () => {
 			const loadBalancer = { getCandidates: jest.fn().mockImplementation(() => {
 				return [];

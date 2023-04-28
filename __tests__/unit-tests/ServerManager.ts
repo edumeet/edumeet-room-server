@@ -89,7 +89,6 @@ describe('ServerManager', () => {
 			expect(serverManager.rooms.size).toBe(1);
 			expect(serverManager.rooms.get(roomId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)).toBeDefined();
-			expect(serverManager.peers.get(peerId1)?.roomId).toBe(roomId1);
 		});
 
 		it('first peer tries to join different room', () => {
@@ -113,7 +112,6 @@ describe('ServerManager', () => {
 			expect(serverManager.rooms.get(roomId1)).toBeUndefined();
 			expect(serverManager.rooms.get(roomId2)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)).toBeDefined();
-			expect(serverManager.peers.get(peerId1)?.roomId).toBe(roomId2);
 		});
 
 		it('peer with invalid token', () => {
@@ -163,7 +161,6 @@ describe('ServerManager', () => {
 			expect(serverManager.rooms.size).toBe(1);
 			expect(serverManager.rooms.get(roomId1)).toBeDefined();
 			expect(serverManager.peers.get(peerId1)).toBeDefined();
-			expect(serverManager.peers.get(peerId1)?.roomId).toBe(roomId1);
 		}); 
 		
 		it('should close peer connections when closing servermanager', () => {
@@ -194,7 +191,6 @@ describe('ServerManager', () => {
 				expect(serverManager.rooms.size).toBe(1);
 				expect(serverManager.rooms.get(roomId1)).toBeDefined();
 				expect(serverManager.peers.get(peerId2)).toBeDefined();
-				expect(serverManager.peers.get(peerId2)?.roomId).toBe(roomId1);
 			});
 	
 			it('third peer joins different room and everyone leaves', () => {
@@ -205,7 +201,6 @@ describe('ServerManager', () => {
 				expect(serverManager.rooms.size).toBe(2);
 				expect(serverManager.rooms.get(roomId2)).toBeDefined();
 				expect(serverManager.peers.get(peerId3)).toBeDefined();
-				expect(serverManager.peers.get(peerId3)?.roomId).toBe(roomId2);
 		
 				const peer1 = serverManager.peers.get(peerId1);
 				const peer2 = serverManager.peers.get(peerId2);

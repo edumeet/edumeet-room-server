@@ -86,21 +86,17 @@ test('join() - Should join peer', async () => {
 		.mockImplementation(async () => { return; });
 	const fakePeer = {
 		peerInfo: 'getPeer',
+		sessionId: SESSION_ID,
+		inParent: true,
 		producers: new Map<string, Producer>(),
 		dataProducers: new Map<string, DataProducer>(),
 	};
 	const fakeProducer = {
 		id: 'id',
-		appData: {
-			sessionId: SESSION_ID
-		},
 		kind: MediaKind.VIDEO
 	} as unknown as Producer;
 	const fakeDataProducer = {
 		id: 'id',
-		appData: {
-			sessionId: SESSION_ID
-		}
 	} as unknown as DataProducer;
 
 	fakePeer.producers.set(fakeProducer.id, fakeProducer);
@@ -128,7 +124,9 @@ test('join() - Should join peer', async () => {
 		displayName: '',
 		picture: '',
 		rtpCapabilities: '',
-		roles: [ userRoles.NORMAL ]
+		roles: [ userRoles.NORMAL ],
+		sessionId: SESSION_ID,
+		inParent: true,
 	} as unknown as Peer;
 	const context = {
 		peer,
