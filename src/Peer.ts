@@ -73,7 +73,6 @@ export class Peer extends EventEmitter {
 	public picture?: string;
 	#audioOnly = false;
 	#recordable = false;
-	public recordableTimestamp?: number;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	#escapeMeeting = false;
@@ -146,7 +145,6 @@ export class Peer extends EventEmitter {
 
 	public set recordable(value: boolean) {
 		this.#recordable = value;
-		this.recordableTimestamp = Date.now();
 	}
 
 	public get raisedHand(): boolean {
