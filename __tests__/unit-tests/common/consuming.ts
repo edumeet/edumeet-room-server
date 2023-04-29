@@ -103,9 +103,7 @@ describe('consuming', () => {
 				fakeConsumerPeer.rtpCapabilities = fakeRtpCapabilities;
 				fakeConsumerPeer.router = fakeConsumerRouter;
 				fakeConsumerPeer.transports.set('fake', fakeConsumingTransport);
-				spyCanConsume = jest.spyOn(fakeProducerRouter, 'canConsume').mockImplementation(async () => {
-					return true;
-				});
+				spyCanConsume = jest.spyOn(fakeProducerRouter, 'canConsume').mockResolvedValue(true);
 			});
 		
 			it('Should set consumer when transport exists', async () => {
@@ -183,9 +181,7 @@ describe('consuming', () => {
 			fakeDataConsumer = { close: jest.fn() } as unknown as DataConsumer;
 			fakeDataConsumingTransport = {
 				appData: fakeTransportAppdata,
-				consumeData: jest.fn().mockImplementation(() => {
-					return fakeDataConsumer;
-				})
+				consumeData: () => { return fakeDataConsumer; }
 			} as unknown as WebRtcTransport;
 		});
 
