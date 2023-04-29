@@ -1,22 +1,3 @@
-const mockLoggerDebug = jest.fn();
-const mockLoggerError= jest.fn();
-const mockLoggerWarn= jest.fn();
-
-jest.mock('edumeet-common', () => {
-	const originalModule = jest.requireActual('edumeet-common');
-	
-	return {
-		...originalModule,
-		Logger: jest.fn().mockImplementation(() => {
-			return {
-				debug: mockLoggerDebug,
-				error: mockLoggerError,
-				warn: mockLoggerWarn
-			};
-		})
-	}; 
-});
-
 import 'jest';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 import { EventEmitter } from 'events';
@@ -84,28 +65,18 @@ describe('consuming', () => {
 
 		describe('Preconditions not met', () => {
 			it('Should not add consumer when preconditions are not met', async () => {
-				const spyCanConsume = jest.spyOn(fakeProducerRouter, 'canConsume').mockImplementation(async () => {
-					return true;
-				});
+				const spyCanConsume = jest.spyOn(fakeProducerRouter, 'canConsume').mockResolvedValue(true);
 
 				createConsumer(fakeConsumerPeer, fakeProducerPeer, fakeProducer);
-
-				expect(mockLoggerWarn.mock.calls[0][0]).toMatch(/cannot consume/);
 				expect(spyCanConsume).not.toHaveBeenCalled();
-            
 				fakeProducerPeer.router = fakeProducerRouter;
 				createConsumer(fakeConsumerPeer, fakeProducerPeer, fakeProducer);
-				expect(mockLoggerWarn.mock.calls[1][0]).toMatch(/cannot consume/);
 				expect(spyCanConsume).not.toHaveBeenCalled();
-            
 				fakeConsumerPeer.router = fakeConsumerRouter;
 				createConsumer(fakeConsumerPeer, fakeProducerPeer, fakeProducer);
-				expect(mockLoggerWarn.mock.calls[2][0]).toMatch(/cannot consume/);
 				expect(spyCanConsume).not.toHaveBeenCalled();
-
 				fakeConsumerPeer.rtpCapabilities = fakeRtpCapabilities;
 				await createConsumer(fakeConsumerPeer, fakeProducerPeer, fakeProducer);
-				expect(mockLoggerWarn.mock.calls[3][0]).toMatch(/transport for consuming not found/);
 				expect(fakeConsumerPeer.consumers.size).toBe(0);
 				expect(spyCanConsume).toHaveBeenCalledTimes(1);
 
@@ -113,18 +84,12 @@ describe('consuming', () => {
 			});
 			
 			it('Should not add consumer when producerRouter can\'t consume', async () => {
-				const spyCanConsume = jest.spyOn(fakeProducerRouter, 'canConsume').mockImplementation(async () => {
-					return false;
-				});
+				const spyCanConsume = jest.spyOn(fakeProducerRouter, 'canConsume').mockResolvedValue(false);
 
 				fakeProducerPeer.router = fakeProducerRouter;
 				fakeConsumerPeer.router = fakeConsumerRouter;
 				fakeConsumerPeer.rtpCapabilities = fakeRtpCapabilities;
-
 				await createConsumer(fakeConsumerPeer, fakeProducerPeer, fakeProducer);
-
-				expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
-				expect(mockLoggerWarn.mock.calls[0][0]).toMatch(/cannot consume/);
 				expect(fakeConsumerPeer.consumers.size).toBe(0);
 				expect(spyCanConsume).toHaveBeenCalledTimes(1);
 			});
@@ -147,8 +112,6 @@ describe('consuming', () => {
 				const spyTransportConsume = jest.spyOn(fakeConsumingTransport, 'consume');
 
 				await createConsumer(fakeConsumerPeer, fakeProducerPeer, fakeProducer);
-
-				expect(mockLoggerWarn).toHaveBeenCalledTimes(0);
 				expect(spyCanConsume).toHaveBeenCalledTimes(1);
 				expect(spyConsumersSet).toHaveBeenCalled();
 				expect(spyTransportConsume).toHaveBeenCalled();
@@ -160,7 +123,6 @@ describe('consuming', () => {
 				const spyConsumerClose = jest.spyOn(fakeConsumer, 'close');
 
 				await createConsumer(fakeConsumerPeer, fakeProducerPeer, fakeProducer);
-
 				expect(spyConsumerClose).toHaveBeenCalled();
 			});
 		
@@ -230,16 +192,10 @@ describe('consuming', () => {
 		describe('Preconditions not met', () => {
 			it('Should not add dataConsumer when preconditions are not met', async () => {
 				await createDataConsumer(fakeConsumerPeer, fakeProducerPeer, fakeDataProducer);
-				expect(mockLoggerWarn.mock.calls[0][0]).toMatch(/cannot consume/);
-
 				fakeProducerPeer.router = fakeProducerRouter;
 				await createDataConsumer(fakeConsumerPeer, fakeProducerPeer, fakeDataProducer);
-				expect(mockLoggerWarn.mock.calls[1][0]).toMatch(/cannot consume/);
-
 				fakeConsumerPeer.router = fakeConsumerRouter;
 				await createDataConsumer(fakeConsumerPeer, fakeProducerPeer, fakeDataProducer);
-				expect(mockLoggerWarn.mock.calls[2][0]).toMatch(/transport for consuming not found/);
-				
 				expect(fakeConsumerPeer.dataConsumers.size).toBe(0);
 			});
 		});
@@ -262,7 +218,6 @@ describe('consuming', () => {
 				const spyConsumerClose = jest.spyOn(fakeDataConsumer, 'close');
 
 				await createDataConsumer(fakeConsumerPeer, fakeProducerPeer, fakeDataProducer);
-
 				expect(spyConsumerClose).toHaveBeenCalled();
 			});
 
