@@ -133,6 +133,13 @@ export class Peer extends EventEmitter {
 		this.emit('close');
 	}
 
+	public closeProducers(): void {
+		logger.debug('closeProducers() [peerId: %s]', this.id);
+
+		this.producers.forEach((p) => p.close());
+		this.producers.clear();
+	}
+
 	public get inParent(): boolean {
 		return this.parentSessionId === this.sessionId;
 	}

@@ -54,8 +54,18 @@ export const createBreakoutMiddleware = ({
 				if (!roomToClose)
 					throw new Error('BreakoutRoom not found');
 
+				const peers = roomToClose.getPeers();
+
 				roomToClose.close();
 				room.notifyPeers('breakoutRoomClosed', { sessionId }, peer);
+
+				for (const p of peers) {
+					// These peers are forced to leave the breakout room, let's close their producers
+					p.closeProducers();
+
+					// Let's move them back to the main room
+					p.sessionId = room.sessionId;
+				}
 
 				context.handled = true;
 
