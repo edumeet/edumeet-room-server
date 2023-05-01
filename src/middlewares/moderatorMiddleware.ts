@@ -8,8 +8,6 @@ const logger = new Logger('ModeratorMiddleware');
 
 export const createModeratorMiddleware = ({
 	room,
-	chatHistory,
-	fileHistory,
 }: MiddlewareOptions): Middleware<PeerContext> => {
 	logger.debug('createModeratorMiddleware() [room: %s]', room.id);
 
@@ -99,7 +97,7 @@ export const createModeratorMiddleware = ({
 				if (!hasPermission(room, peer, Permission.MODERATE_CHAT))
 					throw new Error('peer not authorized');
 
-				chatHistory.length = 0;
+				room.chatHistory.length = 0;
 				room.notifyPeers('moderator:clearChat', {});
 				context.handled = true;
 
@@ -110,7 +108,7 @@ export const createModeratorMiddleware = ({
 				if (!hasPermission(room, peer, Permission.MODERATE_FILES))
 					throw new Error('peer not authorized');
 
-				fileHistory.length = 0;
+				room.fileHistory.length = 0;
 				room.notifyPeers('moderator:clearFiles', {});
 				context.handled = true;
 

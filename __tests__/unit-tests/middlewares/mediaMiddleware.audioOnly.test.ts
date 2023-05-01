@@ -89,8 +89,6 @@ test('Should call createConsumer() on audio producer', async () => {
 	const sut = createMediaMiddleware({
 		room: fakeRoom1,
 		mediaService: fakeMediaService,
-		chatHistory: fakeChatHistory,
-		fileHistory: fakeFileHistory,
 	});
 
 	await sut(fakeContext1, fakeNext);
@@ -102,8 +100,6 @@ test('Should not call createConsumer() on audioOnly consumer and video producer'
 	const sut = createMediaMiddleware({
 		room: fakeRoom2,
 		mediaService: fakeMediaService,
-		chatHistory: fakeChatHistory,
-		fileHistory: fakeFileHistory,
 	});
 
 	await sut(fakeContext2, fakeNext);
