@@ -39,8 +39,6 @@ export default class BreakoutRoom extends EventEmitter {
 
 		const breakoutMiddlewareOptions = {
 			room: parent,
-			chatHistory: this.chatHistory,
-			fileHistory: this.fileHistory,
 			breakoutRoom: this,
 		} as MiddlewareOptions;
 
@@ -83,16 +81,6 @@ export default class BreakoutRoom extends EventEmitter {
 
 		peer.pipeline.use(...this.peerMiddlewares);
 		this.peers.add(peer);
-
-		// This will trigger the consumers of peers not in the breakout room
-		// to be closed
-		peer.sessionId = this.sessionId;
-
-		// TODO: handle on client side
-		this.notifyPeers('newPeerInBreakoutRoom', {
-			sessionId: this.sessionId,
-			peerId: peer.id,
-		}, peer);
 	}
 
 	public getPeers(excludePeer?: Peer): Peer[] {

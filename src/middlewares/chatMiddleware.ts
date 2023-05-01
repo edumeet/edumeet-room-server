@@ -9,7 +9,6 @@ const logger = new Logger('ChatMiddleware');
 export const createChatMiddleware = ({
 	room,
 	breakoutRoom,
-	chatHistory,
 }: MiddlewareOptions): Middleware<PeerContext> => {
 	logger.debug('createChatMiddleware() [room: %s]', room.id);
 
@@ -40,7 +39,7 @@ export const createChatMiddleware = ({
 					timestamp: Date.now()
 				} as ChatMessage;
 
-				chatHistory.push(chatMessage);
+				actualRoom.chatHistory.push(chatMessage);
 
 				actualRoom.notifyPeers('chatMessage', {
 					peerId: peer.id,

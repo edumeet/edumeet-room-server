@@ -56,6 +56,10 @@ export const createConsumer = async (
 		if (consumerPeer.closed)
 			return consumer.close();
 
+		// If the consuming peer went to a different session, maybe close the consumer
+		if (consumerPeer.sessionId !== producerPeer.sessionId && !producerPeer.inParent)
+			return consumer.close();
+
 		consumerPeer.consumers.set(consumer.id, consumer);
 
 		// The consuming peer went to a different session, maybe close the consumer
@@ -150,6 +154,10 @@ export const createDataConsumer = async (
 		});
 
 		if (consumerPeer.closed)
+			return dataConsumer.close();
+
+		// If the consuming peer went to a different session, maybe close the consumer
+		if (consumerPeer.sessionId !== producerPeer.sessionId && !producerPeer.inParent)
 			return dataConsumer.close();
 
 		consumerPeer.dataConsumers.set(dataConsumer.id, dataConsumer);

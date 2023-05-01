@@ -12,8 +12,6 @@ const logger = new Logger('JoinMiddleware');
 
 export const createJoinMiddleware = ({
 	room,
-	chatHistory,
-	fileHistory,
 }: MiddlewareOptions): Middleware<PeerContext> => {
 	logger.debug('createJoinMiddleware() [room: %s]', room.id);
 
@@ -50,8 +48,8 @@ export const createJoinMiddleware = ({
 					room.lobbyPeers.items.map((p) => (p.peerInfo)) : [];
 
 				response.peers = peers;
-				response.chatHistory = chatHistory;
-				response.fileHistory = fileHistory;
+				response.chatHistory = room.chatHistory;
+				response.fileHistory = room.fileHistory;
 				response.lobbyPeers = lobbyPeers;
 				response.locked = room.locked;
 
@@ -87,6 +85,72 @@ export const createJoinMiddleware = ({
 						}
 					})()
 				]);
+
+				break;
+			}
+
+			case 'joinSession': {
+				const { sessionId } = message.data;
+
+				if (peer.sessionId === sessionId)
+					throw new Error('Already in session');
+
+				const leavingParent = peer.inParent;
+				const joiningParent = room.sessionId === sessionId;
+				const roomToJoin = joiningParent ? room : room.breakoutRooms.get(sessionId);
+
+				if (!roomToJoin)
+					throw new Error('Session not found');
+
+				// If joining the parent session, we don't add it as it is already always there, and has all the history
+				if (!joiningParent) {
+					roomToJoin.addPeer(peer);
+
+					response.chatHistory = roomToJoin.chatHistory;
+					response.fileHistory = roomToJoin.fileHistory;
+				}
+
+				// If leaving parent room, we don't want to remove the peer
+				if (!leavingParent) {
+					const roomToLeave = room.breakoutRooms.get(peer.sessionId);
+
+					roomToLeave?.removePeer(peer);
+				}
+
+				room.notifyPeers('changeSessionId', { peerId: peer.id, sessionId: roomToJoin.sessionId }, peer);
+
+				// This will trigger the consumers of peers not in the room to be closed
+				peer.sessionId = roomToJoin.sessionId;
+
+				context.handled = true;
+
+				// Create consumers for the joined peer, but only if it's not in the parent room.
+				// If it's in the parent room, the consumers will have been created already.
+				if (!peer.inParent) {
+					Promise.all([
+						(async () => {
+							for (const joinedPeer of roomToJoin.getPeers(peer)) {
+								for (const producer of joinedPeer.producers.values()) {
+									if (!producer.closed) {
+										// Avoid to create video consumer if a peer is in audio-only mode
+										if (peer.audioOnly && producer.kind === MediaKind.VIDEO)
+											continue;
+
+										await createConsumer(peer, joinedPeer, producer);
+									}
+								}
+							}
+						})(),
+						(async () => {
+							for (const joinedPeer of roomToJoin.getPeers(peer)) {
+								for (const dataProducer of joinedPeer.dataProducers.values()) {
+									if (!dataProducer.closed)
+										await createDataConsumer(peer, joinedPeer, dataProducer);
+								}
+							}
+						})()
+					]);
+				}
 
 				break;
 			}

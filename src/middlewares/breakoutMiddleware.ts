@@ -44,43 +44,20 @@ export const createBreakoutMiddleware = ({
 				break;
 			}
 
-			case 'joinBreakoutRoom': {
-				const { sessionId } = message.data;
-				const roomToJoin = room.breakoutRooms.get(sessionId);
+			case 'closeBreakoutRoom': {
+				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
+					throw new Error('peer not authorized');
 
-				if (!roomToJoin)
+				const { sessionId } = message.data;
+				const roomToClose = room.breakoutRooms.get(sessionId);
+
+				if (!roomToClose)
 					throw new Error('BreakoutRoom not found');
 
-				roomToJoin.addPeer(peer);
-
-				response.chatHistory = roomToJoin.chatHistory;
-				response.fileHistory = roomToJoin.fileHistory;
+				roomToClose.close();
+				room.notifyPeers('breakoutRoomClosed', { sessionId }, peer);
 
 				context.handled = true;
-
-				Promise.all([
-					(async () => {
-						for (const joinedPeer of roomToJoin.getPeers(peer)) {
-							for (const producer of joinedPeer.producers.values()) {
-								if (!producer.closed) {
-									// Avoid to create video consumer if a peer is in audio-only mode
-									if (peer.audioOnly && producer.kind === MediaKind.VIDEO)
-										continue;
-
-									await createConsumer(peer, joinedPeer, producer);
-								}
-							}
-						}
-					})(),
-					(async () => {
-						for (const joinedPeer of roomToJoin.getPeers(peer)) {
-							for (const dataProducer of joinedPeer.dataProducers.values()) {
-								if (!dataProducer.closed)
-									await createDataConsumer(peer, joinedPeer, dataProducer);
-							}
-						}
-					})()
-				]);
 
 				break;
 			}

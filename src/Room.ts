@@ -22,7 +22,7 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { MiddlewareOptions } from './common/types';
+import { ChatMessage, FileMessage, MiddlewareOptions } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
@@ -51,6 +51,9 @@ export default class Room extends EventEmitter {
 	public peers = List<Peer>();
 	public lobbyPeers = List<Peer>();
 
+	public chatHistory: ChatMessage[] = [];
+	public fileHistory: FileMessage[] = [];
+
 	private lobbyPeerMiddleware: Middleware<PeerContext>;
 	private initialMediaMiddleware: Middleware<PeerContext>;
 	private joinMiddleware: Middleware<PeerContext>;
@@ -67,8 +70,6 @@ export default class Room extends EventEmitter {
 		const middlewareOptions = {
 			room: this,
 			mediaService,
-			chatHistory: [],
-			fileHistory: [],
 		} as MiddlewareOptions;
 
 		this.lobbyPeerMiddleware = createLobbyPeerMiddleware(middlewareOptions);

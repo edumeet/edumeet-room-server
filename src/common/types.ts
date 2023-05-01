@@ -26,8 +26,6 @@ export interface MiddlewareOptions {
 	room: Room;
 	breakoutRoom?: BreakoutRoom;
 	mediaService?: MediaService;
-	chatHistory: ChatMessage[];
-	fileHistory: FileMessage[];
 }
 
 export interface Role {
