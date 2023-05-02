@@ -134,7 +134,8 @@ describe('MediaNode', () => {
 
 	it('getRouter() - should reject on failing medianode connection', async () => {
 		const mockConnection = {
-			ready: Promise.reject('timeout')
+			ready: Promise.reject('timeout'),
+			close: jest.fn()
 		} as unknown as MediaNodeConnection;
 
 		mediaNode.connection = mockConnection;

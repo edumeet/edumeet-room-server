@@ -71,6 +71,7 @@ describe('MediaService', () => {
 			} as unknown as Peer;
 			fakeMediaNode1 = {
 				id: 'id1',
+				health: true,
 				getRouter: mockGetRouter
 			} as unknown as MediaNode;
 		});

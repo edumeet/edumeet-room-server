@@ -28,6 +28,8 @@ describe('MediaNodeConnection', () => {
 	
 	it('notify() - Should call notify on connection', async () => {
 		const sut = new MediaNodeConnection({ connection: mockConnection });
+
+		mockConnection.emit('notification', { method: 'mediaNodeReady' });
 		const fakeSocketMessage = {} as unknown as SocketMessage;
 		const spyConnectionNotify = jest.spyOn(mockConnection, 'notify');
 
@@ -40,6 +42,8 @@ describe('MediaNodeConnection', () => {
 		
 	it('request - Should call reject when not handled by middleware', async () => {
 		const sut = new MediaNodeConnection({ connection: mockConnection });
+
+		mockConnection.emit('notification', { method: 'mediaNodeReady' });
 
 		mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
 		await new Promise(process.nextTick);

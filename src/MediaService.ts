@@ -1,4 +1,4 @@
-import Room from './Room';
+import Room, { RoomClosedError } from './Room';
 import { Peer } from './Peer';
 import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
@@ -70,26 +70,32 @@ export default class MediaService {
 
 		const candidates: MediaNode[] = this.loadBalancer.getCandidates(room, peer);
 
-		// TODO: try all valid candidates, dont assume the first one works
-		if (candidates.length === 0) {
-			throw new Error('no media nodes available');
-		} else {
-			const router = await candidates[0].getRouter({
-				roomId: room.id,
-				appData: {
+		// TODO: Filter out unhealthy media-nodes in LoadBalancer
+		for (const c of candidates.filter((node) => node.health === true)) {
+			try {
+				const router = await c.getRouter({
 					roomId: room.id,
-					pipePromises: new Map<string, Promise<void>>(),
+					appData: {
+						roomId: room.id,
+						pipePromises: new Map<string, Promise<void>>(),
+					}
+				});
+
+				if (!room.parentClosed)
+					room.addRouter(router);
+				else {
+					router.close();
+					throw new RoomClosedError('room closed');
 				}
-			});
-
-			if (!room.parentClosed)
-				room.addRouter(router);
-			else {
-				router.close();
-				throw new Error('room closed');
+				
+				return router;
+			} catch (error) {
+				logger.error('getRouter() [error %o]', error);
+				if (error instanceof RoomClosedError) throw error;
 			}
-
-			return router;
 		}		
+		// TODO: hail mary attempt, loop until loadbalancer.getCandidates() returns [].length === 0
+		throw new Error('no media nodes available');
+		// TODO: notify client
 	}
 }
