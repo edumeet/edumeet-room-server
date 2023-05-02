@@ -195,6 +195,7 @@ describe('consuming', () => {
 				expect(fakeConsumerPeer.dataConsumers.size).toBe(0);
 			});
 		});
+
 		describe('Preconditions met', () => {
 			beforeEach(() => {
 				fakeProducerPeer.router = fakeProducerRouter;
@@ -217,23 +218,17 @@ describe('consuming', () => {
 				expect(spyConsumerClose).toHaveBeenCalled();
 			});
 
-			describe('DataConsumer events', () => {
-				let spyNotify: jest.SpyInstance;
+			it('emit close: should delete consumer and notify', async () => {
+				fakeDataConsumer = new EventEmitter as DataConsumer;
+				const spyNotify = jest.spyOn(fakeConsumerPeer, 'notify');
 
-				beforeEach(async () => {
-					fakeDataConsumer = new EventEmitter as DataConsumer;
-					spyNotify = jest.spyOn(fakeConsumerPeer, 'notify');
-					await createDataConsumer(fakeConsumerPeer, fakeProducerPeer, fakeDataProducer);
-				});
+				await createDataConsumer(fakeConsumerPeer, fakeProducerPeer, fakeDataProducer);
+				const spyDelete = jest.spyOn(fakeConsumerPeer.dataConsumers, 'delete');
 
-				it('emit close: should delete consumer and notify', () => {
-					const spyDelete = jest.spyOn(fakeConsumerPeer.dataConsumers, 'delete');
-
-					fakeDataConsumer.emit('close');
-					expect(spyDelete).toHaveBeenCalled();
-					expect(spyNotify).toHaveBeenCalledTimes(2);
-					expect(spyNotify.mock.calls[1][0].method).toBe('dataConsumerClosed');
-				});
+				fakeDataConsumer.emit('close');
+				expect(spyDelete).toHaveBeenCalled();
+				expect(spyNotify).toHaveBeenCalledTimes(2);
+				expect(spyNotify.mock.calls[1][0].method).toBe('dataConsumerClosed');
 			});
 		});
 	});

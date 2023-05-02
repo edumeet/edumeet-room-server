@@ -71,6 +71,7 @@ describe('Consumer', () => {
 		});
 
 		expect(newConsumer).toBeInstanceOf(Consumer);
+		expect(newConsumer.appData).toBeDefined();
 	});
 
 	it('close() - Should notify when remote has not closed', () => {
