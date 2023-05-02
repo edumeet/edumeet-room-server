@@ -17,6 +17,7 @@ import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
 import { createLockMiddleware } from './middlewares/lockMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
+import { createRecordingMiddleware } from './middlewares/recordingMiddleware';
 import { createLobbyPeerMiddleware } from './middlewares/lobbyPeerMiddleware';
 import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
@@ -86,6 +87,7 @@ export default class Room extends EventEmitter {
 			createLockMiddleware(middlewareOptions),
 			createLobbyMiddleware(middlewareOptions),
 			createBreakoutMiddleware(middlewareOptions),
+			createRecordingMiddleware(middlewareOptions),
 		);
 	}
 
