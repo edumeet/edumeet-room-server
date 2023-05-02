@@ -1,5 +1,6 @@
+import axios from 'axios';
 import { randomUUID } from 'crypto';
-import { IOClientConnection, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
+import { KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
 import { createDataConsumersMiddleware } from '../middlewares/dataConsumersMiddleware';
 import { createDataProducersMiddleware } from '../middlewares/dataProducersMiddleware';
@@ -13,6 +14,7 @@ import { createRoutersMiddleware } from '../middlewares/routersMiddleware';
 import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
+import { IONodeConnection } from '../IONodeConnection';
 
 const logger = new Logger('MediaNode');
 
@@ -39,6 +41,8 @@ export default class MediaNode {
 	public connection?: MediaNodeConnection;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
+	private retryTimeoutHandle: undefined | NodeJS.Timeout;
+	public health = true;
 
 	private routersMiddleware =
 		createRoutersMiddleware({ routers: this.routers });
@@ -91,64 +95,107 @@ export default class MediaNode {
 		this.connection?.close();
 	}
 
+	private async retryConnection(): Promise<void> {
+		logger.debug('retryConnection()');
+		if (this.retryTimeoutHandle) {
+			return;
+		}
+		this.health = false;
+		const backoffIntervals = [
+			5000, 5000, 5000,
+			30000, 30000, 30000,
+			300000, 300000, 300000,
+			900000, 900000, 900000
+		];
+		let retryCount = 0;
+
+		do {
+			const timeoutPromise = new Promise((_, reject) => {
+				this.retryTimeoutHandle = setTimeout(
+					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
+			});
+			const healthPromise = axios.get(`https://${this.hostname}:${this.port}/health`);
+
+			try {
+				await Promise.race([ timeoutPromise, healthPromise ]);
+				this.health = true;
+			} catch (error) {
+				logger.error(error);
+			} finally {
+				clearTimeout(this.retryTimeoutHandle);
+			}
+			retryCount++;
+		} while (retryCount <= backoffIntervals.length && this.health === false);
+		delete this.retryTimeoutHandle;
+	}
+
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
-
 		const requestUUID = randomUUID();
 
 		this.pendingRequests.set(requestUUID, roomId);
-
 		if (!this.connection) {
 			this.connection = this.setupConnection();
-
 			this.connection.once('close', () => delete this.connection);
 		}
-
-		await this.connection.ready;
-
-		const {
-			id,
-			rtpCapabilities
-		} = await this.connection.request({
-			method: 'getRouter',
-			data: { roomId }
-		}) as RouterOptions;
-
-		let router = this.routers.get(id);
-
-		if (!router) {
-			router = new Router({
-				mediaNode: this,
-				connection: this.connection,
-				id,
-				rtpCapabilities,
-				appData
-			});
-
-			this.routers.set(id, router);
-			router.once('close', () => {
-				this.routers.delete(id);
-
-				if (
-					this.routers.size === 0 &&
-					this.pendingRequests.size === 0
-				) {
-					this.connection?.close();
-
-					delete this.connection;
-				}
-			});
+		try {
+			await this.connection.ready;
+		} catch (error) {
+			this.connection.close();
+			this.pendingRequests.delete(requestUUID); 
+			this.retryConnection();
+			throw error;	
 		}
 
-		this.pendingRequests.delete(requestUUID);
+		try {
+			const {
+				id,
+				rtpCapabilities
+			} = await this.connection?.request({
+				method: 'getRouter',
+				data: { roomId }
+			}) as RouterOptions;
 
-		return router;
+			let router = this.routers.get(id);
+
+			if (!router) {
+				router = new Router({
+					mediaNode: this,
+					connection: this.connection,
+					id,
+					rtpCapabilities,
+					appData
+				});
+
+				this.routers.set(id, router);
+				router.once('close', () => {
+					this.routers.delete(id);
+
+					if (
+						this.routers.size === 0 &&
+								this.pendingRequests.size === 0
+					) {
+						this.connection?.close();
+						delete this.connection;
+					}
+				});
+			} 
+			
+			return router;
+
+		} catch (error) {
+			logger.error(error);
+			this.retryConnection();
+			throw error;
+		} finally {
+			this.pendingRequests.delete(requestUUID); 
+		}
 	}
 
 	private setupConnection(): MediaNodeConnection {
-		const socket = IOClientConnection.create({
-			url: `wss://${this.hostname}:${this.port}${this.#secret ? `?secret=${this.#secret}` : ''}`
-		});
+		const socket = IONodeConnection.create({
+			url: `wss://${this.hostname}:${this.port}${this.#secret ? `?secret=${this.#secret}` : ''}`,
+			timeout: 3000 });
 
 		const connection = new MediaNodeConnection({ connection: socket });
 

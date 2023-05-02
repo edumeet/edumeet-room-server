@@ -28,8 +28,10 @@ export class MediaNodeConnection extends EventEmitter {
 	private _load: number | undefined;
 
 	private resolveReady!: () => void;
-	public ready = new Promise<void>((resolve) => {
+	private resolveReadyTimeoutHandle: NodeJS.Timeout | undefined;
+	public ready = new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
+		this.resolveReadyTimeoutHandle = setTimeout(() => { reject('Timeout waiting for media-node connection'); }, 750);
 	});
 
 	constructor({
@@ -56,13 +58,15 @@ export class MediaNodeConnection extends EventEmitter {
 
 	@skipIfClosed
 	private handleConnection(): void {
-		logger.debug('addConnection()');
 
 		this.connection.on('notification', async (notification) => {
-			this._load = notification.data.load;
+			this._load = notification.data?.load;
 
-			if (notification.method === 'mediaNodeReady') 
-				return this.resolveReady();
+			if (notification.method === 'mediaNodeReady') {
+				clearTimeout(this.resolveReadyTimeoutHandle);
+				
+				return this.resolveReady(); 
+			}
 
 			try {
 				const context = {
@@ -82,7 +86,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 		this.connection.on('request', async (request, respond, reject) => {
 			try {
-				this._load = request.data.load;
+				this._load = request.data?.load;
 				const context = {
 					message: request,
 					response: {},
@@ -95,7 +99,6 @@ export class MediaNodeConnection extends EventEmitter {
 					respond(context.response);
 				else {
 					logger.debug('request() unhandled request [method: %s]', request.method);
-
 					reject('Server error');
 				}
 			} catch (error) {
@@ -112,27 +115,19 @@ export class MediaNodeConnection extends EventEmitter {
 	public notify(notification: SocketMessage): void {
 		logger.debug('notify() [method: %s]', notification.method);
 
-		try {
-			this.connection.notify(notification);
-		} catch (error) {
-			logger.error('notify() [error: %o]', error);
-		}
+		this.connection.notify(notification);
 	}
 
 	@skipIfClosed
 	public async request(request: SocketMessage): Promise<unknown> {
 		logger.debug('request() [method: %s]', request.method);
 
-		try {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const response: any = await this.connection.request(request);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const response: any = await this.connection.request(request);
 
-			this._load = response.load;
+		this._load = response?.load;
 			
-			return response;
-		} catch (error) {
-			logger.error('request() [error: %o]', error);
-		}
+		return response;
 	}
 
 	public get load(): number | undefined {
