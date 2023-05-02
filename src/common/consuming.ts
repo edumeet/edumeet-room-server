@@ -182,9 +182,9 @@ const checkPipe = async (
 				producer.id
 			);
 
-			pipePromise = new Promise<void>(async (resolve, reject) => {
+			pipePromise = (async () => {
 				if (consumerRouter.closed || producerRouter.closed)
-					return reject('problem with router');
+					throw new Error('problem with router');
 
 				const {
 					pipeProducer,
@@ -194,9 +194,7 @@ const checkPipe = async (
 				});
 
 				pipeProducer?.once('close', () => pipePromises.delete(producer.id));
-
-				return resolve();
-			});
+			})();
 
 			pipePromises.set(producer.id, pipePromise);
 		}
@@ -221,9 +219,9 @@ const checkDataPipe = async (
 				dataProducer.id
 			);
 
-			pipePromise = new Promise<void>(async (resolve, reject) => {
+			pipePromise = (async () => {
 				if (consumerRouter.closed || producerRouter.closed)
-					return reject('problem with router');
+					throw new Error('problem with router');
 
 				const {
 					pipeDataProducer,
@@ -233,9 +231,7 @@ const checkDataPipe = async (
 				});
 
 				pipeDataProducer?.once('close', () => pipePromises.delete(dataProducer.id));
-
-				return resolve();
-			});
+			})();
 
 			pipePromises.set(dataProducer.id, pipePromise);
 		}
