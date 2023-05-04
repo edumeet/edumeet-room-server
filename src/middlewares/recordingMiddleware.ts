@@ -33,6 +33,17 @@ export const createRecordingMiddleware = ({
 				break;
 			}
 
+			case 'recording:newPeer': {
+				const { peerId } = message.data;
+				const newPeer = room.getPeers().find((p) => p.id === peerId);
+
+				newPeer?.notify({ method: 'recording:privacy' });
+
+				context.handled = true;
+
+				break;
+			}
+
 			case 'recording:recordable': {
 				const { recordable } = message.data;
 
