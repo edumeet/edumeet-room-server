@@ -3,6 +3,7 @@ import 'jest';
 import { EventEmitter } from 'stream';
 import { MediaNodeConnection, MediaNodeConnectionContext } from '../../../src/media/MediaNodeConnection';
 import { Pipeline } from 'edumeet-common';
+import { setTimeout } from 'timers/promises';
 
 class MockConnection extends EventEmitter {
 	id = 'id';
@@ -39,14 +40,16 @@ describe('MediaNodeConnection', () => {
 
 	afterEach(() => {
 		jest.clearAllMocks();
+		mediaNodeConnection['resolveReady']();
 	});
 
-	it('constructor', () => {
-
+	it('constructor', async () => {
 		expect(mediaNodeConnection).toBeInstanceOf(MediaNodeConnection);
+		mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 	});
 
 	it('close() - Should close connection and emit', () => {
+		mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 		mediaNodeConnection.close();
 
 		expect(mediaNodeConnection.closed).toBe(true);
@@ -55,6 +58,7 @@ describe('MediaNodeConnection', () => {
 	});
 		
 	it('notify() - Should call notify on connection', () => {
+		mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 		const fakeSocketMessage = {} as unknown as SocketMessage;
 		const spyConnectionNotify = jest.spyOn(mockConnection, 'notify');
 
@@ -64,6 +68,7 @@ describe('MediaNodeConnection', () => {
 	});
 		
 	it('request() - Should call request on connection', () => {
+		mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 		const spyConnectionRequest = jest.spyOn(mockConnection, 'request').mockImplementation(async () => {
 			return { load: 0.12 };
 		});
@@ -75,19 +80,22 @@ describe('MediaNodeConnection', () => {
 
 	describe('Events', () => {
 
-		it('notification - Should not call execute when method mediaNodeReady', async () => {
-			await mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
+		it('notification - Should not call execute when method mediaNodeReady', () => {
+			mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 			expect(spyPipelineExecute).not.toHaveBeenCalled();
 		});
 		
-		it('notification - Should call execute when is not method mediaNodeReady', async () => {
-			await mockConnection.emit('notification', { method: OTHER_METHOD, data: { load: 0.2 } });
+		it('notification - Should call execute when is not method mediaNodeReady', () => {
+			mockConnection.emit('notification', { method: OTHER_METHOD, data: { load: 0.2 } });
 			expect(mediaNodeConnection.load).toBe(0.2);
 			expect(spyPipelineExecute).toHaveBeenCalled();
+			mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 		});
 
 		it('request - Should call reject when not handled by middleware', async () => {
-			await mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
+			mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
+			mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
+			await setTimeout(200);
 			expect(fakeReject).toHaveBeenCalledWith('Server error');
 			expect(spyPipelineExecute).toHaveBeenCalled();
 		});
@@ -103,13 +111,16 @@ describe('MediaNodeConnection', () => {
 
 			mediaNodeConnection.pipeline = pipelineWithMiddleware;
 
-			await mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
+			mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
+			await setTimeout(100);
 			expect(fakeRespond).toHaveBeenCalled();
 			expect(spyPipelineExecute).toHaveBeenCalled();
+			mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
 		});
 
-		it('close - Should call close on connection', async () => {
-			await mockConnection.emit('close');
+		it('close - Should call close on connection', () => {
+			mockConnection.emit('notification', { method: MEDIA_NODE_READY_METHOD, data: { load: '0.2' } });
+			mockConnection.emit('close');
 			expect(spyMediaNodeConnectionClose).toHaveBeenCalled();
 		});
 
