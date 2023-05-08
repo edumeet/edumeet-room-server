@@ -39,6 +39,7 @@ export const createJoinMiddleware = ({
 						displayName,
 						picture,
 						audioOnly,
+						recordable,
 						rtpCapabilities,
 					} = message.data;
 
@@ -48,6 +49,7 @@ export const createJoinMiddleware = ({
 					peer.displayName = displayName;
 					peer.picture = picture;
 					peer.audioOnly = audioOnly;
+					peer.recordable = recordable;
 					peer.rtpCapabilities = rtpCapabilities;
 				}
 
