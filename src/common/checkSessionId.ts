@@ -8,6 +8,9 @@ export const thisSession = (
 ): boolean => {
 	const { data: { sessionId } = {} } = message;
 
-	// TODO: this will match all if sessionId is undefined
+	if (room instanceof BreakoutRoom) {
+		return room.sessionId === sessionId;
+	}
+
 	return (room.sessionId === sessionId) || !sessionId;
 };

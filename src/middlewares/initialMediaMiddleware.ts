@@ -1,15 +1,12 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { thisSession } from '../common/checkSessionId';
-import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
+import Room from '../Room';
 
 const logger = new Logger('InitialMediaMiddleware');
 
-export const createInitialMediaMiddleware = ({
-	room,
-	mediaService,
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createInitialMediaMiddleware() [room: %s]', room.id);
+export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
+	logger.debug('createInitialMediaMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -24,12 +21,11 @@ export const createInitialMediaMiddleware = ({
 		if (!thisSession(room, message))
 			return next();
 
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (!peer.router) peer.router = await mediaService!.getRouter(room, peer);
-
 		switch (message.method) {
 			case 'getRouterRtpCapabilities': {
-				response.routerRtpCapabilities = peer.router.rtpCapabilities;
+				const router = await peer.routerReady;
+
+				response.routerRtpCapabilities = router.rtpCapabilities;
 				context.handled = true;
 
 				break;
@@ -43,7 +39,9 @@ export const createInitialMediaMiddleware = ({
 					sctpCapabilities,
 				} = message.data;
 
-				const transport = await peer.router.createWebRtcTransport({
+				const router = await peer.routerReady;
+
+				const transport = await router.createWebRtcTransport({
 					forceTcp,
 					sctpCapabilities,
 					appData: {

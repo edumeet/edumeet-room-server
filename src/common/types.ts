@@ -23,9 +23,7 @@ export interface LobbyPeerInfo {
 }
 
 export interface MiddlewareOptions {
-	room: Room;
-	breakoutRoom?: BreakoutRoom;
-	mediaService?: MediaService;
+	room: Room | BreakoutRoom;
 }
 
 export interface Role {

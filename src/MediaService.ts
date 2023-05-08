@@ -74,22 +74,13 @@ export default class MediaService {
 		if (candidates.length === 0) {
 			throw new Error('no media nodes available');
 		} else {
-			const router = await candidates[0].getRouter({
+			return await candidates[0].getRouter({
 				roomId: room.id,
 				appData: {
 					roomId: room.id,
 					pipePromises: new Map<string, Promise<void>>(),
 				}
 			});
-
-			if (!room.closed)
-				room.addRouter(router);
-			else {
-				router.close();
-				throw new Error('room closed');
-			}
-
-			return router;
 		}
 	}
 }

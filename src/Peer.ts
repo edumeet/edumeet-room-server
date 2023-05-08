@@ -80,13 +80,22 @@ export class Peer extends EventEmitter {
 	public routerId?: string;
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
-	#router?: Router;
+
+	// eslint-disable-next-line no-unused-vars
+	public resolveRouterReady!: (router: Router) => void;
+	// eslint-disable-next-line no-unused-vars
+	public rejectRouterReady!: (error: unknown) => void;
+
+	public routerReady: Promise<Router> = new Promise<Router>((resolve, reject) => {
+		this.resolveRouterReady = resolve;
+		this.rejectRouterReady = reject;
+	});
+
 	public transports = new Map<string, WebRtcTransport>();
 	public consumers = new Map<string, Consumer>();
 	public producers = new Map<string, Producer>();
 	public dataConsumers = new Map<string, DataConsumer>();
 	public dataProducers = new Map<string, DataProducer>();
-	public parentSessionId: string;
 	#sessionId: string;
 	public pipeline = Pipeline<PeerContext>();
 	public readonly token: string;
@@ -105,7 +114,6 @@ export class Peer extends EventEmitter {
 
 		this.id = id;
 		this.#sessionId = sessionId;
-		this.parentSessionId = sessionId;
 		this.displayName = displayName ?? 'Guest';
 		this.picture = picture;
 		this.token = token ?? this.assignToken();
@@ -138,10 +146,6 @@ export class Peer extends EventEmitter {
 
 		this.producers.forEach((p) => p.close());
 		this.producers.clear();
-	}
-
-	public get inParent(): boolean {
-		return this.parentSessionId === this.sessionId;
 	}
 
 	public set sessionId(sessionId: string) {
@@ -181,18 +185,6 @@ export class Peer extends EventEmitter {
 	public set escapeMeeting(value: boolean) {
 		this.#escapeMeeting = value;
 		this.escapeMeetingTimestamp = Date.now();
-	}
-
-	public get router(): Router | undefined {
-		return this.#router;
-	}
-
-	public set router(router: Router | undefined) {
-		if (!router) return;
-
-		router.once('close', () => (this.#router = undefined));
-
-		this.#router = router;
 	}
 
 	@skipIfClosed
@@ -315,6 +307,10 @@ export class Peer extends EventEmitter {
 		const connection = this.connections.items[0] as unknown as IOServerConnection;
 		
 		return connection.address;
+	}
+
+	public sameSession(peer: Peer): boolean {
+		return this.sessionId === peer.sessionId;
 	}
 
 	public get peerInfo(): PeerInfo {

@@ -2,18 +2,13 @@ import { Logger, MediaKind, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumer, createDataConsumer } from '../common/consuming';
-import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
+import Room from '../Room';
 
 const logger = new Logger('MediaMiddleware');
 
-export const createMediaMiddleware = ({
-	room,
-	breakoutRoom,
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createMediaMiddleware() [room: %s]', room.id);
-
-	const actualRoom = breakoutRoom ?? room;
+export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
+	logger.debug('createMediaMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -25,7 +20,7 @@ export const createMediaMiddleware = ({
 			response
 		} = context;
 
-		if (!thisSession(actualRoom, message))
+		if (!thisSession(room, message))
 			return next();
 
 		switch (message.method) {
@@ -68,7 +63,10 @@ export const createMediaMiddleware = ({
 				context.handled = true;
 
 				(async () => {
-					for (const consumerPeer of actualRoom.getPeers(peer)) {
+					for (const consumerPeer of room.getPeers(peer)) {
+						if (!consumerPeer.sameSession(peer))
+							continue;
+
 						// Avoid to create video consumer if a peer is in audio-only mode
 						if (consumerPeer.audioOnly && producer.kind === MediaKind.VIDEO)
 							continue;
@@ -162,7 +160,10 @@ export const createMediaMiddleware = ({
 				context.handled = true;
 
 				(async () => {
-					for (const consumerPeer of actualRoom.getPeers(peer)) {
+					for (const consumerPeer of room.getPeers(peer)) {
+						if (!consumerPeer.sameSession(peer))
+							continue;
+
 						await createDataConsumer(consumerPeer, peer, dataProducer);
 					}
 				})();

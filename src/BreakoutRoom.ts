@@ -4,14 +4,13 @@ import { randomUUID } from 'crypto';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import Room from './Room';
 import { ChatMessage, FileMessage, MiddlewareOptions } from './common/types';
-import { createMediaMiddleware } from './middlewares/mediaMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
 
 const logger = new Logger('BreakoutRoom');
 
 interface BreakoutRoomOptions {
-	name?: string;
+	name: string;
 	parent: Room;
 }
 
@@ -43,7 +42,6 @@ export default class BreakoutRoom extends EventEmitter {
 		} as MiddlewareOptions;
 
 		this.peerMiddlewares.push(
-			createMediaMiddleware(breakoutMiddlewareOptions),
 			createChatMiddleware(breakoutMiddlewareOptions),
 			createFileMiddleware(breakoutMiddlewareOptions),
 		);
@@ -55,10 +53,16 @@ export default class BreakoutRoom extends EventEmitter {
 
 		this.closed = true;
 
-		// TODO: handle peers still being in the breakout room when it closes
 		this.peers.clear();
 
 		this.emit('close');
+	}
+
+	@skipIfClosed
+	public emptyRoom() {
+		logger.debug('emptyRoom() [sessionId: %s]', this.sessionId);
+
+		this.peers.clear();
 	}
 
 	public get empty(): boolean {
@@ -94,5 +98,12 @@ export default class BreakoutRoom extends EventEmitter {
 		for (const peer of peers) {
 			peer.notify({ method, data });
 		}
+	}
+
+	public get breakoutRoomInfo() {
+		return {
+			name: this.name,
+			sessionId: this.sessionId,
+		};
 	}
 }

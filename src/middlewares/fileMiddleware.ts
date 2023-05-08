@@ -1,18 +1,15 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { hasPermission, Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { FileMessage, MiddlewareOptions } from '../common/types';
+import { FileMessage } from '../common/types';
 import { PeerContext } from '../Peer';
+import BreakoutRoom from '../BreakoutRoom';
+import Room from '../Room';
 
 const logger = new Logger('FileMiddleware');
 
-export const createFileMiddleware = ({
-	room,
-	breakoutRoom,
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createFileMiddleware() [room: %s]', room.id);
-
-	const actualRoom = breakoutRoom ?? room;
+export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): Middleware<PeerContext> => {
+	logger.debug('createFileMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -23,7 +20,7 @@ export const createFileMiddleware = ({
 			message,
 		} = context;
 
-		if (!thisSession(actualRoom, message))
+		if (!thisSession(room, message))
 			return next();
 		
 		switch (message.method) {
@@ -39,9 +36,9 @@ export const createFileMiddleware = ({
 					timestamp: Date.now()
 				} as FileMessage;
 
-				actualRoom.fileHistory.push(file);
+				room.fileHistory.push(file);
 
-				actualRoom.notifyPeers('sendFile', {
+				room.notifyPeers('sendFile', {
 					peerId: peer.id,
 					file,
 				}, peer);

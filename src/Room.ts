@@ -22,7 +22,7 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { ChatMessage, FileMessage, MiddlewareOptions } from './common/types';
+import { ChatMessage, FileMessage } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
@@ -45,6 +45,8 @@ export default class Room extends EventEmitter {
 	public locked = false;
 	public readonly creationTimestamp = Date.now();
 
+	public mediaService: MediaService;
+
 	public routers = List<Router>();
 	public breakoutRooms = new Map<string, BreakoutRoom>();
 	public pendingPeers = List<Peer>();
@@ -66,25 +68,21 @@ export default class Room extends EventEmitter {
 
 		this.id = id;
 		this.name = name;
+		this.mediaService = mediaService;
 
-		const middlewareOptions = {
-			room: this,
-			mediaService,
-		} as MiddlewareOptions;
-
-		this.lobbyPeerMiddleware = createLobbyPeerMiddleware(middlewareOptions);
-		this.initialMediaMiddleware = createInitialMediaMiddleware(middlewareOptions);
-		this.joinMiddleware = createJoinMiddleware(middlewareOptions);
+		this.lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
+		this.initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
+		this.joinMiddleware = createJoinMiddleware({ room: this });
 
 		this.peerMiddlewares.push(
-			createPeerMiddleware(middlewareOptions),
-			createModeratorMiddleware(middlewareOptions),
-			createMediaMiddleware(middlewareOptions),
-			createChatMiddleware(middlewareOptions),
-			createFileMiddleware(middlewareOptions),
-			createLockMiddleware(middlewareOptions),
-			createLobbyMiddleware(middlewareOptions),
-			createBreakoutMiddleware(middlewareOptions),
+			createPeerMiddleware({ room: this }),
+			createModeratorMiddleware({ room: this }),
+			createMediaMiddleware({ room: this }),
+			createChatMiddleware({ room: this }),
+			createFileMiddleware({ room: this }),
+			createLockMiddleware({ room: this }),
+			createLobbyMiddleware({ room: this }),
+			createBreakoutMiddleware({ room: this }),
 		);
 	}
 
@@ -112,13 +110,6 @@ export default class Room extends EventEmitter {
 
 	public get empty(): boolean {
 		return this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
-	}
-
-	public addBreakoutRoom(breakoutRoom: BreakoutRoom): void {
-		logger.debug('addBreakoutRoom() [sessionId: %s]', breakoutRoom.sessionId);
-
-		this.breakoutRooms.set(breakoutRoom.sessionId, breakoutRoom);
-		breakoutRoom.once('close', () => this.breakoutRooms.delete(breakoutRoom.sessionId));
 	}
 
 	public addRouter(router: Router): void {
@@ -187,6 +178,8 @@ export default class Room extends EventEmitter {
 	private allowPeer(peer: Peer): void {
 		logger.debug('allowPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
 
+		this.assignRouter(peer);
+
 		this.pendingPeers.add(peer);
 		peer.pipeline.use(this.initialMediaMiddleware, this.joinMiddleware);
 
@@ -253,6 +246,10 @@ export default class Room extends EventEmitter {
 		return this.peers.items.filter((p) => p !== excludePeer);
 	}
 
+	public getBreakoutRooms(): BreakoutRoom[] {
+		return Array.from(this.breakoutRooms.values());
+	}
+
 	@skipIfClosed
 	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
 		const peers = this.getPeers(excludePeer);
@@ -268,5 +265,21 @@ export default class Room extends EventEmitter {
 				(r) => r.mediaNode as unknown as MediaNode
 			)
 		) ];
+	}
+
+	private async assignRouter(peer: Peer): Promise<void> {
+		try {
+			const router = await this.mediaService.getRouter(this, peer);
+
+			if (this.closed)
+				throw router.close();
+
+			this.addRouter(router);
+			peer.resolveRouterReady(router);
+		} catch (error) {
+			logger.error('assignRouter() [%o]', error);
+
+			peer.rejectRouterReady(error);
+		}
 	}
 }
