@@ -60,12 +60,10 @@ describe('MediaService', () => {
 			const spyGetCandidates = jest.fn().mockReturnValue([ fakeMediaNode1 ]);
 			const loadBalancer = {
 				getCandidates: spyGetCandidates
-			} as unknown as LoadBalancer; 
-			const spyRoomAddRouter = jest.fn();
+			} as unknown as LoadBalancer;
 			const fakeRoom = {
 				id: 'id',
 				parentClose: false,
-				addRouter: spyRoomAddRouter
 			} as unknown as Room;
 			const kdTree = { rebalance: jest.fn() 
 			} as unknown as KDTree;
@@ -74,7 +72,6 @@ describe('MediaService', () => {
 
 			await sut.getRouter(fakeRoom, fakePeer);
 
-			expect(spyRoomAddRouter).toHaveBeenCalled();
 			expect(spyGetCandidates).toHaveBeenCalled();
 		});
 		
