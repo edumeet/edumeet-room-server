@@ -103,7 +103,7 @@ export const createJoinMiddleware = ({
 			case 'recording:join': {
 				const { peerId } = message.data;
 				
-				room.notifyPeers('recording:privacy', {
+				room.notifyPeers('recording:permissions', {
 					peerId
 				}, peer);
 

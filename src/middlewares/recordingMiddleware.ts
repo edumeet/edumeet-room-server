@@ -24,7 +24,7 @@ export const createRecordingMiddleware = ({
 
 		switch (message.method) {
 			case 'recording:start': {
-				room.notifyPeers('recording:privacy', {
+				room.notifyPeers('recording:permissions', {
 					peerId: peer.id
 				}, peer);
 
