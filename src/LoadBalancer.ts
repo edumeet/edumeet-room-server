@@ -22,7 +22,7 @@ export default class LoadBalancer {
 	constructor({
 		kdTree,
 		defaultClientPosition,
-		cpuLoadThreshold = 0.85,
+		cpuLoadThreshold = 85,
 		geoDistanceThreshold = 2000
 	}: LoadBalancerOptions) {
 		logger.debug('constructor() [kdTree: %s, defaultClientPosition: %S]', kdTree, defaultClientPosition);
@@ -53,7 +53,7 @@ export default class LoadBalancer {
 				(point) => {
 					const node = point.appData.mediaNode as unknown as MediaNode;
 					
-					return node.load < 0.85;
+					return node.load < 85;
 				}
 			);
 
