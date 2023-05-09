@@ -6,9 +6,9 @@ import Room from '../../src/Room';
 
 const kdPoint1 = new KDPoint([ 50, 10 ]);
 const kdPoint2= new KDPoint([ 50, 10 ]);
-const mediaNode1 = { id: 'id1', load: 0.2, kdPoint: kdPoint1 } as unknown as MediaNode;
-const mediaNode2 = { id: 'id2', load: 0.3, kdPoint: kdPoint2 } as unknown as MediaNode;
-const mediaNode3 = { id: 'id2', load: 0.9, kdPoint: kdPoint2 } as unknown as MediaNode;
+const mediaNode1 = { id: 'id1', load: 20, kdPoint: kdPoint1 } as unknown as MediaNode;
+const mediaNode2 = { id: 'id2', load: 30, kdPoint: kdPoint2 } as unknown as MediaNode;
+const mediaNode3 = { id: 'id2', load: 90, kdPoint: kdPoint2 } as unknown as MediaNode;
 const defaultClientPosition = new KDPoint([ 50, 10 ]);
 const clientAddress = '5.44.192.0';
 
