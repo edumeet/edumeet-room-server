@@ -100,6 +100,18 @@ export const createJoinMiddleware = ({
 				break;
 			}
 
+			case 'recording:join': {
+				const { peerId } = message.data;
+				
+				room.notifyPeers('recording:privacy', {
+					peerId
+				}, peer);
+
+				context.handled = true;
+
+				break;
+			}
+
 			default: {
 				break;
 			}
