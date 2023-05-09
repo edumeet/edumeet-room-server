@@ -88,21 +88,6 @@ export const createPeerMiddleware = ({
 				break;
 			}
 
-			case 'recording:recordable': {
-				const { recordable } = message.data;
-
-				peer.recordable = recordable;
-
-				room.notifyPeers('recording:recordable', {
-					peerId: peer.id,
-					recordable: recordable
-				}, peer);
-
-				context.handled = true;
-
-				break;
-			}
-
 			default: {
 				break;
 			}
