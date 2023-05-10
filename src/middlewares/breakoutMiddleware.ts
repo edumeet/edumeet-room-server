@@ -38,15 +38,16 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				room.breakoutRooms.set(newBreakoutRoom.sessionId, newBreakoutRoom);
 				newBreakoutRoom.once('close', () => room.breakoutRooms.delete(newBreakoutRoom.sessionId));
-				room.notifyPeers('newBreakoutRoom', { name, roomSessionId: newBreakoutRoom.sessionId }, peer);
+				room.notifyPeers('newBreakoutRoom', { name, roomSessionId: newBreakoutRoom.sessionId, creationTimestamp: newBreakoutRoom.creationTimestamp }, peer);
 
 				response.sessionId = newBreakoutRoom.sessionId;
+				response.creationTimestamp = newBreakoutRoom.creationTimestamp;
 				context.handled = true;
 
 				break;
 			}
 
-			case 'closeBreakoutRoom': {
+			case 'ejectBreakoutRoom': {
 				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
 					throw new Error('peer not authorized');
 
@@ -135,7 +136,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		const roomToLeave = room.breakoutRooms.get(peer.sessionId);
 
 		roomToLeave?.removePeer(peer);
-		room.notifyPeers('changeSessionId', { peerId: peer.id, sessionId: roomToJoin.sessionId }, peer);
+		room.notifyPeers('changeSessionId', { peerId: peer.id, sessionId: roomToJoin.sessionId, oldSessionId: peer.sessionId }, peer);
 		peer.closeProducers();
 
 		// This will trigger the consumers of peers not in the room to be closed

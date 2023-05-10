@@ -33,7 +33,8 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 					magnetURI,
 					peerId: peer.id,
 					displayName: peer.displayName,
-					timestamp: Date.now()
+					timestamp: Date.now(),
+					sessionId: room.sessionId,
 				} as FileMessage;
 
 				room.fileHistory.push(file);

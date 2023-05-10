@@ -33,7 +33,8 @@ export const createChatMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 					text,
 					peerId: peer.id,
 					displayName: peer.displayName,
-					timestamp: Date.now()
+					timestamp: Date.now(),
+					sessionId: room.sessionId,
 				} as ChatMessage;
 
 				room.chatHistory.push(chatMessage);

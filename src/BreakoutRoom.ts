@@ -3,7 +3,7 @@ import { Peer, PeerContext } from './Peer';
 import { randomUUID } from 'crypto';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import Room from './Room';
-import { ChatMessage, FileMessage, MiddlewareOptions } from './common/types';
+import { ChatMessage, FileMessage } from './common/types';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
 
@@ -36,14 +36,9 @@ export default class BreakoutRoom extends EventEmitter {
 		this.name = name;
 		this.parent = parent;
 
-		const breakoutMiddlewareOptions = {
-			room: parent,
-			breakoutRoom: this,
-		} as MiddlewareOptions;
-
 		this.peerMiddlewares.push(
-			createChatMiddleware(breakoutMiddlewareOptions),
-			createFileMiddleware(breakoutMiddlewareOptions),
+			createChatMiddleware({ room: this }),
+			createFileMiddleware({ room: this }),
 		);
 	}
 
