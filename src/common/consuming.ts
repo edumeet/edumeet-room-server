@@ -4,16 +4,48 @@ import { Producer } from '../media/Producer';
 import { Router } from '../media/Router';
 import { Logger } from 'edumeet-common';
 import { DataProducer } from '../media/DataProducer';
+import Room from '../Room';
 
 const logger = new Logger('createConsumer');
+
+export const createConsumers = async (
+	room: Room,
+	consumerPeer: Peer,
+): Promise<[] | unknown[]> => {
+	// Peers in the same session as the consumerPeer
+	const peers = room.getPeers(consumerPeer).filter((p) => p.sameSession(consumerPeer));
+
+	const createConsumerPromises: Promise<void>[] = [];
+
+	for (const producerPeer of peers) {
+		for (const producer of producerPeer.producers.values()) {
+			createConsumerPromises.push(createConsumer(consumerPeer, producerPeer, producer));
+		}
+	}
+
+	const createDataConsumerPromises: Promise<void>[] = [];
+
+	for (const producerPeer of peers) {
+		for (const dataProducer of producerPeer.dataProducers.values()) {
+			createDataConsumerPromises.push(createDataConsumer(consumerPeer, producerPeer, dataProducer));
+		}
+	}
+
+	return Promise.all([
+		...createConsumerPromises,
+		...createDataConsumerPromises,
+	]);
+};
 
 export const createConsumer = async (
 	consumerPeer: Peer,
 	producerPeer: Peer,
 	producer: Producer,
 ): Promise<void> => {
-	const { router: producerRouter } = producerPeer;
-	const { router: consumerRouter } = consumerPeer;
+	const [ consumerRouter, producerRouter ] = await Promise.all([
+		consumerPeer.routerReady,
+		producerPeer.routerReady,
+	]);
 
 	if (
 		!producerRouter ||
@@ -50,13 +82,30 @@ export const createConsumer = async (
 
 		const consumer = await consumingTransport.consume({
 			producerId: producer.id,
-			rtpCapabilities: consumerPeer.rtpCapabilities
+			rtpCapabilities: consumerPeer.rtpCapabilities,
 		});
 
 		if (consumerPeer.closed)
 			return consumer.close();
 
+		// If the consuming peer went to a different session, maybe close the consumer
+		if (!consumerPeer.sameSession(producerPeer))
+			return consumer.close();
+
 		consumerPeer.consumers.set(consumer.id, consumer);
+
+		// The consuming peer went to a different session, maybe close the consumer
+		consumerPeer.on('sessionIdChanged', () => {
+			if (!consumerPeer.sameSession(producerPeer))
+				consumer.close();
+		});
+
+		// The producing peer went to a different session, maybe close the consumer
+		producerPeer.on('sessionIdChanged', () => {
+			if (!consumerPeer.sameSession(producerPeer))
+				consumer.close();
+		});
+
 		consumer.once('close', () => {
 			consumerPeer.consumers.delete(consumer.id);
 
@@ -112,8 +161,10 @@ export const createDataConsumer = async (
 	producerPeer: Peer,
 	dataProducer: DataProducer,
 ): Promise<void> => {
-	const { router: producerRouter } = producerPeer;
-	const { router: consumerRouter } = consumerPeer;
+	const [ consumerRouter, producerRouter ] = await Promise.all([
+		consumerPeer.routerReady,
+		producerPeer.routerReady,
+	]);
 
 	if (!producerRouter || !consumerRouter)
 		return logger.warn(
@@ -139,7 +190,24 @@ export const createDataConsumer = async (
 		if (consumerPeer.closed)
 			return dataConsumer.close();
 
+		// If the consuming peer went to a different session, maybe close the consumer
+		if (!consumerPeer.sameSession(producerPeer))
+			return dataConsumer.close();
+
 		consumerPeer.dataConsumers.set(dataConsumer.id, dataConsumer);
+
+		// The consuming peer went to a different session, maybe close the consumer
+		consumerPeer.on('sessionIdChanged', () => {
+			if (!consumerPeer.sameSession(producerPeer))
+				dataConsumer.close();
+		});
+
+		// The producing peer went to a different session, maybe close the consumer
+		producerPeer.on('sessionIdChanged', () => {
+			if (!consumerPeer.sameSession(producerPeer))
+				dataConsumer.close();
+		});
+
 		dataConsumer.once('close', () => {
 			consumerPeer.dataConsumers.delete(dataConsumer.id);
 

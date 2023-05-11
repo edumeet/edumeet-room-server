@@ -89,7 +89,7 @@ export default class ServerManager {
 		peer = new Peer({
 			id: peerId,
 			token,
-			roomId,
+			sessionId: room.sessionId,
 			displayName,
 			connection
 		});

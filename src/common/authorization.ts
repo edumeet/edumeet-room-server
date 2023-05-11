@@ -1,3 +1,4 @@
+import BreakoutRoom from '../BreakoutRoom';
 import { Peer } from '../Peer';
 import Room from '../Room';
 import { Role } from './types';
@@ -50,6 +51,8 @@ export enum Permission {
 	LOCAL_RECORD_ROOM = 'LOCAL_RECORD_ROOM',
 	// The role(s) have permission to create rooms
 	CREATE_ROOM = 'CREATE_ROOM',
+	// The role(s) have permission to join/leave rooms
+	CHANGE_ROOM = 'CHANGE_ROOM',
 }
 
 export enum Access {
@@ -85,6 +88,7 @@ export const roomPermissions = {
 	[Permission.MODERATE_ROOM]: [ userRoles.NORMAL ],
 	[Permission.LOCAL_RECORD_ROOM]: [ userRoles.NORMAL ],
 	[Permission.CREATE_ROOM]: [ userRoles.NORMAL ],
+	[Permission.CHANGE_ROOM]: [ userRoles.NORMAL ],
 };
 
 export const allowWhenRoleMissing: Permission[] = [];
@@ -92,7 +96,7 @@ export const activateOnHostJoin = false;
 /* eslint-enable no-unused-vars, no-shadow */
 
 export const hasPermission = (
-	room: Room,
+	room: Room | BreakoutRoom,
 	peer: Peer,
 	permission: Permission
 ): boolean => {
@@ -103,9 +107,16 @@ export const hasPermission = (
 	if (exists)
 		return true;
 
+	let actualRoom: Room;
+
+	if (room instanceof BreakoutRoom)
+		actualRoom = room.parent;
+	else
+		actualRoom = room;
+
 	if (
 		allowWhenRoleMissing.includes(permission) &&
-		permittedPeers(room, permission).length === 0
+		permittedPeers(actualRoom, permission).length === 0
 	)
 		return true;
 

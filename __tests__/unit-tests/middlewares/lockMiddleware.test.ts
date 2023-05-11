@@ -13,8 +13,7 @@ test('Should not handle unrelated message', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLockMiddleware(options);
+	const sut = createLockMiddleware({ room });
 
 	const context = {
 		message: {
@@ -35,8 +34,7 @@ test('Should not handle wrong session', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLockMiddleware(options);
+	const sut = createLockMiddleware({ room });
 
 	const context = {
 		message: {
@@ -56,8 +54,7 @@ test('lockRoom() - Should throw on not authorized', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLockMiddleware(options);
+	const sut = createLockMiddleware({ room });
 	const peer = {
 		roles: []
 	};
@@ -83,8 +80,7 @@ test('lockRoom() - Should lock room on happy path', async () => {
 		locked: false
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLockMiddleware(options);
+	const sut = createLockMiddleware({ room });
 	const peer = {
 		roles: [ userRoles.NORMAL ]
 	};
@@ -111,8 +107,7 @@ test('unlockRoom() - Should throw on not authorized', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLockMiddleware(options);
+	const sut = createLockMiddleware({ room });
 	const peer = {
 		roles: []
 	};
@@ -141,8 +136,7 @@ test('unlockRoom() - Should unlock room on happy path', async () => {
 		locked: true
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLockMiddleware(options);
+	const sut = createLockMiddleware({ room });
 	const peer = {
 		roles: [ userRoles.NORMAL ]
 	};

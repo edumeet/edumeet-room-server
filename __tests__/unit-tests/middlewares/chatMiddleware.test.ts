@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 test('Should throw on peer not authorized', async () => {
-	const room = { id: 'id' } as unknown as Room;
+	const room = { id: 'id', chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -29,7 +29,7 @@ test('Should throw on peer not authorized', async () => {
 
 test('Should call next middleware on wrong session', async () => {
 	const spyThisSession = jest.spyOn(checkSessionId, 'thisSession');
-	const room = { id: 'id', sessionId: 'id1' } as unknown as Room;
+	const room = { id: 'id', sessionId: 'id1', chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -50,7 +50,7 @@ test('Should call next middleware on wrong session', async () => {
 
 test('Should notify peers on authorized peer sending chat message', async () => {
 	const spyNotify = jest.fn();
-	const room = { id: 'id', notifyPeers: spyNotify } as unknown as Room;
+	const room = { id: 'id', notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
 	const chatHistory: ChatMessage[] = [];
 	const options = { room, chatHistory } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
@@ -76,7 +76,7 @@ test('Should notify peers on authorized peer sending chat message', async () => 
 });
 
 test('Should call next middleware if not chat message', async () => {
-	const room = { id: 'id' } as unknown as Room;
+	const room = { id: 'id', chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 

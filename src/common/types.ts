@@ -1,3 +1,4 @@
+import BreakoutRoom from '../BreakoutRoom';
 import MediaService from '../MediaService';
 import Room from '../Room';
 
@@ -22,10 +23,7 @@ export interface LobbyPeerInfo {
 }
 
 export interface MiddlewareOptions {
-	room: Room;
-	mediaService: MediaService;
-	chatHistory: ChatMessage[];
-	fileHistory: FileMessage[];
+	room: Room | BreakoutRoom;
 }
 
 export interface Role {

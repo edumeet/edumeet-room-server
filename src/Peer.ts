@@ -30,7 +30,7 @@ interface PeerOptions {
 	id: string;
 	displayName?: string;
 	picture?: string;
-	roomId: string;
+	sessionId: string;
 	connection?: BaseConnection;
 	token?: string;
 }
@@ -43,6 +43,7 @@ export interface PeerInfo {
 	audioOnly: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
+	sessionId: string;
 }
 
 export interface PeerContext {
@@ -60,6 +61,7 @@ export declare interface Peer {
 
 	on(event: 'gotRole', listener: (newRole: Role) => void): this;
 	on(event: 'lostRole', listener: (oldRole: Role) => void): this;
+	on(event: 'sessionIdChanged', listener: (sessionId: string) => void): this;
 }
 /* eslint-enable no-unused-vars */
 
@@ -78,13 +80,23 @@ export class Peer extends EventEmitter {
 	public routerId?: string;
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
-	#router?: Router;
+
+	// eslint-disable-next-line no-unused-vars
+	public resolveRouterReady!: (router: Router) => void;
+	// eslint-disable-next-line no-unused-vars
+	public rejectRouterReady!: (error: unknown) => void;
+
+	public routerReady: Promise<Router> = new Promise<Router>((resolve, reject) => {
+		this.resolveRouterReady = resolve;
+		this.rejectRouterReady = reject;
+	});
+
 	public transports = new Map<string, WebRtcTransport>();
 	public consumers = new Map<string, Consumer>();
 	public producers = new Map<string, Producer>();
 	public dataConsumers = new Map<string, DataConsumer>();
 	public dataProducers = new Map<string, DataProducer>();
-	public roomId: string;
+	#sessionId: string;
 	public pipeline = Pipeline<PeerContext>();
 	public readonly token: string;
 
@@ -93,7 +105,7 @@ export class Peer extends EventEmitter {
 		token,
 		displayName,
 		picture,
-		roomId,
+		sessionId,
 		connection,
 	}: PeerOptions) {
 		logger.debug('constructor() [id: %s]', id);
@@ -101,7 +113,7 @@ export class Peer extends EventEmitter {
 		super();
 
 		this.id = id;
-		this.roomId = roomId;
+		this.#sessionId = sessionId;
 		this.displayName = displayName ?? 'Guest';
 		this.picture = picture;
 		this.token = token ?? this.assignToken();
@@ -129,6 +141,26 @@ export class Peer extends EventEmitter {
 		this.emit('close');
 	}
 
+	public closeProducers(): void {
+		logger.debug('closeProducers() [peerId: %s]', this.id);
+
+		this.producers.forEach((p) => p.close());
+		this.producers.clear();
+	}
+
+	public set sessionId(sessionId: string) {
+		const oldSessionId = this.#sessionId;
+
+		this.#sessionId = sessionId;
+
+		if (oldSessionId !== sessionId)
+			this.emit('sessionIdChanged', sessionId);
+	}
+
+	public get sessionId(): string {
+		return this.#sessionId;
+	}
+
 	public get audioOnly(): boolean {
 		return this.#audioOnly;
 	}
@@ -153,18 +185,6 @@ export class Peer extends EventEmitter {
 	public set escapeMeeting(value: boolean) {
 		this.#escapeMeeting = value;
 		this.escapeMeetingTimestamp = Date.now();
-	}
-
-	public get router(): Router | undefined {
-		return this.#router;
-	}
-
-	public set router(router: Router | undefined) {
-		if (!router) return;
-
-		router.once('close', () => (this.#router = undefined));
-
-		this.#router = router;
 	}
 
 	@skipIfClosed
@@ -289,6 +309,10 @@ export class Peer extends EventEmitter {
 		return connection.address;
 	}
 
+	public sameSession(peer: Peer): boolean {
+		return this.sessionId === peer.sessionId;
+	}
+
 	public get peerInfo(): PeerInfo {
 		return {
 			id: this.id,
@@ -298,6 +322,7 @@ export class Peer extends EventEmitter {
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			roles: this.roles.map((role) => role.id),
+			sessionId: this.sessionId,
 		};
 	}
 }

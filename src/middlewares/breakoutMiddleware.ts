@@ -1,17 +1,15 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { hasPermission, Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { MiddlewareOptions } from '../common/types';
-import { PeerContext } from '../Peer';
+import { Peer, PeerContext } from '../Peer';
+import BreakoutRoom from '../BreakoutRoom';
+import { createConsumers } from '../common/consuming';
 import Room from '../Room';
 
 const logger = new Logger('BreakoutMiddleware');
 
-export const createBreakoutMiddleware = ({
-	room,
-	mediaService,
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createBreakoutMiddleware() [room: %s]', room.id);
+export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
+	logger.debug('createBreakoutMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -27,30 +25,100 @@ export const createBreakoutMiddleware = ({
 			return next();
 		
 		switch (message.method) {
-			case 'createRoom': {
+			case 'createBreakoutRoom': {
 				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
 					throw new Error('peer not authorized');
 
 				const { name } = message.data;
-				const newRoom = new Room({ id: room.id, name, mediaService, parent: room });
 
-				response.name = newRoom.name;
-				response.sessionId = newRoom.sessionId;
-				room.addRoom(newRoom);
-				room.notifyPeers('newRoom', { name: room.name, sessionId: room.sessionId }, peer);
+				if (!name)
+					throw new Error('name not provided');
+
+				const newBreakoutRoom = new BreakoutRoom({ parent: room, name });
+
+				room.breakoutRooms.set(newBreakoutRoom.sessionId, newBreakoutRoom);
+				newBreakoutRoom.once('close', () => room.breakoutRooms.delete(newBreakoutRoom.sessionId));
+				room.notifyPeers('newBreakoutRoom', { name, roomSessionId: newBreakoutRoom.sessionId, creationTimestamp: newBreakoutRoom.creationTimestamp }, peer);
+
+				response.sessionId = newBreakoutRoom.sessionId;
+				response.creationTimestamp = newBreakoutRoom.creationTimestamp;
 				context.handled = true;
 
 				break;
 			}
 
-			case 'joinRoom': {
-				const { sessionId } = message.data;
-				const roomToJoin = room.rooms.get(sessionId);
+			case 'ejectBreakoutRoom': {
+				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
+					throw new Error('peer not authorized');
+
+				const { roomSessionId } = message.data;
+				const roomToEmpty = room.breakoutRooms.get(roomSessionId);
+
+				if (!roomToEmpty)
+					throw new Error('BreakoutRoom not found');
+
+				roomToEmpty.getPeers().forEach((p) => changeRoom(room, p, true));
+				roomToEmpty.emptyRoom();
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'removeBreakoutRoom': {
+				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
+					throw new Error('peer not authorized');
+
+				const { roomSessionId } = message.data;
+				const roomToClose = room.breakoutRooms.get(roomSessionId);
+
+				if (!roomToClose)
+					throw new Error('BreakoutRoom not found');
+
+				roomToClose.getPeers().forEach((p) => changeRoom(room, p, true));
+				roomToClose.close();
+				room.notifyPeers('breakoutRoomClosed', { roomSessionId }, peer);
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'joinBreakoutRoom': {
+				if (!hasPermission(room, peer, Permission.CHANGE_ROOM))
+					throw new Error('peer not authorized');
+
+				const { roomSessionId } = message.data;
+
+				if (peer.sessionId === roomSessionId)
+					throw new Error('Already in session');
+
+				const roomToJoin = room.breakoutRooms.get(roomSessionId);
 
 				if (!roomToJoin)
-					throw new Error('room not found');
+					throw new Error('Session not found');
 
 				roomToJoin.addPeer(peer);
+
+				changeRoom(roomToJoin, peer);
+
+				response.chatHistory = roomToJoin.chatHistory;
+				response.fileHistory = roomToJoin.fileHistory;
+				context.handled = true;
+
+				break;
+			}
+
+			case 'leaveBreakoutRoom': {
+				if (!hasPermission(room, peer, Permission.CHANGE_ROOM))
+					throw new Error('peer not authorized');
+
+				if (peer.sessionId === room.sessionId)
+					throw new Error('Already in parent');
+
+				changeRoom(room, peer);
+
+				response.sessionId = room.sessionId;
 				context.handled = true;
 
 				break;
@@ -62,6 +130,23 @@ export const createBreakoutMiddleware = ({
 		}
 
 		return next();
+	};
+
+	const changeRoom = (roomToJoin: Room | BreakoutRoom, peer: Peer, messagePeer = false) => {
+		const roomToLeave = room.breakoutRooms.get(peer.sessionId);
+
+		roomToLeave?.removePeer(peer);
+		room.notifyPeers('changeSessionId', { peerId: peer.id, sessionId: roomToJoin.sessionId, oldSessionId: peer.sessionId }, peer);
+		peer.closeProducers();
+
+		// This will trigger the consumers of peers not in the room to be closed
+		peer.sessionId = roomToJoin.sessionId;
+
+		if (messagePeer)
+			peer.notify({ method: 'sessionIdChanged', data: { sessionId: roomToJoin.sessionId } });
+
+		// Create consumers for the peer in the new room
+		createConsumers(room, peer);
 	};
 
 	return middleware;
