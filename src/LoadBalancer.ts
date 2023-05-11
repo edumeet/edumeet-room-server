@@ -22,7 +22,7 @@ export default class LoadBalancer {
 	constructor({
 		kdTree,
 		defaultClientPosition,
-		cpuLoadThreshold = 85,
+		cpuLoadThreshold = 0.85,
 		geoDistanceThreshold = 2000
 	}: LoadBalancerOptions) {
 		logger.debug('constructor() [kdTree: %s, defaultClientPosition: %S]', kdTree, defaultClientPosition);
