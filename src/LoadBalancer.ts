@@ -55,7 +55,7 @@ export default class LoadBalancer {
 				(point) => {
 					const node = point.appData.mediaNode as unknown as MediaNode;
 					
-					return node.load < 85;
+					return node.load < this.cpuLoadThreshold;
 				}
 			);
 
