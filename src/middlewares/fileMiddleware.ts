@@ -1,16 +1,15 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { hasPermission, Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { FileMessage, MiddlewareOptions } from '../common/types';
+import { FileMessage } from '../common/types';
 import { PeerContext } from '../Peer';
+import BreakoutRoom from '../BreakoutRoom';
+import Room from '../Room';
 
 const logger = new Logger('FileMiddleware');
 
-export const createFileMiddleware = ({
-	room,
-	fileHistory,
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createFileMiddleware() [room: %s]', room.id);
+export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): Middleware<PeerContext> => {
+	logger.debug('createFileMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -34,10 +33,11 @@ export const createFileMiddleware = ({
 					magnetURI,
 					peerId: peer.id,
 					displayName: peer.displayName,
-					timestamp: Date.now()
+					timestamp: Date.now(),
+					sessionId: room.sessionId,
 				} as FileMessage;
 
-				fileHistory.push(file);
+				room.fileHistory.push(file);
 
 				room.notifyPeers('sendFile', {
 					peerId: peer.id,

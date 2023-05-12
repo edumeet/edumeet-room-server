@@ -81,13 +81,6 @@ export default class MediaService {
 					}
 				});
 
-				if (!room.parentClosed)
-					room.addRouter(router);
-				else {
-					router.close();
-					throw new RoomClosedError('room closed');
-				}
-				
 				return router;
 			} catch (error) {
 				logger.error('getRouter() [error %o]', error);

@@ -23,11 +23,12 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { MiddlewareOptions } from './common/types';
+import { ChatMessage, FileMessage } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
+import BreakoutRoom from './BreakoutRoom';
 
 const logger = new Logger('Room');
 
@@ -35,7 +36,6 @@ interface RoomOptions {
 	id: string;
 	name?: string;
 	mediaService: MediaService;
-	parent?: Room;
 }
 
 export class RoomClosedError extends Error {
@@ -53,49 +53,45 @@ export default class Room extends EventEmitter {
 	public closed = false;
 	public locked = false;
 	public readonly creationTimestamp = Date.now();
-	
-	public parent?: Room;
+
+	public mediaService: MediaService;
+
 	public routers = List<Router>();
-	public rooms = List<Room>();
+	public breakoutRooms = new Map<string, BreakoutRoom>();
 	public pendingPeers = List<Peer>();
 	public peers = List<Peer>();
 	public lobbyPeers = List<Peer>();
+
+	public chatHistory: ChatMessage[] = [];
+	public fileHistory: FileMessage[] = [];
 
 	private lobbyPeerMiddleware: Middleware<PeerContext>;
 	private initialMediaMiddleware: Middleware<PeerContext>;
 	private joinMiddleware: Middleware<PeerContext>;
 	private peerMiddlewares: Middleware<PeerContext>[] = [];
 
-	constructor({ id, name, mediaService, parent }: RoomOptions) {
-		logger.debug('constructor() [id: %s, parent: %s]', id, parent?.id);
+	constructor({ id, name, mediaService }: RoomOptions) {
+		logger.debug('constructor() [id: %s]', id);
 
 		super();
 
 		this.id = id;
 		this.name = name;
-		this.parent = parent;
+		this.mediaService = mediaService;
 
-		const middlewareOptions = {
-			room: this,
-			mediaService,
-			chatHistory: [],
-			fileHistory: [],
-		} as MiddlewareOptions;
-
-		this.lobbyPeerMiddleware = createLobbyPeerMiddleware(middlewareOptions);
-		this.initialMediaMiddleware = createInitialMediaMiddleware(middlewareOptions);
-		this.joinMiddleware = createJoinMiddleware(middlewareOptions);
+		this.lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
+		this.initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
+		this.joinMiddleware = createJoinMiddleware({ room: this });
 
 		this.peerMiddlewares.push(
-			createPeerMiddleware(middlewareOptions),
-			createModeratorMiddleware(middlewareOptions),
-			createMediaMiddleware(middlewareOptions),
-			createChatMiddleware(middlewareOptions),
-			createFileMiddleware(middlewareOptions),
-			createLockMiddleware(middlewareOptions),
-			createLobbyMiddleware(middlewareOptions),
-			createBreakoutMiddleware(middlewareOptions),
-			createRecordingMiddleware(middlewareOptions),
+			createPeerMiddleware({ room: this }),
+			createModeratorMiddleware({ room: this }),
+			createMediaMiddleware({ room: this }),
+			createChatMiddleware({ room: this }),
+			createFileMiddleware({ room: this }),
+			createLockMiddleware({ room: this }),
+			createLobbyMiddleware({ room: this }),
+			createBreakoutMiddleware({ room: this }),
 		);
 	}
 
@@ -105,48 +101,27 @@ export default class Room extends EventEmitter {
 
 		this.closed = true;
 
-		if (!this.parent) {
-			this.pendingPeers.items.forEach((p) => p.close());
-			this.peers.items.forEach((p) => p.close());
-			this.lobbyPeers.items.forEach((p) => p.close());
-		}
+		this.pendingPeers.items.forEach((p) => p.close());
+		this.peers.items.forEach((p) => p.close());
+		this.lobbyPeers.items.forEach((p) => p.close());
 
-		this.rooms.items.forEach((r) => r.close());
+		this.breakoutRooms.forEach((r) => r.close());
 		this.routers.items.forEach((r) => r.close());
 
 		this.pendingPeers.clear();
 		this.peers.clear();
 		this.lobbyPeers.clear();
-		this.rooms.clear();
+		this.breakoutRooms.clear();
 		this.routers.clear();
 
 		this.emit('close');
-	}
-
-	public get parentClosed(): boolean {
-		return this.parent?.parentClosed ?? this.closed;
 	}
 
 	public get empty(): boolean {
 		return this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
 	}
 
-	public addRoom(room: Room): void {
-		logger.debug('addRoom() [id: %s]', room.id);
-
-		this.rooms.add(room);
-		room.once('close', () => this.rooms.remove(room));
-	}
-
 	public addRouter(router: Router): void {
-		if (this.parent)
-			this.parent.addRouter(router);
-		else
-			this.pushRouter(router);
-	}
-
-	@skipIfClosed
-	private pushRouter(router: Router): void {
 		if (this.routers.has(router)) return;
 
 		this.routers.add(router);
@@ -204,13 +179,15 @@ export default class Room extends EventEmitter {
 		}
 
 		// If the Room is the root room and there are no more peers in it, close
-		if (this.empty && !this.parent)
+		if (this.empty)
 			this.close();
 	}
 
 	@skipIfClosed
 	private allowPeer(peer: Peer): void {
 		logger.debug('allowPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
+
+		this.assignRouter(peer);
 
 		this.pendingPeers.add(peer);
 		peer.pipeline.use(this.initialMediaMiddleware, this.joinMiddleware);
@@ -278,6 +255,10 @@ export default class Room extends EventEmitter {
 		return this.peers.items.filter((p) => p !== excludePeer);
 	}
 
+	public getBreakoutRooms(): BreakoutRoom[] {
+		return Array.from(this.breakoutRooms.values());
+	}
+
 	@skipIfClosed
 	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
 		const peers = this.getPeers(excludePeer);
@@ -293,5 +274,21 @@ export default class Room extends EventEmitter {
 				(r) => r.mediaNode as unknown as MediaNode
 			)
 		) ];
+	}
+
+	private async assignRouter(peer: Peer): Promise<void> {
+		try {
+			const router = await this.mediaService.getRouter(this, peer);
+
+			if (this.closed)
+				throw router.close();
+
+			this.addRouter(router);
+			peer.resolveRouterReady(router);
+		} catch (error) {
+			logger.error('assignRouter() [%o]', error);
+
+			peer.rejectRouterReady(error);
+		}
 	}
 }

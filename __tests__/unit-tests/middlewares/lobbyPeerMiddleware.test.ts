@@ -12,8 +12,7 @@ test('Should not handle unrelated message', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLobbyPeerMiddleware(options);
+	const sut = createLobbyPeerMiddleware({ room });
 
 	const context = {
 		message: {
@@ -34,8 +33,7 @@ test('Should not handle wrong session', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLobbyPeerMiddleware(options);
+	const sut = createLobbyPeerMiddleware({ room });
 
 	const context = {
 		message: {
@@ -57,8 +55,7 @@ test('changeDisplayName() - Should notify peers on happy path', async () => {
 		notifyPeers: spyNotifyPeers
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLobbyPeerMiddleware(options);
+	const sut = createLobbyPeerMiddleware({ room });
 	const peer = {
 		displayName: ''
 	};
@@ -88,8 +85,7 @@ test('changePicture() - Should notify peers on happy path', async () => {
 		notifyPeers: spyNotifyPeers
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLobbyPeerMiddleware(options);
+	const sut = createLobbyPeerMiddleware({ room });
 	const peer = {
 		picture: ''
 	};

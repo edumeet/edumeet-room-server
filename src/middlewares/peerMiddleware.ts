@@ -1,22 +1,16 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
+import Room from '../Room';
 
 const logger = new Logger('PeerMiddleware');
 
-export const createPeerMiddleware = ({
-	room
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createPeerMiddleware() [room: %s]', room.id);
+export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
+	logger.debug('createPeerMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
 		next
 	) => {
-		// None of these are allowed in a room with a parent
-		if (room.parent)
-			return next();
-
 		const {
 			peer,
 			message,
@@ -53,7 +47,6 @@ export const createPeerMiddleware = ({
 				break;
 			}
 
-			// TODO: Fix raised hand for multiple rooms
 			case 'raisedHand': {
 				const { raisedHand } = message.data;
 
