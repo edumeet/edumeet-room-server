@@ -1,13 +1,11 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { thisSession } from '../common/checkSessionId';
-import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
+import Room from '../Room';
 
 const logger = new Logger('RecordingMiddleware');
 
-export const createRecordingMiddleware = ({
-	room
-}: MiddlewareOptions): Middleware<PeerContext> => {
+export const createRecordingMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
 	logger.debug('createRecordingMiddleware() [room: %s]', room.id);
 
 	const middleware: Middleware<PeerContext> = (
