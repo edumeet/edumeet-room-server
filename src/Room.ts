@@ -92,6 +92,7 @@ export default class Room extends EventEmitter {
 			createLockMiddleware({ room: this }),
 			createLobbyMiddleware({ room: this }),
 			createBreakoutMiddleware({ room: this }),
+			createRecordingMiddleware({ room: this })
 		);
 	}
 
