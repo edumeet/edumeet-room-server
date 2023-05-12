@@ -114,18 +114,12 @@ test('Should filter out candidates on load', () => {
 		forwardedFor: undefined
 	})
 	} as unknown as Peer;
-	const spyNearestNeighbors = jest.fn().mockReturnValue(
-		[ ]
+	const kdTree = new KDTree([ new KDPoint([ 50, 10 ], { mediaNode: mediaNode3 }) ]
 	);
-	const kdTree = {
-		nearestNeighbors: spyNearestNeighbors
-	} as unknown as KDTree;
-
-	const sut = new LoadBalancer({ kdTree, defaultClientPosition });
+	const sut = new LoadBalancer({ kdTree, defaultClientPosition, cpuLoadThreshold: 0.85 });
 	const candidates = sut.getCandidates(room, peer);
 
 	expect(spyGetActiveMediaNodes).toHaveBeenCalledTimes(1);
-	expect(spyNearestNeighbors).toHaveBeenCalledTimes(1);
 	expect(candidates.length).toBe(0);
 });
 

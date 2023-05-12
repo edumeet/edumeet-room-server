@@ -5,30 +5,9 @@ import { PeerContext } from '../../../src/Peer';
 
 const next = jest.fn();
 
-test('Should not handle messages if room has parent', async () => {
-	const room = {
-		parent: {}
-	} as unknown as Room;
-	const options = { room } as MiddlewareOptions;
-	const sut = createPeerMiddleware(options);
-
-	const context = {
-		handled: false,
-		message: {
-			data: {
-			}
-		}
-	} as PeerContext; 
-
-	await sut(context, next);
-
-	expect(context.handled).toBeFalsy();
-});
-
 test('Should not handle unrelated messages', async () => {
 	const room = {} as unknown as Room;
-	const options = { room } as MiddlewareOptions;
-	const sut = createPeerMiddleware(options);
+	const sut = createPeerMiddleware({ room });
 
 	const context = {
 		handled: false,
@@ -47,8 +26,7 @@ test('changeDisplayName() - Room should notify peers', async () => {
 	const room = {
 		notifyPeers
 	} as unknown as Room;
-	const options = { room } as MiddlewareOptions;
-	const sut = createPeerMiddleware(options);
+	const sut = createPeerMiddleware({ room });
 
 	const peer = {};
 	const context = {
@@ -74,8 +52,7 @@ test('changePicture() - Room should notify peers', async () => {
 	const room = {
 		notifyPeers
 	} as unknown as Room;
-	const options = { room } as MiddlewareOptions;
-	const sut = createPeerMiddleware(options);
+	const sut = createPeerMiddleware({ room });
 
 	const peer = {};
 	const context = {
@@ -101,8 +78,7 @@ test('raisedHand() - Room should notify peers', async () => {
 	const room = {
 		notifyPeers
 	} as unknown as Room;
-	const options = { room } as MiddlewareOptions;
-	const sut = createPeerMiddleware(options);
+	const sut = createPeerMiddleware({ room });
 
 	const peer = {};
 	const context = {

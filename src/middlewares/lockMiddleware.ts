@@ -1,15 +1,13 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { hasPermission, Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
+import Room from '../Room';
 
 const logger = new Logger('LockMiddleware');
 
-export const createLockMiddleware = ({
-	room,
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createLockMiddleware() [room: %s]', room.id);
+export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
+	logger.debug('createLockMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,

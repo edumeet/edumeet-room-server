@@ -1,16 +1,15 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { hasPermission, Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { ChatMessage, MiddlewareOptions } from '../common/types';
+import { ChatMessage } from '../common/types';
 import { PeerContext } from '../Peer';
+import BreakoutRoom from '../BreakoutRoom';
+import Room from '../Room';
 
 const logger = new Logger('ChatMiddleware');
 
-export const createChatMiddleware = ({
-	room,
-	chatHistory,
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	logger.debug('createChatMiddleware() [room: %s]', room.id);
+export const createChatMiddleware = ({ room }: { room: Room | BreakoutRoom; }): Middleware<PeerContext> => {
+	logger.debug('createChatMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -34,10 +33,11 @@ export const createChatMiddleware = ({
 					text,
 					peerId: peer.id,
 					displayName: peer.displayName,
-					timestamp: Date.now()
+					timestamp: Date.now(),
+					sessionId: room.sessionId,
 				} as ChatMessage;
 
-				chatHistory.push(chatMessage);
+				room.chatHistory.push(chatMessage);
 
 				room.notifyPeers('chatMessage', {
 					peerId: peer.id,

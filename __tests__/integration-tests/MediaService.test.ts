@@ -28,7 +28,7 @@ test('getRouter() should throw on no mediaNodes', async () => {
 	const room = new Room(roomOptions);
 	const peerOptions = {
 		id: 'peerId',
-		roomId: 'roomId'
+		sessionId: 'roomId'
 	};
 	const peer = new Peer(peerOptions);
 
@@ -60,7 +60,7 @@ test('getRouter() should get router', async () => {
 	const room = new Room(roomOptions);
 	const peerOptions = {
 		id: 'peerId',
-		roomId: 'roomId'
+		sessionId: 'roomId'
 	};
 	const peer = new Peer(peerOptions);
 	const clientAddress = {

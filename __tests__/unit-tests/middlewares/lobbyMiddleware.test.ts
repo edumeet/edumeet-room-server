@@ -13,8 +13,7 @@ test('Should not handle unrelated message', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLobbyMiddleware(options);
+	const sut = createLobbyMiddleware({ room });
 
 	const context = {
 		message: {
@@ -35,8 +34,7 @@ test('Should not handle wrong session', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
-	const sut = createLobbyMiddleware(options);
+	const sut = createLobbyMiddleware({ room });
 
 	const context = {
 		message: {
@@ -56,11 +54,10 @@ test('promotePeer() - Should throw on not authorized', async () => {
 		sessionId: SESSION_ID,
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
 	const peer = {
 		roles: []
 	};
-	const sut = createLobbyMiddleware(options);
+	const sut = createLobbyMiddleware({ room });
 
 	const context = {
 		peer,
@@ -81,11 +78,10 @@ test('promotePeer() - Should throw on peer not found', async () => {
 		lobbyPeers: List<Peer>()
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
 	const peer = {
 		roles: [ userRoles.NORMAL ]
 	};
-	const sut = createLobbyMiddleware(options);
+	const sut = createLobbyMiddleware({ room });
 
 	const context = {
 		peer,
@@ -114,11 +110,10 @@ test('promotePeer() - Should promote peer on happy path', async () => {
 
 	room.lobbyPeers.add(lobbyPeer);
 
-	const options = { room } as MiddlewareOptions;
 	const peer = {
 		roles: [ userRoles.NORMAL ]
 	};
-	const sut = createLobbyMiddleware(options);
+	const sut = createLobbyMiddleware({ room });
 
 	const context = {
 		peer,
@@ -145,11 +140,10 @@ test('promoteAllPeers() - Should promote peers on happy path', async () => {
 		promoteAllPeers: spyPromoteAllPeers
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
 	const peer = {
 		roles: [ userRoles.NORMAL ]
 	};
-	const sut = createLobbyMiddleware(options);
+	const sut = createLobbyMiddleware({ room });
 
 	const context = {
 		peer,
@@ -175,11 +169,10 @@ test('promoteAllPeers() - Should throw on not authorized', async () => {
 		promoteAllPeers: spyPromoteAllPeers
 	} as unknown as Room;
 
-	const options = { room } as MiddlewareOptions;
 	const peer = {
 		roles: [ ]
 	};
-	const sut = createLobbyMiddleware(options);
+	const sut = createLobbyMiddleware({ room });
 
 	const context = {
 		peer,

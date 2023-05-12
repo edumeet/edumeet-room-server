@@ -6,8 +6,6 @@ import { Peer, PeerContext } from '../../src/Peer';
 import { Producer } from '../../src/media/Producer';
 import { Consumer } from '../../src/media/Consumer';
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
-import { Router } from '../../src/media/Router';
-import { EventEmitter } from 'events';
 import { Pipeline } from 'edumeet-common';
 
 describe('Peer', () => {
@@ -46,7 +44,7 @@ describe('Peer', () => {
 
 		peer = new Peer({
 			id: peerId,
-			roomId,
+			sessionId: roomId,
 			displayName,
 			picture,
 			connection
@@ -62,7 +60,7 @@ describe('Peer', () => {
 		expect(peer.closed).toBe(false);
 		expect(peer.displayName).toBe(displayName);
 		expect(peer.picture).toBe(picture);
-		expect(peer.roomId).toBe(roomId);
+		expect(peer.sessionId).toBe(roomId);
 		expect(peer.connections.items[0]).toBe(connection);
 		expect(peer.token).toBeDefined();
 		expect(peer.audioOnly).toBe(false);
@@ -167,55 +165,6 @@ describe('Peer', () => {
 
 		expect(peer.roles.length).toBe(1);
 		expect(spyEmit).toHaveBeenCalledTimes(0);
-	});
-
-	test('should add escapeMeetingTimestamp', () => {
-		expect(peer.escapeMeeting).toBe(false);
-		expect(peer.escapeMeetingTimestamp).toBe(undefined);
-		peer.escapeMeeting = true;
-		expect(typeof peer.escapeMeetingTimestamp).toBe('number');
-	});
-
-	test('getAddress() should return address', () => {
-		peer.addConnection(connection);
-		const result = peer.getAddress();
-
-		expect(result.address).toBe('127.0.0.1');
-		expect(result.forwardedFor).toBe('10.0.0.1');
-	});
-
-	describe('Router', () => {
-		let router: Router;
-
-		beforeEach(() => {
-			router = {
-				close: jest.fn(),
-				once: jest.fn()
-			} as unknown as Router;
-		});
-
-		it('getter should return undefined when no router', () => {
-			expect(peer.router).toBe(undefined);
-		});
-
-		it('getter should return router when set', () => {
-			peer.router = router;
-			expect(peer.router).toEqual(router);
-		});
-
-		it('should not throw on undefined as argument', () => {
-			expect(() => { peer.router = undefined; }).not.toThrow();
-		});
-
-		it('should set router to undefined on close event', () => {
-			const emitRouter = new EventEmitter();
-
-			peer.router = emitRouter as Router;
-			expect(peer.router).toBe(emitRouter);
-			emitRouter.emit('close');
-		
-			expect(peer.router).toBe(undefined);
-		});
 	});
 
 	describe('Connections', () => {
