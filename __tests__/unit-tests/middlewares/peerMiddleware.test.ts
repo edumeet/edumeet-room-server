@@ -1,6 +1,5 @@
 import { createPeerMiddleware } from '../../../src/middlewares/peerMiddleware';
 import Room from '../../../src/Room';
-import { MiddlewareOptions } from '../../../src/common/types';
 import { PeerContext } from '../../../src/Peer';
 
 const next = jest.fn();
