@@ -67,13 +67,36 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 						if (!consumerPeer.sameSession(peer))
 							continue;
 
-						// Avoid to create video consumer if a peer is in audio-only mode
 						if (consumerPeer.audioOnly && producer.kind === MediaKind.VIDEO)
 							continue;
 
 						await createConsumer(consumerPeer, peer, producer);
 					}
 				})();
+
+				if (producer.kind === MediaKind.AUDIO) {
+					(async () => {
+						try {
+							const breakoutRoom = room.breakoutRooms.get(peer.sessionId);
+
+							const observer = room.sessionId === peer.sessionId ? 
+								await room.activeSpeakerObserverReady : 
+								await breakoutRoom?.activeSpeakerObserverReady;
+
+							await observer?.addProducer(producer);
+							producer.on('close', async () => {
+								try {
+									await observer?.removeProducer(producer);
+								} catch (error) {
+									logger.error(error);
+								}
+							});
+						} catch (error) {
+							logger.error('createMediaMiddleware() [%o]', error);
+						}
+					}
+					)();
+				}
 
 				break;
 			}

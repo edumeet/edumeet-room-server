@@ -36,7 +36,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				const newBreakoutRoom = new BreakoutRoom({ parent: room, name });
 
-				room.breakoutRooms.set(newBreakoutRoom.sessionId, newBreakoutRoom);
+				room.addBreakoutRoom(newBreakoutRoom);
 				newBreakoutRoom.once('close', () => room.breakoutRooms.delete(newBreakoutRoom.sessionId));
 				room.notifyPeers('newBreakoutRoom', { name, roomSessionId: newBreakoutRoom.sessionId, creationTimestamp: newBreakoutRoom.creationTimestamp }, peer);
 
