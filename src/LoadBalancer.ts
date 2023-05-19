@@ -48,14 +48,13 @@ export default class LoadBalancer {
 			candidates = this.filterOnGeoThreshold(candidates, peerGeoPosition);
 			
 			// Get additional candidates from KDTree
-			// TODO check health status, don't return unhealty candidates
 			const kdtreeCandidates = this.kdTree.nearestNeighbors(
 				peerGeoPosition,
 				5,
 				(point) => {
 					const node = point.appData.mediaNode as unknown as MediaNode;
 					
-					return node.load < this.cpuLoadThreshold;
+					return node.health && node.load < this.cpuLoadThreshold;
 				}
 			);
 
