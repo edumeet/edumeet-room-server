@@ -10,24 +10,28 @@ const mockMediaService = {} as unknown as MediaService;
 const nodeClose1 = {
 	load: 0.2,
 	id: 'id1',
+	health: true,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose1 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose1 });
 const nodeClose2 = {
 	load: 0.4,
 	id: 'id2',
+	health: true,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose2 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose2 });
 const nodeClose3 = {
 	load: 0.1,
 	id: 'id3',
+	health: true,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose3 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose3 });
 const nodeClose4 = {
 	load: 0.1,
 	id: 'id3',
+	health: true,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 
 } as unknown as MediaNode;
@@ -35,17 +39,20 @@ const kdPointClose4 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose4 
 const nodeClose5 = {
 	load: 0.1,
 	id: 'id3',
+	health: true,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose5 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose5 });
 const nodeFarAway = {
 	load: 0.1,
 	id: 'id3',
+	health: true,
 	kdPoint: new KDPoint([ 16.8833,	 101.8833 ])
 } as unknown as MediaNode;
 const nodeHighLoad = {
 	load: 0.9,
 	id: 'id4',
+	health: true,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointHighLoad = new KDPoint([ 48.8543, 2.3527 ], { mediaNode: nodeHighLoad });
