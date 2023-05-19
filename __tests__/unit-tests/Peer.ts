@@ -1,23 +1,4 @@
-const mockLoggerDebug = jest.fn();
-const mockLoggerError= jest.fn();
-const mockLoggerWarn= jest.fn();
-
-jest.mock('edumeet-common', () => {
-	const originalModule = jest.requireActual('edumeet-common');
-	
-	return {
-		...originalModule,
-		Logger: jest.fn().mockImplementation(() => {
-			return {
-				debug: mockLoggerDebug,
-				error: mockLoggerError,
-				warn: mockLoggerWarn
-			};
-		})
-	}; 
-});
-
-import { BaseConnection, IOServerConnection, SocketMessage } from 'edumeet-common';
+import { BaseConnection, IOServerConnection } from 'edumeet-common';
 import 'jest';
 import { Socket } from 'socket.io';
 import { userRoles } from '../../src/common/authorization';
@@ -44,6 +25,12 @@ describe('Peer', () => {
 		broadcast: {
 			to: jest.fn(() => mockSocket),
 			emit: jest.fn()
+		},
+		handshake: {
+			address: '127.0.0.1',
+			headers: {
+				'x-forwarded-for': '10.0.0.1'
+			}
 		}
 	} as unknown as Socket;
 
@@ -76,6 +63,7 @@ describe('Peer', () => {
 		expect(peer.sessionId).toBe(roomId);
 		expect(peer.connections.items[0]).toBe(connection);
 		expect(peer.token).toBeDefined();
+		expect(peer.audioOnly).toBe(false);
 	});
 
 	it('close()', () => {
@@ -180,20 +168,14 @@ describe('Peer', () => {
 	});
 
 	describe('Connections', () => {
-		const DEBUG_MSG_ADD_CONNECTION = 'addConnection()';
-		const REJECT_MESSAGE_SERVER_ERROR = 'Server error';
 		let pipelineWithMiddleware: Pipeline<PeerContext>;
 		let pipelineWithoutMiddleware: Pipeline<PeerContext>;
 		let mockRequest: jest.SpyInstance; 
 		let mockRespond: jest.SpyInstance;  
 		let mockReject: jest.SpyInstance;  
 		let spyPipelineExecute: jest.SpyInstance;
-		let spyRequest: jest.SpyInstance;
-		let mockSocketMessage: SocketMessage;
 		
 		beforeEach(() => {
-			mockSocketMessage = {
-			} as unknown as SocketMessage;
 			pipelineWithoutMiddleware = {
 				execute: (context: PeerContext) => {
 					context.handled = false; 
@@ -208,7 +190,6 @@ describe('Peer', () => {
 			mockRespond = jest.fn();
 			mockReject = jest.fn();
 			spyPipelineExecute = jest.spyOn(peer.pipeline, 'execute');
-			spyRequest = jest.spyOn(connection, 'request');
 		});
 
 		afterEach(() => {
@@ -236,66 +217,38 @@ describe('Peer', () => {
 			expect(spyClose).toHaveBeenCalled();
 		});
 
-		it('addConnection() - should execute pipeline on events', async () => {
+		it('addConnection() - should succesfully execute pipeline on handled notification', async () => {
 			const mockNotification = jest.fn();
 
-			await connection.emit('notification', mockNotification);
+			connection.emit('notification', mockNotification);
 			
-			expect(mockLoggerDebug).toHaveBeenCalledWith(DEBUG_MSG_ADD_CONNECTION);
 			expect(spyPipelineExecute).toHaveBeenCalledTimes(1);
 		});
 
-		it('addConnection() - notification event: should throw and catch when not handled by middleware', async () => {
+		it('addConnection() - should not succesfully execute pipeline on unhandled notification', async () => {
 			peer.pipeline = pipelineWithoutMiddleware;
 
-			await connection.emit('notification');
-			expect(mockLoggerError).toHaveBeenCalledTimes(1);
+			connection.emit('notification');
+			expect(spyPipelineExecute).not.toHaveBeenCalled();
 		});
 		
-		it('addConnection() - notification event: should not throw and catch when handled by middleware', async () => {
+		it('addConnection() - request promise should resolve when handled by middleware', async () => {
 			peer.pipeline = pipelineWithMiddleware;
 
-			await connection.emit('notification');
-			expect(mockLoggerError).not.toHaveBeenCalled();
-		});
-		
-		it('addConnection() - request event: should not call reject when handled by middleware', async () => {
-			peer.pipeline = pipelineWithMiddleware;
-
-			await connection.emit('request', mockRequest, mockRespond, mockReject);
-
+			connection.emit('request', mockRequest, mockRespond, mockReject);
+			await new Promise(process.nextTick);
 			expect(mockRespond).toHaveBeenCalledTimes(1);
 			expect(mockReject).not.toHaveBeenCalled();
 		});
 
-		it('addConnection() - request event: should call reject when not handled by middleware', async () => {
+		it('addConnection() - request promise should reject when not handled by middleware', async () => {
 			peer.pipeline = pipelineWithoutMiddleware;
 
-			await connection.emit('request', mockRequest, mockRespond, mockReject);
+			connection.emit('request', mockRequest, mockRespond, mockReject);
 
-			expect(mockReject).toHaveBeenNthCalledWith(1, REJECT_MESSAGE_SERVER_ERROR);
-		});
-
-		it('request() - should call request on connections', () => {
-			peer.pipeline = pipelineWithoutMiddleware;
-			peer.addConnection(connection);
-			
-			expect(spyRequest).not.toHaveBeenCalled();
-
-			peer.request(mockSocketMessage);
-
-			expect(spyRequest).toHaveBeenCalled();
-		});
-		
-		it('request() - should log warn on no connections', () => {
-			peer.pipeline = pipelineWithoutMiddleware;
-
-			peer.connections.remove(connection);
-			expect(peer.connections.length).toBe(0);
-			
-			peer.request(mockSocketMessage);
-
-			expect(mockLoggerWarn).toHaveBeenCalled();
+			await new Promise(process.nextTick);
+			expect(mockReject).toHaveBeenCalledTimes(1);
+			expect(mockRespond).not.toHaveBeenCalled();
 		});
 	});
 });

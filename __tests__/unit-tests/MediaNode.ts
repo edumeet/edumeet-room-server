@@ -131,4 +131,17 @@ describe('MediaNode', () => {
 		// No more routers left, so the connection should be closed.
 		expect(mediaNode.connection).toBeUndefined();
 	});
+
+	it('getRouter() - should reject on failing medianode connection', async () => {
+		const mockConnection = {
+			ready: Promise.reject('timeout'),
+			close: jest.fn()
+		} as unknown as MediaNodeConnection;
+
+		mediaNode.connection = mockConnection;
+		await expect(mediaNode.getRouter({
+			roomId,
+			appData: {},
+		})).rejects.toBe('timeout');
+	});
 });

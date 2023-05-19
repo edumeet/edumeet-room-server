@@ -1,6 +1,5 @@
 import { List, Next } from 'edumeet-common';
 import { userRoles } from '../../../src/common/authorization';
-import { MiddlewareOptions } from '../../../src/common/types';
 import { createLockMiddleware } from '../../../src/middlewares/lockMiddleware';
 import { Peer, PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';

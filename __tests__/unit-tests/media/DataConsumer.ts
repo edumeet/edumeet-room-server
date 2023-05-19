@@ -19,8 +19,6 @@ describe('Consumer', () => {
 	let fakeAppData: Record<string, unknown>;
 	let fakeSctpStreamParameters: SctpStreamParameters;
 	let dataConsumer: DataConsumer;
-	const LABEL = 'label';
-	const PROTOCOL = 'protocol';
 	let spyNotify: jest.SpyInstance;
 
 	beforeEach(() => {
@@ -34,8 +32,8 @@ describe('Consumer', () => {
 			appData: fakeAppData,
 			sctpStreamParameters: fakeSctpStreamParameters,
 			dataProducerId: dataProducerId,
-			label: LABEL,
-			protocol: PROTOCOL,
+			label: 'label',
+			protocol: 'protocol',
 		});
 		spyNotify = jest.spyOn(dataConsumer.connection, 'notify');
 	});
@@ -45,15 +43,17 @@ describe('Consumer', () => {
 	});
 
 	it('constructor - AppData, label and protocol should be optional', () => {
-		const newConsumer = new DataConsumer({
-			id: dataConsumerId,
-			router: fakeRouter,
-			connection: fakeConnection,
-			sctpStreamParameters: fakeSctpStreamParameters,
-			dataProducerId: dataProducerId
-		});
+		expect(() => {
+			const newConsumer = new DataConsumer({
+				id: dataConsumerId,
+				router: fakeRouter,
+				connection: fakeConnection,
+				sctpStreamParameters: fakeSctpStreamParameters,
+				dataProducerId: dataProducerId
+			}); 
 
-		expect(newConsumer).toBeInstanceOf(DataConsumer);
+			expect(newConsumer).toBeInstanceOf(DataConsumer);
+		}).not.toThrow();
 	});
 
 	it('close() - Should notify when remoteClose is false', () => {
@@ -64,9 +64,8 @@ describe('Consumer', () => {
 				dataConsumerId: dataConsumer.id,
 			}
 		};
-		const remoteClose = false;
 
-		dataConsumer.close(remoteClose);
+		dataConsumer.close(false);
 		expect(spyNotify).toHaveBeenCalledWith(expected);
 	});
 

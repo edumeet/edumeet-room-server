@@ -1,5 +1,4 @@
 import BreakoutRoom from '../BreakoutRoom';
-import MediaService from '../MediaService';
 import Room from '../Room';
 
 export interface ChatMessage {

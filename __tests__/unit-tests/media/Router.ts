@@ -129,6 +129,8 @@ describe('Router', () => {
 
 	it('Has correct properties', () => {
 		expect(router1.closed).toBe(false);
+		expect(router1.appData).toBeDefined();
+		expect(router1.id).toBe('testId1');
 	});
 
 	it('close()', () => {
@@ -542,17 +544,11 @@ describe('Router', () => {
 			fakeProducer2.paused = true;
 
 			router1.producers.set(fakeProducer2.id, fakeProducer2);
-			jest.spyOn(router1, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport3;
-			});
-			jest.spyOn(router2, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport3;
-			});
-			jest.spyOn(router1.routerPipePromises, 'get').mockImplementation(async () => {
-				return {
-					'testId1': fakePipeTransport3,
-					'testId2': fakePipeTransport3
-				} as unknown as PipeTransportPair;
+			jest.spyOn(router1, 'createPipeTransport').mockResolvedValue(fakePipeTransport3);
+			jest.spyOn(router2, 'createPipeTransport').mockResolvedValue(fakePipeTransport3);
+			jest.spyOn(router1.routerPipePromises, 'get').mockResolvedValue({
+				'testId1': fakePipeTransport3,
+				'testId2': fakePipeTransport3
 			});
 		
 			const { pipeProducer } = await router1.pipeToRouter(
@@ -568,17 +564,11 @@ describe('Router', () => {
 			fakeProducer2.closed = true;
 
 			router1.producers.set(fakeProducer2.id, fakeProducer2);
-			jest.spyOn(router1, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport3;
-			});
-			jest.spyOn(router2, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport3;
-			});
-			jest.spyOn(router1.routerPipePromises, 'get').mockImplementation(async () => {
-				return {
-					'testId1': fakePipeTransport3,
-					'testId2': fakePipeTransport3
-				} as unknown as PipeTransportPair;
+			jest.spyOn(router1, 'createPipeTransport').mockResolvedValue(fakePipeTransport3);
+			jest.spyOn(router2, 'createPipeTransport').mockResolvedValue(fakePipeTransport3);
+			jest.spyOn(router1.routerPipePromises, 'get').mockResolvedValue({
+				'testId1': fakePipeTransport3,
+				'testId2': fakePipeTransport3
 			});
 		
 			await expect(router1.pipeToRouter(
@@ -589,17 +579,11 @@ describe('Router', () => {
 			fakeDataProducer.closed = true;
 
 			router1.dataProducers.set(fakeDataProducer.id, fakeDataProducer);
-			jest.spyOn(router1, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport1;
-			});
-			jest.spyOn(router2, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport1;
-			});
-			jest.spyOn(router1.routerPipePromises, 'get').mockImplementation(async () => {
-				return {
-					'testId1': fakePipeTransport1,
-					'testId2': fakePipeTransport1
-				} as unknown as PipeTransportPair;
+			jest.spyOn(router1, 'createPipeTransport').mockResolvedValue(fakePipeTransport1);
+			jest.spyOn(router2, 'createPipeTransport').mockResolvedValue(fakePipeTransport1);
+			jest.spyOn(router1.routerPipePromises, 'get').mockResolvedValue({
+				'testId1': fakePipeTransport1,
+				'testId2': fakePipeTransport1
 			});
 			await expect(router1.pipeToRouter(
 				{ dataProducerId: fakeDataProducer.id, router: router2 })).rejects.toThrow();
@@ -607,17 +591,11 @@ describe('Router', () => {
 		
 		it('pipeToRouter() - Should close pipedata consumer/producer on close event', async () => {
 			router1.dataProducers.set(fakeDataProducer.id, fakeDataProducer);
-			jest.spyOn(router1, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport1;
-			});
-			jest.spyOn(router2, 'createPipeTransport').mockImplementation(async () => {
-				return fakePipeTransport1;
-			});
-			jest.spyOn(router1.routerPipePromises, 'get').mockImplementation(async () => {
-				return {
-					'testId1': fakePipeTransport1,
-					'testId2': fakePipeTransport1
-				} as unknown as PipeTransportPair;
+			jest.spyOn(router1, 'createPipeTransport').mockResolvedValue(fakePipeTransport1);
+			jest.spyOn(router2, 'createPipeTransport').mockResolvedValue(fakePipeTransport1);
+			jest.spyOn(router1.routerPipePromises, 'get').mockResolvedValue({
+				'testId1': fakePipeTransport1,
+				'testId2': fakePipeTransport1
 			});
 			
 			const { pipeDataConsumer, pipeDataProducer } = await router1.pipeToRouter(
