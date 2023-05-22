@@ -41,21 +41,20 @@ export default class LoadBalancer {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
 			// Get sticky candidates
 			let candidates = room.getActiveMediaNodes()
-				.filter((m) => m.load < this.cpuLoadThreshold)
+				.filter((m) => m.health && m.load < this.cpuLoadThreshold)
 				.sort((a, b) => a.load - b.load);
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 
 			candidates = this.filterOnGeoThreshold(candidates, peerGeoPosition);
 			
 			// Get additional candidates from KDTree
-			// TODO check health status, don't return unhealty candidates
 			const kdtreeCandidates = this.kdTree.nearestNeighbors(
 				peerGeoPosition,
 				5,
 				(point) => {
 					const node = point.appData.mediaNode as unknown as MediaNode;
 					
-					return node.load < this.cpuLoadThreshold;
+					return node.health && node.load < this.cpuLoadThreshold;
 				}
 			);
 
