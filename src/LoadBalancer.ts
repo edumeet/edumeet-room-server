@@ -41,7 +41,7 @@ export default class LoadBalancer {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
 			// Get sticky candidates
 			let candidates = room.getActiveMediaNodes()
-				.filter((m) => m.load < this.cpuLoadThreshold)
+				.filter((m) => m.health && m.load < this.cpuLoadThreshold)
 				.sort((a, b) => a.load - b.load);
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 
