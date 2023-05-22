@@ -141,3 +141,34 @@ test('Should use load strategy', () => {
 	expect(candidates.length).toBe(1);
 	expect(candidates).not.toContain(kdPointHighLoad);
 });
+
+test('Should filter on media-node health', () => {
+	const unhealthyMediaNode = {
+		load: 0.2,
+		id: 'id1',
+		health: false,
+		kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
+	} as unknown as MediaNode;
+	const kdPoint = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: unhealthyMediaNode });
+	const defaultClientPosition = new KDPoint([ 40, 40 ]);
+	
+	// KDTree will consider the unhealthy MediaNode and should filter it out.
+	const kdTree = new KDTree([ kdPoint ]);
+	const sut = new LoadBalancer({ kdTree, defaultClientPosition });
+	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
+	const activeRoom = new Room({
+		id: 'id',
+		name: 'name',
+		mediaService: mockMediaService
+	});
+
+	const router = { mediaNode: unhealthyMediaNode } as unknown as Router;
+
+	// This will make the MediaNode sticky candidate, which should be filtered out.
+	activeRoom.addRouter(router);
+
+	const candidates = sut.getCandidates(activeRoom, peer);
+
+	expect(candidates.length).toBe(0);
+	expect(candidates).not.toContain(kdPoint);
+});
