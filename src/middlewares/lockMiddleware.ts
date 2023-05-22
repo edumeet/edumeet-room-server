@@ -1,5 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { hasPermission, Permission } from '../common/authorization';
+import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
@@ -23,7 +23,7 @@ export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 		
 		switch (message.method) {
 			case 'lockRoom': {
-				if (!hasPermission(room, peer, Permission.CHANGE_ROOM_LOCK))
+				if (!peer.hasPermission(Permission.CHANGE_ROOM_LOCK))
 					throw new Error('peer not authorized');
 
 				room.locked = true;
@@ -38,7 +38,7 @@ export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 			}
 
 			case 'unlockRoom': {
-				if (!hasPermission(room, peer, Permission.CHANGE_ROOM_LOCK))
+				if (!peer.hasPermission(Permission.CHANGE_ROOM_LOCK))
 					throw new Error('peer not authorized');
 
 				room.locked = false;

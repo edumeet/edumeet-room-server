@@ -1,8 +1,7 @@
 import { EventEmitter } from 'events';
 import * as jwt from 'jsonwebtoken';
 import { signingkey } from './common/token';
-import { userRoles } from './common/authorization';
-import { Role } from './common/types';
+import { ManagedGroup, ManagedUser, Role } from './common/types';
 import { Router } from './media/Router';
 import { WebRtcTransport } from './media/WebRtcTransport';
 import { Consumer } from './media/Consumer';
@@ -23,6 +22,7 @@ import {
 import { DataProducer } from './media/DataProducer';
 import { DataConsumer } from './media/DataConsumer';
 import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
+import { Permission } from './common/authorization';
 
 const logger = new Logger('Peer');
 
@@ -39,7 +39,6 @@ export interface PeerInfo {
 	id: string;
 	displayName?: string;
 	picture?: string;
-	roles: number[];
 	audioOnly: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
@@ -67,8 +66,11 @@ export declare interface Peer {
 
 export class Peer extends EventEmitter {
 	public id: string;
+	// TODO: set this value when the user is authenticated
+	public authenticatedId?: ManagedUser['id'];
+	public groupIds: ManagedGroup['id'][] = [];
+	#permissions: string[] = [];
 	public closed = false;
-	public roles: Role[] = [ userRoles.NORMAL ];
 	public connections = List<BaseConnection>();
 	public displayName: string;
 	public picture?: string;
@@ -161,6 +163,27 @@ export class Peer extends EventEmitter {
 		return this.#sessionId;
 	}
 
+	public get permissions(): string[] {
+		return this.#permissions;
+	}
+
+	public set permissions(value: string[]) {
+		// Find the diff between the old and new permissions
+		const added = value.filter((x) => !this.#permissions.includes(x));
+		const removed = this.#permissions.filter((x) => !value.includes(x));
+
+		// Update the permissions
+		this.#permissions = value;
+
+		// Notify the client of the changes
+		added.forEach((permission) => this.notify({ method: 'permissionAdded', data: { permission } })); // TODO: add to client
+		removed.forEach((permission) => this.notify({ method: 'permissionRemoved', data: { permission } })); // TODO: add to client
+	}
+
+	public hasPermission(permission: Permission): boolean {
+		return this.#permissions.includes(permission);
+	}
+
 	public get audioOnly(): boolean {
 		return this.#audioOnly;
 	}
@@ -185,26 +208,6 @@ export class Peer extends EventEmitter {
 	public set escapeMeeting(value: boolean) {
 		this.#escapeMeeting = value;
 		this.escapeMeetingTimestamp = Date.now();
-	}
-
-	@skipIfClosed
-	public addRole(newRole: Role): void {
-		const index = this.roles.findIndex((r) => r.id === newRole.id);
-
-		if (index === -1 && newRole.id !== userRoles.NORMAL.id) {
-			this.roles.push(newRole);
-			this.emit('gotRole', { newRole });
-		}
-	}
-
-	@skipIfClosed
-	public removeRole(oldRole: Role): void {
-		const index = this.roles.findIndex((r) => r.id === oldRole.id);
-
-		if (index !== -1 && oldRole.id !== userRoles.NORMAL.id) {
-			this.roles.splice(index, 1);
-			this.emit('lostRole', { oldRole });
-		}
 	}
 
 	@skipIfClosed
@@ -321,7 +324,6 @@ export class Peer extends EventEmitter {
 			audioOnly: this.audioOnly,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
-			roles: this.roles.map((role) => role.id),
 			sessionId: this.sessionId,
 		};
 	}

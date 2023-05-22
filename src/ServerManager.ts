@@ -3,19 +3,32 @@ import { verifyPeer } from './common/token';
 import MediaService from './MediaService';
 import { Peer } from './Peer';
 import Room from './Room';
+import ManagementService from './ManagementService';
 
 const logger = new Logger('ServerManager');
 
+interface ServerManagerOptions {
+	mediaService: MediaService;
+	peers: Map<string, Peer>;
+	rooms: Map<string, Room>;
+	managementService: ManagementService;
+}
+
 export default class ServerManager {
 	public closed = false;
-	public peers = new Map<string, Peer>();
-	public rooms = new Map<string, Room>();
+	public peers: Map<string, Peer>;
+	public rooms: Map<string, Room>;
+	public pendingRooms = new Map<string, Promise<Room>>();
 	public mediaService: MediaService;
+	public managementService: ManagementService;
 
-	constructor({ mediaService }: { mediaService: MediaService }) {
+	constructor({ mediaService, peers, rooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
 
 		this.mediaService = mediaService;
+		this.peers = peers;
+		this.rooms = rooms;
+		this.managementService = managementService;
 	}
 
 	@skipIfClosed
@@ -27,6 +40,7 @@ export default class ServerManager {
 		this.mediaService.close();
 		this.peers.forEach((p) => p.close());
 		this.rooms.forEach((r) => r.close());
+		this.pendingRooms.forEach((p) => p.then((r) => r.close()));
 		this.peers.clear();
 		this.rooms.clear();
 	}
@@ -36,17 +50,21 @@ export default class ServerManager {
 		connection: BaseConnection,
 		peerId: string,
 		roomId: string,
+		tenantId: string,
 		displayName?: string,
 		token?: string,
 	): void {
 		logger.debug(
-			'handleConnection() [peerId: %s, displayName: %s, roomId: %s]',
+			'handleConnection() [peerId: %s, displayName: %s, roomId: %s, tenantId: %s]',
 			peerId,
 			displayName,
-			roomId
+			roomId,
+			tenantId
 		);
 
-		let peer = this.peers.get(peerId);
+		// TODO: need to look-up the room in the management service
+
+		/* let peer = this.peers.get(peerId);
 
 		if (peer) {
 			logger.debug(
@@ -63,22 +81,26 @@ export default class ServerManager {
 				this.peers.delete(peerId);
 			} else
 				throw new Error('Invalid token');
-		}
+		} */
 
-		let room = this.rooms.get(roomId);
+		/* let room = this.rooms.get(`${tenantId}/${roomId}`);
 
 		if (!room) {
 			logger.debug(
-				'handleConnection() new room [roomId: %s]',
-				roomId
+				'handleConnection() new room [roomId: %s, tenantId: %s]',
+				roomId,
+				tenantId
 			);
+
+			const 
 
 			room = new Room({
 				id: roomId,
+				tenantId,
 				mediaService: this.mediaService
 			});
 
-			this.rooms.set(roomId, room);
+			this.rooms.set(`${tenantId}/${roomId}`, room);
 
 			room.once('close', () => {
 				logger.debug('handleConnection() room closed [roomId: %s]', roomId);
@@ -101,7 +123,7 @@ export default class ServerManager {
 			this.peers.delete(peerId);
 		});
 
-		room.addPeer(peer);
+		room.addPeer(peer); */
 
 		// At this point we have a valid Peer that is waiting in the Join dialog.
 		// Register middleware to handle the Peer actually joining the room. For

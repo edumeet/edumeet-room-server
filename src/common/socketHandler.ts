@@ -7,15 +7,17 @@ export const socketHandler = (socket: Socket) => {
 	const {
 		roomId,
 		peerId,
+		tenantId,
 		displayName,
 		token,
 	} = socket.handshake.query;
 
 	logger.debug(
-		'socket connection [socketId: %s, roomId: %s, peerId: %s]',
+		'socket connection [socketId: %s, roomId: %s, peerId: %s, tenantId: %s]',
 		socket.id,
 		roomId,
-		peerId
+		peerId,
+		tenantId,
 	);
 
 	if (!roomId || !peerId) {
@@ -31,6 +33,7 @@ export const socketHandler = (socket: Socket) => {
 			socketConnection,
 			peerId as string,
 			roomId as string,
+			tenantId as string,
 			displayName as string,
 			token as string,
 		);

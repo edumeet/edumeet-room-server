@@ -1,5 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { hasPermission, Permission } from '../common/authorization';
+import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { FileMessage } from '../common/types';
 import { PeerContext } from '../Peer';
@@ -25,7 +25,7 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 		
 		switch (message.method) {
 			case 'sendFile': {
-				if (!hasPermission(room, peer, Permission.SHARE_FILE))
+				if (!peer.hasPermission(Permission.SHARE_FILE))
 					throw new Error('peer not authorized');
 
 				const { magnetURI } = message.data;

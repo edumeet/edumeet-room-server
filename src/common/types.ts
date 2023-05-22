@@ -59,3 +59,94 @@ export type SrtpCryptoSuite =
 	| 'AEAD_AES_128_GCM'
 	| 'AES_CM_128_HMAC_SHA1_80'
 	| 'AES_CM_128_HMAC_SHA1_32';
+
+export type ManagedRoom = {
+	id: number;
+	name: string;
+	description: string;
+	createdAt: number;
+	updatedAt: number;
+	creatorId: number; // User ID of the creator
+	tenantId: number;
+
+	// Roles and permissions
+	owners: number[];
+	groupRoles: ManagedGroupRole[]; // Group roles in this room
+	userRoles: ManagedUserRole[]; // User roles in this room
+
+	// Look and feel
+	logo?: string;
+	background?: string;
+
+	// Features of the room
+	maxActiveVideos: number;
+	locked: boolean;
+	chatEnabled: boolean;
+	raiseHandEnabled: boolean;
+	filesharingEnabled: boolean;
+	localRecordingEnabled: boolean;
+};
+
+export type ManagedUser = {
+	id: number;
+	tenantId: number;
+	email: string;
+	name?: string;
+	avatar?: string;
+};
+
+export type ManagedUserRole = {
+	id: number;
+	roomId: number;
+	userId: number;
+	roleId: number;
+	role: ManagedRole;
+}
+
+export type ManagedGroupRole = {
+	id: number;
+	roomId: number;
+	groupId: number;
+	roleId: number;
+	role: ManagedRole;
+}
+
+export type ManagedRoomOwner = {
+	id: number;
+	roomId: number;
+	userId: number;
+}
+
+export type ManagedRole = {
+	id: number;
+	name: string;
+	description?: string;
+	permissions: ManagedPermission[];
+	tenantId: number;
+}
+
+export type ManagedPermission = {
+	id: number;
+	name: string;
+	description?: string;
+}
+
+export type ManagedRolePermission = {
+	id: number;
+	roleId: number;
+	permissionId: number;
+	permission: ManagedPermission;
+}
+
+export type ManagedGroup = {
+	id: number;
+	name: string;
+	description: string;
+	tenantId?: number;
+}
+
+export type ManagedGroupUser = {
+	id: number;
+	groupId: number;
+	userId: number;
+}
