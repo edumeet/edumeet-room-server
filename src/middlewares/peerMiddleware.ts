@@ -22,10 +22,12 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				peer.displayName = displayName;
 
-				room.notifyPeers('changeDisplayName', {
-					peerId: peer.id,
-					displayName
-				}, peer);
+				room.notifyPeers({ method: 'changeDisplayName',
+					data: {
+						peerId: peer.id,
+						displayName
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 
@@ -37,10 +39,12 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				peer.picture = picture;
 
-				room.notifyPeers('changePicture', {
-					peerId: peer.id,
-					picture
-				}, peer);
+				room.notifyPeers({ method: 'changePicture',
+					data: {
+						peerId: peer.id,
+						picture
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 
@@ -52,11 +56,13 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				peer.raisedHand = raisedHand;
 
-				room.notifyPeers('raisedHand', {
-					peerId: peer.id,
-					raisedHand,
-					raisedHandTimestamp: peer.raisedHandTimestamp
-				}, peer);
+				room.notifyPeers({ method: 'raisedHand',
+					data: {
+						peerId: peer.id,
+						raisedHand,
+						raisedHandTimestamp: peer.raisedHandTimestamp
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 
@@ -70,7 +76,7 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				if (escapeMeeting) {
 					if (!room.peers.items.some((p) => !p.escapeMeeting)) {
-						room.notifyPeers('escapeMeeting', {});
+						room.notifyPeers({ method: 'escapeMeeting', data: {} });
 
 						room.close();
 					}

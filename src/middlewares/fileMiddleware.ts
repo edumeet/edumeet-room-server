@@ -39,10 +39,12 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 
 				room.fileHistory.push(file);
 
-				room.notifyPeers('sendFile', {
-					peerId: peer.id,
-					file,
-				}, peer);
+				room.notifyPeers({ method: 'sendFile',
+					data: {
+						peerId: peer.id,
+						file,
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 

@@ -28,9 +28,11 @@ export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				room.locked = true;
 
-				room.notifyPeers('lockRoom', {
-					peerId: peer.id,
-				}, peer);
+				room.notifyPeers({ method: 'lockRoom',
+					data: {
+						peerId: peer.id,
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 
@@ -43,9 +45,11 @@ export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				room.locked = false;
 
-				room.notifyPeers('unlockRoom', {
-					peerId: peer.id,
-				}, peer);
+				room.notifyPeers({ method: 'unlockRoom',
+					data: {
+						peerId: peer.id,
+					},
+					excludePeer: peer });
 
 				room.promoteAllPeers();
 				

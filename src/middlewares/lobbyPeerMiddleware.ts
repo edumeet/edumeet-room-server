@@ -27,10 +27,12 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				peer.displayName = displayName;
 
 				// TODO: only send to PROMOTE_PEER peers
-				room.notifyPeers('lobby:changeDisplayName', {
-					peerId: peer.id,
-					displayName
-				}, peer);
+				room.notifyPeers({ method: 'lobby:changeDisplayName',
+					data: {
+						peerId: peer.id,
+						displayName
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 
@@ -43,10 +45,12 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				peer.picture = picture;
 
 				// TODO: only send to PROMOTE_PEER peers
-				room.notifyPeers('lobby:changePicture', {
-					peerId: peer.id,
-					picture
-				}, peer);
+				room.notifyPeers({ method: 'lobby:changePicture',
+					data: {
+						peerId: peer.id,
+						picture
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 
@@ -58,10 +62,12 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 
 				peer.audioOnly = audioOnly;
 
-				room.notifyPeers('lobby:changeAudioOnly', {
-					peerId: peer.id,
-					audioOnly
-				}, peer);
+				room.notifyPeers({ method: 'lobby:changeAudioOnly',
+					data: {
+						peerId: peer.id,
+						audioOnly
+					},
+					excludePeer: peer });
 
 				context.handled = true;
 

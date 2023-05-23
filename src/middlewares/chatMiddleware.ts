@@ -39,10 +39,13 @@ export const createChatMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 
 				room.chatHistory.push(chatMessage);
 
-				room.notifyPeers('chatMessage', {
-					peerId: peer.id,
-					chatMessage,
-				}, peer);
+				room.notifyPeers({ method: 'chatMessage',
+					data: {
+						peerId: peer.id,
+						chatMessage,
+					},
+					excludePeer: peer
+				});
 
 				context.handled = true;
 

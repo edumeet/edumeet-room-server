@@ -38,7 +38,10 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				room.breakoutRooms.set(newBreakoutRoom.sessionId, newBreakoutRoom);
 				newBreakoutRoom.once('close', () => room.breakoutRooms.delete(newBreakoutRoom.sessionId));
-				room.notifyPeers('newBreakoutRoom', { name, roomSessionId: newBreakoutRoom.sessionId, creationTimestamp: newBreakoutRoom.creationTimestamp }, peer);
+				room.notifyPeers({
+					method: 'newBreakoutRoom',
+					data: { name, roomSessionId: newBreakoutRoom.sessionId, creationTimestamp: newBreakoutRoom.creationTimestamp },
+					excludePeer: peer });
 
 				response.sessionId = newBreakoutRoom.sessionId;
 				response.creationTimestamp = newBreakoutRoom.creationTimestamp;
@@ -77,7 +80,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				roomToClose.getPeers().forEach((p) => changeRoom(room, p, true));
 				roomToClose.close();
-				room.notifyPeers('breakoutRoomClosed', { roomSessionId }, peer);
+				room.notifyPeers({ method: 'breakoutRoomClosed', data: { roomSessionId }, excludePeer: peer });
 
 				context.handled = true;
 
@@ -136,7 +139,10 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		const roomToLeave = room.breakoutRooms.get(peer.sessionId);
 
 		roomToLeave?.removePeer(peer);
-		room.notifyPeers('changeSessionId', { peerId: peer.id, sessionId: roomToJoin.sessionId, oldSessionId: peer.sessionId }, peer);
+		room.notifyPeers({
+			method: 'changeSessionId',
+			data: { peerId: peer.id, sessionId: roomToJoin.sessionId, oldSessionId: peer.sessionId },
+			excludePeer: peer });
 		peer.closeProducers();
 
 		// This will trigger the consumers of peers not in the room to be closed

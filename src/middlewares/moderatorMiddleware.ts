@@ -44,7 +44,7 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 					hasPermission(room, giveRolePeer, Permission.PROMOTE_PEER);
 
 				giveRolePeer.addRole(userRole);
-				room.notifyPeers('gotRole', { peerId: peer.id, roleId: userRole.id });
+				room.notifyPeers({ method: 'gotRole', data: { peerId: peer.id, roleId: userRole.id } });
 
 				if (
 					!room.lobbyPeers.empty &&
@@ -81,10 +81,11 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 
 				removeRolePeer.removeRole(userRole);
 
-				room.notifyPeers('lostRole', {
-					peerId: peer.id,
-					roleId: userRole.id
-				});
+				room.notifyPeers({ method: 'lostRole',
+					data: {
+						peerId: peer.id,
+						roleId: userRole.id
+					} });
 
 				context.handled = true;
 
@@ -96,7 +97,7 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 					throw new Error('peer not authorized');
 
 				room.chatHistory.length = 0;
-				room.notifyPeers('moderator:clearChat', {});
+				room.notifyPeers({ method: 'moderator:clearChat', data: {} });
 				context.handled = true;
 
 				break;
@@ -107,7 +108,7 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 					throw new Error('peer not authorized');
 
 				room.fileHistory.length = 0;
-				room.notifyPeers('moderator:clearFiles', {});
+				room.notifyPeers({ method: 'moderator:clearFiles', data: {} });
 				context.handled = true;
 
 				break;
@@ -133,7 +134,7 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 				if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 					throw new Error('peer not authorized');
 
-				room.notifyPeers('moderator:mute', {});
+				room.notifyPeers({ method: 'moderator:mute', data: {} });
 				context.handled = true;
 
 				break;
@@ -159,7 +160,7 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 				if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 					throw new Error('peer not authorized');
 
-				room.notifyPeers('moderator:stopVideo', {});
+				room.notifyPeers({ method: 'moderator:stopVideo', data: {} });
 				context.handled = true;
 
 				break;
@@ -185,7 +186,7 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 				if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 					throw new Error('peer not authorized');
 
-				room.notifyPeers('moderator:stopScreenSharing', {});
+				room.notifyPeers({ method: 'moderator:stopScreenSharing', data: {} });
 				context.handled = true;
 
 				break;
@@ -195,7 +196,7 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 				if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 					throw new Error('peer not authorized');
 
-				room.notifyPeers('moderator:kick', {});
+				room.notifyPeers({ method: 'moderator:kick', data: {} });
 				room.close();
 				context.handled = true;
 
