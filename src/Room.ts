@@ -37,6 +37,13 @@ interface RoomOptions {
 	mediaService: MediaService;
 }
 
+interface NotifyPeerOptions {
+	method: string,
+	data: unknown,
+	excludePeer?: Peer,
+	ignoreBreakout?: boolean
+}
+
 export class RoomClosedError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -159,7 +166,7 @@ export default class Room extends EventEmitter {
 			peer.pipeline.remove(this.initialMediaMiddleware);
 			this.peerMiddlewares.forEach((m) => peer.pipeline.remove(m));
 
-			this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
+			this.notifyPeers({ method: 'peerClosed', data: { peerId: peer.id }, excludePeer: peer });
 
 			// No peers left with PROMOTE_PEER, might need to give
 			// lobbyPeers to peers that are left
@@ -174,7 +181,7 @@ export default class Room extends EventEmitter {
 		if (this.lobbyPeers.remove(peer)) {
 			peer.pipeline.remove(this.lobbyPeerMiddleware);
 
-			this.notifyPeers('lobby:peerClosed', { peerId: peer.id }, peer);
+			this.notifyPeers({ method: 'lobby:peerClosed', data: { peerId: peer.id }, excludePeer: peer });
 		}
 
 		// If the Room is the root room and there are no more peers in it, close
@@ -228,9 +235,11 @@ export default class Room extends EventEmitter {
 		peer.pipeline.use(...this.peerMiddlewares);
 		this.peers.add(peer);
 
-		this.notifyPeers('newPeer', {
-			...peer.peerInfo
-		}, peer);
+		this.notifyPeers({ method: 'newPeer',
+			data: {
+				...peer.peerInfo
+			},
+			excludePeer: peer });
 	}
 
 	@skipIfClosed
@@ -246,7 +255,7 @@ export default class Room extends EventEmitter {
 
 		peer.pipeline.remove(this.lobbyPeerMiddleware);
 		this.lobbyPeers.remove(peer);
-		this.notifyPeers('lobby:promotedPeer', { peerId: peer.id }, peer);
+		this.notifyPeers({ method: 'lobby:promotedPeer', data: { peerId: peer.id }, excludePeer: peer });
 		this.allowPeer(peer);
 	}
 
@@ -259,9 +268,11 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
-		const peers = this.getPeers(excludePeer);
+	public notifyPeers({ method, data, excludePeer, ignoreBreakout = false }: NotifyPeerOptions): void {
+		let peers = this.getPeers(excludePeer);
 
+		if (ignoreBreakout)
+			peers = peers.filter((p) => p.sessionId === this.sessionId);
 		for (const peer of peers) {
 			peer.notify({ method, data });
 		}

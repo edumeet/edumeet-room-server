@@ -14,6 +14,12 @@ interface BreakoutRoomOptions {
 	parent: Room;
 }
 
+interface NotifyPeersOptions {
+	method: string,
+	data: unknown,
+	excludePeer?: Peer
+}
+
 export default class BreakoutRoom extends EventEmitter {
 	public name?: string;
 	public sessionId = randomUUID();
@@ -87,7 +93,7 @@ export default class BreakoutRoom extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
+	public notifyPeers({ method, data, excludePeer }: NotifyPeersOptions): void {
 		const peers = this.getPeers(excludePeer);
 
 		for (const peer of peers) {
