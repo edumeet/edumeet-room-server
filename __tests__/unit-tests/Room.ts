@@ -22,9 +22,6 @@ describe('Room', () => {
 		room1 = new Room({
 			id: roomId1,
 			tenantId: 'testTenantId',
-			groupRoles: [],
-			userRoles: [],
-			owners: [],
 			mediaService,
 			name: roomName1,
 		});

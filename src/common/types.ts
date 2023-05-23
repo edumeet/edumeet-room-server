@@ -70,7 +70,7 @@ export type ManagedRoom = {
 	tenantId: number;
 
 	// Roles and permissions
-	owners: number[];
+	owners: ManagedRoomOwner[];
 	groupRoles: ManagedGroupRole[]; // Group roles in this room
 	userRoles: ManagedUserRole[]; // User roles in this room
 
@@ -81,6 +81,7 @@ export type ManagedRoom = {
 	// Features of the room
 	maxActiveVideos: number;
 	locked: boolean;
+	breakoutsEnabled: boolean;
 	chatEnabled: boolean;
 	raiseHandEnabled: boolean;
 	filesharingEnabled: boolean;

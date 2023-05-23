@@ -67,7 +67,7 @@ export declare interface Peer {
 export class Peer extends EventEmitter {
 	public id: string;
 	// TODO: set this value when the user is authenticated
-	public authenticatedId?: ManagedUser['id'];
+	public managedId?: ManagedUser['id'];
 	public groupIds: ManagedGroup['id'][] = [];
 	#permissions: string[] = [];
 	public closed = false;

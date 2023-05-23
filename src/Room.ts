@@ -27,9 +27,6 @@ interface RoomOptions {
 	tenantId: string;
 	name?: string;
 	mediaService: MediaService;
-	owners: ManagedRoomOwner[];
-	userRoles: ManagedUserRole[];
-	groupRoles: ManagedGroupRole[];
 }
 
 export class RoomClosedError extends Error {
@@ -40,22 +37,54 @@ export class RoomClosedError extends Error {
 }
 
 export default class Room extends EventEmitter {
-	public id: string;
-	public tenantId: string;
-	public owners: ManagedRoomOwner[];
-	public userRoles: ManagedUserRole[];
-	public groupRoles: ManagedGroupRole[];
-	public name?: string;
 	public sessionId = randomUUID();
 	public closed = false;
-	public locked = false;
-	public promoteOnHostJoin = false;
+	public id: string;
+	public tenantId: string;
 	public readonly creationTimestamp = Date.now();
 
-	public mediaService: MediaService;
+	public managedId?: number; // Possibly updated by the management service
+	public name?: string; // Possibly updated by the management service
+	public description?: string; // Possibly updated by the management service
+	public owners: ManagedRoomOwner[] = []; // Possibly updated by the management service
+	public userRoles: ManagedUserRole[] = []; // Possibly updated by the management service
+	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
+	public locked = false; // Possibly updated by the management service
+	public promoteOnHostJoin = false; // Possibly updated by the management service
+	public logo?: string; // Possibly updated by the management service
+	public background?: string; // Possibly updated by the management service
+	public maxActiveVideos = 12; // Possibly updated by the management service
+	public breakoutsEnabled = true; // Possibly updated by the management service
+	public chatEnabled = true; // Possibly updated by the management service
+	public filesharingEnabled = true; // Possibly updated by the management service
+	public raiseHandEnabled = true; // Possibly updated by the management service
+	public localRecordingEnabled = true; // Possibly updated by the management service
 
+	// eslint-disable-next-line no-unused-vars
+	public resolveRoomReady!: () => void;
+	// eslint-disable-next-line no-unused-vars
+	public rejectRoomReady!: () => void;
+
+	public roomReady = new Promise<void>((resolve, reject) => {
+		const startReady = Date.now();
+
+		this.resolveRoomReady = () => {
+			logger.debug('roomReady() "resolved" [id: %s, took: %d]', this.id, Date.now() - startReady);
+
+			resolve();
+		};
+
+		this.rejectRoomReady = () => {
+			logger.debug('roomReady() "rejected" [id: %s, took: %d]', this.id, Date.now() - startReady);
+
+			reject();
+		};
+	});
+
+	public mediaService: MediaService;
 	public routers = List<Router>();
 	public breakoutRooms = new Map<string, BreakoutRoom>();
+	public waitingPeers = List<Peer>();
 	public pendingPeers = List<Peer>();
 	public peers = List<Peer>();
 	public lobbyPeers = List<Peer>();
@@ -68,7 +97,7 @@ export default class Room extends EventEmitter {
 	private joinMiddleware: Middleware<PeerContext>;
 	private peerMiddlewares: Middleware<PeerContext>[] = [];
 
-	constructor({ id, tenantId, name, mediaService, owners, userRoles, groupRoles }: RoomOptions) {
+	constructor({ id, tenantId, name, mediaService }: RoomOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
@@ -77,9 +106,6 @@ export default class Room extends EventEmitter {
 		this.tenantId = tenantId;
 		this.name = name;
 		this.mediaService = mediaService;
-		this.owners = owners;
-		this.userRoles = userRoles;
-		this.groupRoles = groupRoles;
 
 		this.lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
 		this.initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
@@ -120,7 +146,7 @@ export default class Room extends EventEmitter {
 	}
 
 	public get empty(): boolean {
-		return this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
+		return this.waitingPeers.empty && this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
 	}
 
 	public addRouter(router: Router): void {
@@ -130,26 +156,45 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public addPeer(peer: Peer): void {
+	public async addPeer(peer: Peer): Promise<void> {
 		logger.debug('addPeer() [id: %s]', peer.id);
 		
 		peer.once('close', () => this.removePeer(peer));
 
-		this.updatePeerPermissions(peer);
+		try {
+			this.waitingPeers.add(peer);
 
-		// TODO: handle reconnect
-		if (isAllowed(this, peer))
-			this.allowPeer(peer);
-		else
-			this.parkPeer(peer);
+			// This will resolve/reject when we have/failed to merged the room information from the management service
+			await this.roomReady;
 
-		// TODO: Promote the peer if it is in the lobby and gets
-		// permission that allows it to pass
+			if (this.closed)
+				throw new RoomClosedError('room closed');
+
+			this.waitingPeers.remove(peer);
+
+			// This will updated the permissions of the peer based on what we possibly got from the management service
+			this.updatePeerPermissions(peer);
+
+			// TODO: handle reconnect
+			if (isAllowed(this, peer))
+				this.allowPeer(peer);
+			else
+				this.parkPeer(peer);
+	
+			// TODO: Promote the peer if it is in the lobby and gets
+			// permission that allows it to pass
+		} catch (error) {
+			logger.error('addPeer() [error: %o]', error);
+
+			peer.close();
+		}
 	}
 
 	@skipIfClosed
 	public removePeer(peer: Peer): void {
 		logger.debug('removePeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
+
+		this.waitingPeers.remove(peer);
 
 		if (this.pendingPeers.remove(peer)) {
 			peer.pipeline.remove(this.initialMediaMiddleware);
@@ -189,6 +234,14 @@ export default class Room extends EventEmitter {
 				sessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
 				permissions: peer.permissions,
+				logo: this.logo,
+				background: this.background,
+				maxActiveVideos: this.maxActiveVideos,
+				breakoutsEnabled: this.breakoutsEnabled,
+				chatEnabled: this.chatEnabled,
+				filesharingEnabled: this.filesharingEnabled,
+				raiseHandEnabled: this.raiseHandEnabled,
+				localRecordingEnabled: this.localRecordingEnabled,
 			}
 		});
 
@@ -280,7 +333,7 @@ export default class Room extends EventEmitter {
 	}
 
 	public updatePeerPermissions(peer: Peer): void {
-		if (this.owners.find((o) => o.userId === peer.authenticatedId)) {
+		if (this.owners.find((o) => o.userId === peer.managedId)) {
 			peer.permissions = allPermissions;
 
 			return;
@@ -288,7 +341,7 @@ export default class Room extends EventEmitter {
 
 		// Find the user roles the peer has, and get the roles for those user roles
 		const userPermissions = this.userRoles
-			.filter((ur) => ur.userId === peer.authenticatedId)
+			.filter((ur) => ur.userId === peer.managedId)
 			.map((ur) => ur.role.permissions.map((p) => p.name))
 			.flat();
 		// Find the groups the peer is in, and get the roles for those groups
@@ -323,7 +376,7 @@ export default class Room extends EventEmitter {
 		this.owners.push(roomOwner);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.authenticatedId === roomOwner.userId);
+		const peer = this.peers.items.find((p) => p.managedId === roomOwner.userId);
 
 		if (peer) {
 			this.updatePeerPermissions(peer);
@@ -338,7 +391,7 @@ export default class Room extends EventEmitter {
 		this.owners = this.owners.filter((o) => o.id !== roomOwner.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.authenticatedId === roomOwner.userId);
+		const peer = this.peers.items.find((p) => p.managedId === roomOwner.userId);
 
 		if (peer) {
 			this.updatePeerPermissions(peer);
@@ -353,7 +406,7 @@ export default class Room extends EventEmitter {
 		this.userRoles.push(roomUserRole);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.authenticatedId === roomUserRole.userId);
+		const peer = this.peers.items.find((p) => p.managedId === roomUserRole.userId);
 
 		if (peer)
 			this.updatePeerPermissions(peer);
@@ -366,7 +419,7 @@ export default class Room extends EventEmitter {
 		this.userRoles = this.userRoles.filter((ur) => ur.id !== roomUserRole.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.authenticatedId === roomUserRole.userId);
+		const peer = this.peers.items.find((p) => p.managedId === roomUserRole.userId);
 
 		if (peer)
 			this.updatePeerPermissions(peer);
@@ -417,7 +470,7 @@ export default class Room extends EventEmitter {
 		logger.debug('addGroupUser() [id: %s]', this.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.authenticatedId === groupUser.userId);
+		const peer = this.peers.items.find((p) => p.managedId === groupUser.userId);
 
 		if (peer) {
 			const groupRole = this.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
@@ -434,7 +487,7 @@ export default class Room extends EventEmitter {
 		logger.debug('removeGroupUser() [id: %s]', this.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.authenticatedId === groupUser.userId);
+		const peer = this.peers.items.find((p) => p.managedId === groupUser.userId);
 
 		if (peer) {
 			const groupRole = this.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
@@ -469,7 +522,7 @@ export default class Room extends EventEmitter {
 			if (ur.roleId === rolePermission.roleId) {
 				ur.role.permissions.push(rolePermission.permission);
 
-				const peer = this.peers.items.find((p) => p.authenticatedId === ur.userId);
+				const peer = this.peers.items.find((p) => p.managedId === ur.userId);
 
 				if (peer)
 					this.updatePeerPermissions(peer);
@@ -495,7 +548,7 @@ export default class Room extends EventEmitter {
 			if (ur.roleId === rolePermission.roleId) {
 				ur.role.permissions = ur.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
 
-				const peer = this.peers.items.find((p) => p.authenticatedId === ur.userId);
+				const peer = this.peers.items.find((p) => p.managedId === ur.userId);
 
 				if (peer)
 					this.updatePeerPermissions(peer);

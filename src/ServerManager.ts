@@ -11,6 +11,8 @@ interface ServerManagerOptions {
 	mediaService: MediaService;
 	peers: Map<string, Peer>;
 	rooms: Map<string, Room>;
+	managedPeers: Map<number, Peer>;
+	managedRooms: Map<number, Room>;
 	managementService: ManagementService;
 }
 
@@ -18,16 +20,19 @@ export default class ServerManager {
 	public closed = false;
 	public peers: Map<string, Peer>;
 	public rooms: Map<string, Room>;
-	public pendingRooms = new Map<string, Promise<Room>>();
+	public managedRooms = new Map<number, Room>(); // Mapped by ID from management service
+	public managedPeers = new Map<number, Peer>(); // Mapped by ID from management service
 	public mediaService: MediaService;
 	public managementService: ManagementService;
 
-	constructor({ mediaService, peers, rooms, managementService }: ServerManagerOptions) {
+	constructor({ mediaService, peers, rooms, managedPeers, managedRooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
 
 		this.mediaService = mediaService;
 		this.peers = peers;
 		this.rooms = rooms;
+		this.managedPeers = managedPeers;
+		this.managedRooms = managedRooms;
 		this.managementService = managementService;
 	}
 
@@ -40,7 +45,8 @@ export default class ServerManager {
 		this.mediaService.close();
 		this.peers.forEach((p) => p.close());
 		this.rooms.forEach((r) => r.close());
-		this.pendingRooms.forEach((p) => p.then((r) => r.close()));
+
+		this.managedRooms.clear();
 		this.peers.clear();
 		this.rooms.clear();
 	}
@@ -62,9 +68,7 @@ export default class ServerManager {
 			tenantId
 		);
 
-		// TODO: need to look-up the room in the management service
-
-		/* let peer = this.peers.get(peerId);
+		let peer = this.peers.get(peerId);
 
 		if (peer) {
 			logger.debug(
@@ -81,9 +85,9 @@ export default class ServerManager {
 				this.peers.delete(peerId);
 			} else
 				throw new Error('Invalid token');
-		} */
+		}
 
-		/* let room = this.rooms.get(`${tenantId}/${roomId}`);
+		let room = this.rooms.get(`${tenantId}/${roomId}`);
 
 		if (!room) {
 			logger.debug(
@@ -91,8 +95,6 @@ export default class ServerManager {
 				roomId,
 				tenantId
 			);
-
-			const 
 
 			room = new Room({
 				id: roomId,
@@ -104,8 +106,41 @@ export default class ServerManager {
 
 			room.once('close', () => {
 				logger.debug('handleConnection() room closed [roomId: %s]', roomId);
-				this.rooms.delete(roomId);
+				this.rooms.delete(`${tenantId}/${roomId}`);
+
+				if (room?.managedId)
+					this.managedRooms.delete(room.managedId);
 			});
+
+			(async () => {
+				try {
+					const managedRoom = await this.managementService.getRoom(roomId, tenantId);
+
+					if (managedRoom) {
+						room.managedId = managedRoom.id;
+						room.name = managedRoom.name;
+						room.description = managedRoom.description;
+						room.owners = managedRoom.owners;
+						room.groupRoles = managedRoom.groupRoles;
+						room.userRoles = managedRoom.userRoles;
+						room.logo = managedRoom.logo;
+						room.background = managedRoom.background;
+						room.maxActiveVideos = managedRoom.maxActiveVideos;
+						room.locked = managedRoom.locked;
+						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
+						room.chatEnabled = managedRoom.chatEnabled;
+						room.raiseHandEnabled = managedRoom.raiseHandEnabled;
+						room.filesharingEnabled = managedRoom.filesharingEnabled;
+						room.localRecordingEnabled = managedRoom.localRecordingEnabled;
+
+						this.managedRooms.set(managedRoom.id, room);
+					}
+
+					room.resolveRoomReady();
+				} catch (error) {
+					room.rejectRoomReady();
+				}
+			})();
 		}
 
 		peer = new Peer({
@@ -121,12 +156,11 @@ export default class ServerManager {
 		peer.once('close', () => {
 			logger.debug('handleConnection() peer closed [peerId: %s]', peerId);
 			this.peers.delete(peerId);
+
+			if (peer?.managedId)
+				this.managedPeers.delete(peer.managedId);
 		});
 
-		room.addPeer(peer); */
-
-		// At this point we have a valid Peer that is waiting in the Join dialog.
-		// Register middleware to handle the Peer actually joining the room. For
-		// now, prime the room to be created if it does not exist.
+		room.addPeer(peer);
 	}
 }
