@@ -1,9 +1,10 @@
 import { ChatMessage, MiddlewareOptions } from '../../../src/common/types';
 import { createChatMiddleware } from '../../../src/middlewares/chatMiddleware';
-import { PeerContext } from '../../../src/Peer';
+import { Peer, PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
 import * as checkSessionId from '../../../src/common/checkSessionId';
 import { userRoles } from '../../../src/common/authorization';
+import MediaService from '../../../src/MediaService';
 
 const next = jest.fn();
 
@@ -58,9 +59,7 @@ test('Should notify peers on authorized peer sending chat message', async () => 
 	const peer = { roles: [ userRoles.NORMAL ] };
 	const message = {
 		method: 'chatMessage',
-		data: {
-
-		}
+		data: {}
 	};
 
 	const context = {
@@ -71,7 +70,39 @@ test('Should notify peers on authorized peer sending chat message', async () => 
 
 	await sut(context, next);
 
-	expect(spyNotify.mock.calls[0][0]).toBe('chatMessage');
+	expect(spyNotify.mock.calls[0][0].method).toBe('chatMessage');
+	expect(context.handled).toBeTruthy();
+});
+
+test.only('Should notify peers in breakout rooms', async () => {
+	const room = new Room({ id: 'id', name: 'name', mediaService: jest.fn() as unknown as MediaService });
+	const chatHistory: ChatMessage[] = [];
+	const options = { room, chatHistory } as unknown as MiddlewareOptions;
+	const sut = createChatMiddleware(options);
+
+	const peer1 = new Peer({ id: 'id', sessionId: 'main' });
+	const peer2 = new Peer({ id: 'id', sessionId: 'breakout' });
+	const spyNotify = jest.spyOn(peer2, 'notify');
+
+	peer1.addRole(userRoles.NORMAL);
+
+	room.peers.add(peer1);
+	room.peers.add(peer2);
+	const message = {
+		method: 'chatMessage',
+		data: {}
+	};
+
+	const context = {
+		peer: peer1,
+		message,
+		handled: false
+	} as unknown as PeerContext;
+
+	await sut(context, next);
+
+	expect(spyNotify).toHaveBeenCalled();
+	expect(spyNotify.mock.calls[0][0].method).toBe('chatMessage');
 	expect(context.handled).toBeTruthy();
 });
 

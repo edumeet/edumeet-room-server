@@ -5,6 +5,7 @@ import { Router } from '../../src/media/Router';
 import LoadBalancer from '../../src/LoadBalancer';
 import { Config } from '../../src/Config';
 import { KDTree } from 'edumeet-common';
+import { Peer } from '../../src/Peer';
 
 describe('Room', () => {
 	let room1: Room;
@@ -47,6 +48,46 @@ describe('Room', () => {
 		room1.close();
 		expect(room1.closed).toBe(true);
 		expect(spyEmit).toHaveBeenCalledTimes(1);
+	});
+
+	it('notifyPeers() should notify peers in breakout rooms by default', () => {
+		const peerOptions = {
+			id: 'id',
+		};
+
+		const p1 = new Peer({ ...peerOptions, sessionId: room1.sessionId });
+		const p2 = new Peer({ ...peerOptions, sessionId: 'breakout' });
+
+		room1.peers.add(p1);
+		room1.peers.add(p2);
+
+		const spy1 = jest.spyOn(p1, 'notify');
+		const spy2 = jest.spyOn(p2, 'notify');
+
+		room1.notifyPeers({ method: 'test', data: {} });
+
+		expect(spy1).toHaveBeenCalled();
+		expect(spy2).toHaveBeenCalled();
+	});
+	
+	it('notifyPeers() should be able to ignore peers in breakout rooms', () => {
+		const peerOptions = {
+			id: 'id',
+		};
+
+		const p1 = new Peer({ ...peerOptions, sessionId: room1.sessionId });
+		const p2 = new Peer({ ...peerOptions, sessionId: 'breakout' });
+
+		room1.peers.add(p1);
+		room1.peers.add(p2);
+
+		const spy1 = jest.spyOn(p1, 'notify');
+		const spy2 = jest.spyOn(p2, 'notify');
+
+		room1.notifyPeers({ method: 'test', data: {}, ignoreBreakout: true });
+
+		expect(spy1).toHaveBeenCalledTimes(1);
+		expect(spy2).not.toHaveBeenCalled();
 	});
 
 	describe('Router', () => {
