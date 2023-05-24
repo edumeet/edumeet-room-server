@@ -41,6 +41,7 @@ export interface PeerInfo {
 	picture?: string;
 	roles: number[];
 	audioOnly: boolean;
+	recordable?: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
 	sessionId: string;
@@ -73,6 +74,7 @@ export class Peer extends EventEmitter {
 	public displayName: string;
 	public picture?: string;
 	#audioOnly = false;
+	#recordable = false;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	#escapeMeeting = false;
@@ -167,6 +169,14 @@ export class Peer extends EventEmitter {
 
 	public set audioOnly(value: boolean) {
 		this.#audioOnly = value;
+	}
+
+	public get recordable(): boolean {
+		return this.#recordable;
+	}
+
+	public set recordable(value: boolean) {
+		this.#recordable = value;
 	}
 
 	public get raisedHand(): boolean {
@@ -319,6 +329,7 @@ export class Peer extends EventEmitter {
 			displayName: this.displayName,
 			picture: this.picture,
 			audioOnly: this.audioOnly,
+			recordable: this.recordable,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			roles: this.roles.map((role) => role.id),
