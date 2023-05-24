@@ -5,6 +5,10 @@ export interface Config {
 		cert: string;
 		key: string;
 	};
+	managementService?: {
+		host: string;
+		jwtPublicKeys: Array<string>;
+	};
 	mediaNodes: Array<{
 		hostname: string;
 		port: number;

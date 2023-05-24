@@ -43,7 +43,7 @@ export default class Room extends EventEmitter {
 	public tenantId: string;
 	public readonly creationTimestamp = Date.now();
 
-	public managedId?: number; // Possibly updated by the management service
+	public managedId?: string; // Possibly updated by the management service
 	public name?: string; // Possibly updated by the management service
 	public description?: string; // Possibly updated by the management service
 	public owners: ManagedRoomOwner[] = []; // Possibly updated by the management service
@@ -62,22 +62,11 @@ export default class Room extends EventEmitter {
 
 	// eslint-disable-next-line no-unused-vars
 	public resolveRoomReady!: () => void;
-	// eslint-disable-next-line no-unused-vars
-	public rejectRoomReady!: () => void;
-
-	public roomReady = new Promise<void>((resolve, reject) => {
-		const startReady = Date.now();
-
+	public roomReady = new Promise<void>((resolve) => {
 		this.resolveRoomReady = () => {
-			logger.debug('roomReady() "resolved" [id: %s, took: %d]', this.id, Date.now() - startReady);
+			logger.debug('roomReady() "resolved" [id: %s, took: %d]', this.id, Date.now() - this.creationTimestamp);
 
 			resolve();
-		};
-
-		this.rejectRoomReady = () => {
-			logger.debug('roomReady() "rejected" [id: %s, took: %d]', this.id, Date.now() - startReady);
-
-			reject();
 		};
 	});
 
@@ -92,10 +81,20 @@ export default class Room extends EventEmitter {
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
 
-	private lobbyPeerMiddleware: Middleware<PeerContext>;
-	private initialMediaMiddleware: Middleware<PeerContext>;
-	private joinMiddleware: Middleware<PeerContext>;
-	private peerMiddlewares: Middleware<PeerContext>[] = [];
+	#lobbyPeerMiddleware: Middleware<PeerContext>;
+	#initialMediaMiddleware: Middleware<PeerContext>;
+	#joinMiddleware: Middleware<PeerContext>;
+
+	#peerMiddleware: Middleware<PeerContext>;
+	#moderatorMiddleware: Middleware<PeerContext>;
+	#mediaMiddleware: Middleware<PeerContext>;
+	#lockMiddleware: Middleware<PeerContext>;
+	#lobbyMiddleware: Middleware<PeerContext>;
+	#breakoutMiddleware: Middleware<PeerContext>;
+	#chatMiddleware: Middleware<PeerContext>;
+	#fileMiddleware: Middleware<PeerContext>;
+
+	#allMiddlewares: Middleware<PeerContext>[] = [];
 
 	constructor({ id, tenantId, name, mediaService }: RoomOptions) {
 		logger.debug('constructor() [id: %s]', id);
@@ -107,20 +106,31 @@ export default class Room extends EventEmitter {
 		this.name = name;
 		this.mediaService = mediaService;
 
-		this.lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
-		this.initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
-		this.joinMiddleware = createJoinMiddleware({ room: this });
+		this.#lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
+		this.#initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
+		this.#joinMiddleware = createJoinMiddleware({ room: this });
+		this.#peerMiddleware = createPeerMiddleware({ room: this });
+		this.#moderatorMiddleware = createModeratorMiddleware({ room: this });
+		this.#mediaMiddleware = createMediaMiddleware({ room: this });
+		this.#lockMiddleware = createLockMiddleware({ room: this });
+		this.#lobbyMiddleware = createLobbyMiddleware({ room: this });
+		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
+		this.#chatMiddleware = createChatMiddleware({ room: this });
+		this.#fileMiddleware = createFileMiddleware({ room: this });
 
-		this.peerMiddlewares.push(
-			createPeerMiddleware({ room: this }),
-			createModeratorMiddleware({ room: this }),
-			createMediaMiddleware({ room: this }),
-			createChatMiddleware({ room: this }),
-			createFileMiddleware({ room: this }),
-			createLockMiddleware({ room: this }),
-			createLobbyMiddleware({ room: this }),
-			createBreakoutMiddleware({ room: this }),
-		);
+		this.#allMiddlewares = [
+			this.#lobbyPeerMiddleware,
+			this.#initialMediaMiddleware,
+			this.#joinMiddleware,
+			this.#peerMiddleware,
+			this.#moderatorMiddleware,
+			this.#mediaMiddleware,
+			this.#lockMiddleware,
+			this.#lobbyMiddleware,
+			this.#breakoutMiddleware,
+			this.#chatMiddleware,
+			this.#fileMiddleware
+		];
 	}
 
 	@skipIfClosed
@@ -175,7 +185,6 @@ export default class Room extends EventEmitter {
 			// This will updated the permissions of the peer based on what we possibly got from the management service
 			this.updatePeerPermissions(peer);
 
-			// TODO: handle reconnect
 			if (isAllowed(this, peer))
 				this.allowPeer(peer);
 			else
@@ -194,25 +203,16 @@ export default class Room extends EventEmitter {
 	public removePeer(peer: Peer): void {
 		logger.debug('removePeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
 
+		this.#allMiddlewares.forEach((m) => peer.pipeline.remove(m));
+
 		this.waitingPeers.remove(peer);
+		this.pendingPeers.remove(peer);
 
-		if (this.pendingPeers.remove(peer)) {
-			peer.pipeline.remove(this.initialMediaMiddleware);
-			peer.pipeline.remove(this.joinMiddleware);
-		}
-
-		if (this.peers.remove(peer)) {
-			peer.pipeline.remove(this.initialMediaMiddleware);
-			this.peerMiddlewares.forEach((m) => peer.pipeline.remove(m));
-
+		if (this.peers.remove(peer))
 			this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
-		}
 		
-		if (this.lobbyPeers.remove(peer)) {
-			peer.pipeline.remove(this.lobbyPeerMiddleware);
-
+		if (this.lobbyPeers.remove(peer))
 			this.notifyPeers('lobby:peerClosed', { peerId: peer.id }, peer);
-		}
 
 		// If the Room is the root room and there are no more peers in it, close
 		if (this.empty)
@@ -226,7 +226,7 @@ export default class Room extends EventEmitter {
 		this.assignRouter(peer);
 
 		this.pendingPeers.add(peer);
-		peer.pipeline.use(this.initialMediaMiddleware, this.joinMiddleware);
+		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
 
 		peer.notify({
 			method: 'roomReady',
@@ -253,7 +253,7 @@ export default class Room extends EventEmitter {
 		logger.debug('parkPeer() [id: %s]', peer.id);
 
 		this.lobbyPeers.add(peer);
-		peer.pipeline.use(this.lobbyPeerMiddleware);
+		peer.pipeline.use(this.#lobbyPeerMiddleware);
 		peer.notify({ method: 'enteredLobby', data: {} });
 
 		peersWithPermission(this, Permission.PROMOTE_PEER).forEach((p) =>
@@ -264,9 +264,21 @@ export default class Room extends EventEmitter {
 	public joinPeer(peer: Peer): void {
 		logger.debug('joinPeer() [id: %s]', peer.id);
 
-		peer.pipeline.remove(this.joinMiddleware);
+		peer.pipeline.remove(this.#joinMiddleware);
 		this.pendingPeers.remove(peer);
-		peer.pipeline.use(...this.peerMiddlewares);
+
+		peer.pipeline.use(
+			this.#peerMiddleware,
+			this.#lobbyMiddleware,
+			this.#moderatorMiddleware,
+			this.#mediaMiddleware,
+			this.#lockMiddleware,
+		);
+
+		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
+		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
+		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
+
 		this.peers.add(peer);
 
 		this.notifyPeers('newPeer', {
@@ -285,7 +297,7 @@ export default class Room extends EventEmitter {
 	public promotePeer(peer: Peer): void {
 		logger.debug('promotePeer() [id: %s]', peer.id);
 
-		peer.pipeline.remove(this.lobbyPeerMiddleware);
+		peer.pipeline.remove(this.#lobbyPeerMiddleware);
 		this.lobbyPeers.remove(peer);
 		this.notifyPeers('lobby:promotedPeer', { peerId: peer.id }, peer);
 		this.allowPeer(peer);
@@ -376,7 +388,7 @@ export default class Room extends EventEmitter {
 		this.owners.push(roomOwner);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.managedId === roomOwner.userId);
+		const peer = this.getPeerByManagedId(roomOwner.userId);
 
 		if (peer) {
 			this.updatePeerPermissions(peer);
@@ -391,7 +403,7 @@ export default class Room extends EventEmitter {
 		this.owners = this.owners.filter((o) => o.id !== roomOwner.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.managedId === roomOwner.userId);
+		const peer = this.getPeerByManagedId(roomOwner.userId);
 
 		if (peer) {
 			this.updatePeerPermissions(peer);
@@ -406,7 +418,7 @@ export default class Room extends EventEmitter {
 		this.userRoles.push(roomUserRole);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.managedId === roomUserRole.userId);
+		const peer = this.getPeerByManagedId(roomUserRole.userId);
 
 		if (peer)
 			this.updatePeerPermissions(peer);
@@ -419,7 +431,7 @@ export default class Room extends EventEmitter {
 		this.userRoles = this.userRoles.filter((ur) => ur.id !== roomUserRole.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.managedId === roomUserRole.userId);
+		const peer = this.getPeerByManagedId(roomUserRole.userId);
 
 		if (peer)
 			this.updatePeerPermissions(peer);
@@ -432,7 +444,7 @@ export default class Room extends EventEmitter {
 		this.groupRoles.push(roomGroupRole);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peers = this.peers.items.filter((p) => p.groupIds.includes(roomGroupRole.groupId));
+		const peers = this.getPeersByGroupId(roomGroupRole.groupId);
 
 		peers.forEach((peer) => this.updatePeerPermissions(peer));
 	}
@@ -444,7 +456,7 @@ export default class Room extends EventEmitter {
 		this.groupRoles = this.groupRoles.filter((gr) => gr.id !== roomGroupRole.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peers = this.peers.items.filter((p) => p.groupIds.includes(roomGroupRole.groupId));
+		const peers = this.getPeersByGroupId(roomGroupRole.groupId);
 
 		peers.forEach((peer) => this.updatePeerPermissions(peer));
 	}
@@ -453,13 +465,13 @@ export default class Room extends EventEmitter {
 	public removeGroup(group: ManagedGroup): void {
 		logger.debug('removeGroup() [id: %s]', this.id);
 
-		this.groupRoles = this.groupRoles.filter((gr) => gr.groupId !== group.id);
+		this.groupRoles = this.groupRoles.filter((gr) => gr.groupId !== String(group.id));
 
 		// Check if the peer is already in the room, if so, notify it
-		const peers = this.peers.items.filter((p) => p.groupIds.includes(group.id));
+		const peers = this.getPeersByGroupId(String(group.id));
 
 		for (const peer of peers) {
-			peer.groupIds = peer.groupIds.filter((id) => id !== group.id);
+			peer.groupIds = peer.groupIds.filter((id) => id !== String(group.id));
 
 			this.updatePeerPermissions(peer);
 		}
@@ -470,7 +482,7 @@ export default class Room extends EventEmitter {
 		logger.debug('addGroupUser() [id: %s]', this.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.managedId === groupUser.userId);
+		const peer = this.getPeerByManagedId(groupUser.userId);
 
 		if (peer) {
 			const groupRole = this.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
@@ -487,7 +499,7 @@ export default class Room extends EventEmitter {
 		logger.debug('removeGroupUser() [id: %s]', this.id);
 
 		// Check if the peer is already in the room, if so, notify it
-		const peer = this.peers.items.find((p) => p.managedId === groupUser.userId);
+		const peer = this.getPeerByManagedId(groupUser.userId);
 
 		if (peer) {
 			const groupRole = this.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
@@ -504,12 +516,12 @@ export default class Room extends EventEmitter {
 		logger.debug('removeRole() [id: %s]', this.id);
 
 		this.userRoles.forEach((ur) => {
-			if (ur.roleId === role.id)
+			if (ur.roleId === String(role.id))
 				this.removeRoomUserRole(ur);
 		});
 
 		this.groupRoles.forEach((gr) => {
-			if (gr.roleId === role.id)
+			if (gr.roleId === String(role.id))
 				this.removeRoomGroupRole(gr);
 		});
 	}
@@ -522,7 +534,7 @@ export default class Room extends EventEmitter {
 			if (ur.roleId === rolePermission.roleId) {
 				ur.role.permissions.push(rolePermission.permission);
 
-				const peer = this.peers.items.find((p) => p.managedId === ur.userId);
+				const peer = this.getPeerByManagedId(ur.userId);
 
 				if (peer)
 					this.updatePeerPermissions(peer);
@@ -533,7 +545,7 @@ export default class Room extends EventEmitter {
 			if (gr.roleId === rolePermission.roleId) {
 				gr.role.permissions.push(rolePermission.permission);
 
-				const peers = this.peers.items.filter((p) => p.groupIds.includes(gr.groupId));
+				const peers = this.getPeersByGroupId(gr.groupId);
 
 				peers.forEach((peer) => this.updatePeerPermissions(peer));
 			}
@@ -548,7 +560,7 @@ export default class Room extends EventEmitter {
 			if (ur.roleId === rolePermission.roleId) {
 				ur.role.permissions = ur.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
 
-				const peer = this.peers.items.find((p) => p.managedId === ur.userId);
+				const peer = this.getPeerByManagedId(ur.userId);
 
 				if (peer)
 					this.updatePeerPermissions(peer);
@@ -559,10 +571,24 @@ export default class Room extends EventEmitter {
 			if (gr.roleId === rolePermission.roleId) {
 				gr.role.permissions = gr.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
 
-				const peers = this.peers.items.filter((p) => p.groupIds.includes(gr.groupId));
+				const peers = this.getPeersByGroupId(gr.groupId);
 
 				peers.forEach((peer) => this.updatePeerPermissions(peer));
 			}
 		});
+	}
+
+	public getPeerByManagedId(managedId: string): Peer | undefined {
+		return this.peers.items.find((p) => p.managedId === managedId) ??
+		this.pendingPeers.items.find((p) => p.managedId === managedId) ??
+		this.lobbyPeers.items.find((p) => p.managedId === managedId);
+	}
+
+	public getPeersByGroupId(groupId: string): Peer[] {
+		return [
+			...this.peers.items.filter((p) => p.groupIds.includes(groupId)),
+			...this.pendingPeers.items.filter((p) => p.groupIds.includes(groupId)),
+			...this.lobbyPeers.items.filter((p) => p.groupIds.includes(groupId))
+		];
 	}
 }

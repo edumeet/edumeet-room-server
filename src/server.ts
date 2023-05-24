@@ -22,8 +22,8 @@ const logger = new Logger('Server');
 
 const peers = new Map<string, Peer>();
 const rooms = new Map<string, Room>();
-const managedPeers = new Map<number, Peer>();
-const managedRooms = new Map<number, Room>();
+const managedPeers = new Map<string, Peer>();
+const managedRooms = new Map<string, Room>();
 
 logger.debug('Starting...');
 
@@ -34,7 +34,7 @@ const defaultClientPosition = new KDPoint(
 const kdTree = new KDTree([]);
 const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
 const mediaService = MediaService.create(loadBalancer, kdTree, actualConfig);
-const managementService = new ManagementService({ managedPeers, managedRooms });
+const managementService = new ManagementService({ managedPeers, managedRooms, mediaService });
 const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
 
 interactiveServer(serverManager, managementService);

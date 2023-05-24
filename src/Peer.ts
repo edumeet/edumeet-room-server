@@ -1,7 +1,5 @@
 import { EventEmitter } from 'events';
-import * as jwt from 'jsonwebtoken';
-import { signingkey } from './common/token';
-import { ManagedGroup, ManagedUser, Role } from './common/types';
+import { Role } from './common/types';
 import { Router } from './media/Router';
 import { WebRtcTransport } from './media/WebRtcTransport';
 import { Consumer } from './media/Consumer';
@@ -32,7 +30,7 @@ interface PeerOptions {
 	picture?: string;
 	sessionId: string;
 	connection?: BaseConnection;
-	token?: string;
+	managedId?: string;
 }
 
 export interface PeerInfo {
@@ -67,14 +65,14 @@ export declare interface Peer {
 export class Peer extends EventEmitter {
 	public id: string;
 	// TODO: set this value when the user is authenticated
-	public managedId?: ManagedUser['id'];
-	public groupIds: ManagedGroup['id'][] = [];
+	public managedId?: string;
+	public groupIds: string[] = [];
 	#permissions: string[] = [];
 	public closed = false;
 	public connections = List<BaseConnection>();
 	public displayName: string;
 	public picture?: string;
-	#audioOnly = false;
+	public audioOnly = false;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	#escapeMeeting = false;
@@ -100,11 +98,10 @@ export class Peer extends EventEmitter {
 	public dataProducers = new Map<string, DataProducer>();
 	#sessionId: string;
 	public pipeline = Pipeline<PeerContext>();
-	public readonly token: string;
 
 	constructor({
 		id,
-		token,
+		managedId,
 		displayName,
 		picture,
 		sessionId,
@@ -118,7 +115,7 @@ export class Peer extends EventEmitter {
 		this.#sessionId = sessionId;
 		this.displayName = displayName ?? 'Guest';
 		this.picture = picture;
-		this.token = token ?? this.assignToken();
+		this.managedId = managedId;
 
 		if (connection)
 			this.addConnection(connection);
@@ -182,14 +179,6 @@ export class Peer extends EventEmitter {
 
 	public hasPermission(permission: Permission): boolean {
 		return this.#permissions.includes(permission);
-	}
-
-	public get audioOnly(): boolean {
-		return this.#audioOnly;
-	}
-
-	public set audioOnly(value: boolean) {
-		this.#audioOnly = value;
 	}
 
 	public get raisedHand(): boolean {
@@ -265,11 +254,6 @@ export class Peer extends EventEmitter {
 			if (this.connections.length === 0)
 				this.close();
 		});
-
-		connection.notify({
-			method: 'token',
-			data: { token: this.token }
-		});
 	}
 
 	@skipIfClosed
@@ -300,10 +284,6 @@ export class Peer extends EventEmitter {
 		}
 
 		logger.warn('request() no connection available [peerId: %s]', this.id);
-	}
-
-	private assignToken(): string {
-		return jwt.sign({ id: this.id }, signingkey, { noTimestamp: true });
 	}
 
 	public getAddress(): clientAddress {

@@ -1,22 +1,31 @@
+import config from '../config/config.json';
 import io from 'socket.io-client';
-import { feathers } from '@feathersjs/feathers';
+import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
 import authentication from '@feathersjs/authentication-client';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { Peer } from './Peer';
 import Room from './Room';
 import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUser, ManagedUserRole } from './common/types';
+import MediaService from './MediaService';
+import { Config } from './Config';
+
+const actualConfig = config as Config;
 
 const logger = new Logger('ManagementService');
 
 interface ManagementServiceOptions {
-	managedRooms: Map<number, Room>;
-	managedPeers: Map<number, Peer>;
+	managedRooms: Map<string, Room>;
+	managedPeers: Map<string, Peer>;
+	mediaService: MediaService;
 }
 
 export default class ManagementService {
-	private managedRooms: Map<number, Room>;
-	private managedPeers: Map<number, Peer>;
+	public closed = false;
+
+	#managedRooms: Map<string, Room>;
+	#managedPeers: Map<string, Peer>;
+	#mediaService: MediaService;
 
 	// eslint-disable-next-line no-unused-vars
 	public resolveReady!: () => void;
@@ -28,27 +37,45 @@ export default class ManagementService {
 		this.rejectReady = reject;
 	});
 
-	#client = feathers();
+	#client: Application;
 
-	public closed = false;
+	#roomsService: FeathersService;
+	#roomOwnersService: FeathersService;
+	#roomUserRolesService: FeathersService;
+	#roomGroupRolesService: FeathersService;
 
-	public roomsService = this.#client.service('rooms');
-	#roomOwnersService = this.#client.service('roomOwners');
-	#roomUserRolesService = this.#client.service('roomUserRoles');
-	#roomGroupRolesService = this.#client.service('roomGroupRoles');
+	#usersService: FeathersService;
+	#groupsService: FeathersService;
+	#groupUsersService: FeathersService;
 
-	public usersService = this.#client.service('users');
-	#groupsService = this.#client.service('groups');
-	#groupUsersService = this.#client.service('groupUsers');
+	#rolesService: FeathersService;
+	#rolePermissionsService: FeathersService;
 
-	#rolesService = this.#client.service('roles');
-	#rolePermissionsService = this.#client.service('rolePermissions');
-
-	constructor({ managedRooms, managedPeers }: ManagementServiceOptions) {
+	constructor({ managedRooms, managedPeers, mediaService }: ManagementServiceOptions) {
 		logger.debug('constructor()');
 
-		this.managedRooms = managedRooms;
-		this.managedPeers = managedPeers;
+		this.#managedRooms = managedRooms;
+		this.#managedPeers = managedPeers;
+		this.#mediaService = mediaService;
+
+		if (!actualConfig.managementService)
+			throw new Error('Management service not configured');
+
+		this.#client = feathers()
+			.configure(socketio(io(actualConfig.managementService.host)))
+			.configure(authentication());
+
+		this.#roomsService = this.#client.service('rooms');
+		this.#roomOwnersService = this.#client.service('roomOwners');
+		this.#roomUserRolesService = this.#client.service('roomUserRoles');
+		this.#roomGroupRolesService = this.#client.service('roomGroupRoles');
+
+		this.#usersService = this.#client.service('users');
+		this.#groupsService = this.#client.service('groups');
+		this.#groupUsersService = this.#client.service('groupUsers');
+
+		this.#rolesService = this.#client.service('roles');
+		this.#rolePermissionsService = this.#client.service('rolePermissions');
 
 		this.initialize();
 		this.setupListeners();
@@ -59,62 +86,37 @@ export default class ManagementService {
 		logger.debug('close()');
 
 		this.closed = true;
+
+		this.#client.logout();
 	}
 
 	@skipIfClosed
-	public async getRoom(roomId: string, tenantId: string): Promise<ManagedRoom | undefined> {
-		logger.debug('getRoom() [roomId: %s]', roomId);
+	public async getRoom(name: string, tenantId: string): Promise<ManagedRoom | undefined> {
+		logger.debug('getRoom() [name: %s]', name);
 
 		await this.ready;
 
-		const { total, data } = await this.roomsService.find({
-			query: {
-				name: roomId,
-				tenantId
-			}
-		});
+		const { total, data } = await this.#roomsService.find({ query: { name, tenantId } });
 
-		if (total === 0) return;
-		if (total > 1) throw new Error('multiple rooms found'); // This should be enforced by the management service
+		logger.debug('getRoom() [name: %s] -> data: %o', name, data);
 
-		return data[0];
+		if (total === 1) return data[0];
 	}
 
 	@skipIfClosed
 	private async initialize(): Promise<void> {
 		logger.debug('initialize()');
 
-		this.#client.configure(socketio(io(process.env.MANAGEMENT_HOSTNAME as string)));
-		this.#client.configure(authentication());
+		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
+			throw new Error('Management service credentials not configured');
 
-		await this.login({
-			email: process.env.MANAGEMENT_USERNAME as string,
-			password: process.env.MANAGEMENT_PASSWORD as string,
+		await this.#client.authenticate({
+			strategy: 'local',
+			email: process.env.MANAGEMENT_USERNAME,
+			password: process.env.MANAGEMENT_PASSWORD
 		})
 			.then(this.resolveReady)
 			.catch(this.rejectReady);
-	}
-
-	@skipIfClosed
-	private async login(credentials?: { email: string; password: string; }): Promise<void> {
-		logger.debug('login()');
-
-		try {
-			if (!credentials) {
-				// Try to authenticate using an existing token
-				await this.#client.reAuthenticate();
-			} else {
-				// Otherwise log in with the `local` strategy using the credentials we got
-				await this.#client.authenticate({
-					strategy: 'local',
-					...credentials
-				});
-			}
-		} catch (error) {
-			logger.error('login() authentication failed [error: %o]', error);
-
-			throw error;
-		}
 	}
 
 	@skipIfClosed
@@ -139,17 +141,11 @@ export default class ManagementService {
 
 	@skipIfClosed
 	private registerRoomsServiceListeners(): void {
-		this.roomsService
-			.on('created', (room: ManagedRoom) =>
-				logger.debug('roomsService "created" event [roomId: %s]', room.id)
-			)
-			.on('removed', (room: ManagedRoom) =>
-				logger.debug('roomsService "removed" event [roomId: %s]', room.id)
-			)
+		this.#roomsService
 			.on('patched', (room: ManagedRoom) => {
 				logger.debug('roomsService "patched" event [roomId: %s]', room.id);
 
-				this.managedRooms.get(room.id)?.update(room);
+				this.#managedRooms.get(String(room.id))?.update(room);
 			});
 	}
 
@@ -159,12 +155,12 @@ export default class ManagementService {
 			.on('created', (roomOwner: ManagedRoomOwner) => {
 				logger.debug('roomOwnersService "created" event [roomId: %s]', roomOwner.id);
 
-				this.managedRooms.get(roomOwner.roomId)?.addRoomOwner(roomOwner);
+				this.#managedRooms.get(roomOwner.roomId)?.addRoomOwner(roomOwner);
 			})
 			.on('removed', (roomOwner: ManagedRoomOwner) => {
 				logger.debug('roomOwnersService "removed" event [roomId: %s]', roomOwner.id);
 
-				this.managedRooms.get(roomOwner.roomId)?.removeRoomOwner(roomOwner);
+				this.#managedRooms.get(roomOwner.roomId)?.removeRoomOwner(roomOwner);
 			});
 	}
 
@@ -174,12 +170,12 @@ export default class ManagementService {
 			.on('created', (roomUserRole: ManagedUserRole) => {
 				logger.debug('roomUserRolesService "created" event [roomId: %s]', roomUserRole.id);
 
-				this.managedRooms.get(roomUserRole.roomId)?.addRoomUserRole(roomUserRole);
+				this.#managedRooms.get(roomUserRole.roomId)?.addRoomUserRole(roomUserRole);
 			})
 			.on('removed', (roomUserRole: ManagedUserRole) => {
 				logger.debug('roomUserRolesService "removed" event [roomId: %s]', roomUserRole.id);
 
-				this.managedRooms.get(roomUserRole.roomId)?.removeRoomUserRole(roomUserRole);
+				this.#managedRooms.get(roomUserRole.roomId)?.removeRoomUserRole(roomUserRole);
 			});
 	}
 
@@ -189,28 +185,23 @@ export default class ManagementService {
 			.on('created', (roomGroupRole: ManagedGroupRole) => {
 				logger.debug('roomGroupRolesService "created" event [roomId: %s]', roomGroupRole.id);
 
-				this.managedRooms.get(roomGroupRole.roomId)?.addRoomGroupRole(roomGroupRole);
+				this.#managedRooms.get(roomGroupRole.roomId)?.addRoomGroupRole(roomGroupRole);
 			})
 			.on('removed', (roomGroupRole: ManagedGroupRole) => {
 				logger.debug('roomGroupRolesService "removed" event [roomId: %s]', roomGroupRole.id);
 
-				this.managedRooms.get(roomGroupRole.roomId)?.removeRoomGroupRole(roomGroupRole);
+				this.#managedRooms.get(roomGroupRole.roomId)?.removeRoomGroupRole(roomGroupRole);
 			});
 	}
 
 	@skipIfClosed
 	private registerUsersServiceListeners(): void {
-		this.usersService
+		this.#usersService
 			.on('removed', (user: ManagedUser) => {
 				logger.debug('usersService "removed" event [userId: %s]', user.id);
 
-				const peer = this.managedPeers.get(user.id);
-
-				if (peer) {
-					peer.notify({ method: 'deauthenticated' }); // TODO: add to client
-					peer.close();
-				}
-			}); // TODO: possibly add patched event for changes to name etc.
+				this.#managedPeers.get(String(user.id))?.close();
+			});
 	}
 
 	@skipIfClosed
@@ -219,7 +210,7 @@ export default class ManagementService {
 			.on('removed', (group: ManagedGroup) => {
 				logger.debug('groupsService "removed" event [groupId: %s]', group.id);
 
-				this.managedRooms.forEach((r) => r.removeGroup(group));
+				this.#managedRooms.forEach((r) => r.removeGroup(group));
 			});
 	}
 
@@ -229,12 +220,12 @@ export default class ManagementService {
 			.on('created', (groupUser: ManagedGroupUser) => {
 				logger.debug('groupUsersService "created" event [groupId: %s]', groupUser.id);
 
-				this.managedRooms.forEach((r) => r.addGroupUser(groupUser));
+				this.#managedRooms.forEach((r) => r.addGroupUser(groupUser));
 			})
 			.on('removed', (groupUser: ManagedGroupUser) => {
 				logger.debug('groupUsersService "removed" event [groupId: %s]', groupUser.id);
 
-				this.managedRooms.forEach((r) => r.removeGroupUser(groupUser));
+				this.#managedRooms.forEach((r) => r.removeGroupUser(groupUser));
 			});
 	}
 
@@ -244,7 +235,7 @@ export default class ManagementService {
 			.on('removed', (role: ManagedRole) => {
 				logger.debug('rolesService "removed" event [roleId: %s]', role.id);
 
-				this.managedRooms.forEach((r) => r.removeRole(role));
+				this.#managedRooms.forEach((r) => r.removeRole(role));
 			});
 	}
 
@@ -254,12 +245,12 @@ export default class ManagementService {
 			.on('created', (rolePermission: ManagedRolePermission) => {
 				logger.debug('rolePermissionsService "created" event [roleId: %s]', rolePermission.id);
 
-				this.managedRooms.forEach((r) => r.addRolePermission(rolePermission));
+				this.#managedRooms.forEach((r) => r.addRolePermission(rolePermission));
 			})
 			.on('removed', (rolePermission: ManagedRolePermission) => {
 				logger.debug('rolePermissionsService "removed" event [roleId: %s]', rolePermission.id);
 
-				this.managedRooms.forEach((r) => r.removeRolePermission(rolePermission));
+				this.#managedRooms.forEach((r) => r.removeRolePermission(rolePermission));
 			});
 	}
 }

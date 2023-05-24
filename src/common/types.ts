@@ -90,7 +90,7 @@ export type ManagedRoom = {
 
 export type ManagedUser = {
 	id: number;
-	tenantId: number;
+	tenantId: string;
 	email: string;
 	name?: string;
 	avatar?: string;
@@ -98,24 +98,24 @@ export type ManagedUser = {
 
 export type ManagedUserRole = {
 	id: number;
-	roomId: number;
-	userId: number;
-	roleId: number;
+	roomId: string;
+	userId: string;
+	roleId: string;
 	role: ManagedRole;
 }
 
 export type ManagedGroupRole = {
 	id: number;
-	roomId: number;
-	groupId: number;
-	roleId: number;
+	roomId: string;
+	groupId: string;
+	roleId: string;
 	role: ManagedRole;
 }
 
 export type ManagedRoomOwner = {
 	id: number;
-	roomId: number;
-	userId: number;
+	roomId: string;
+	userId: string;
 }
 
 export type ManagedRole = {
@@ -123,7 +123,7 @@ export type ManagedRole = {
 	name: string;
 	description?: string;
 	permissions: ManagedPermission[];
-	tenantId: number;
+	tenantId: string;
 }
 
 export type ManagedPermission = {
@@ -134,8 +134,8 @@ export type ManagedPermission = {
 
 export type ManagedRolePermission = {
 	id: number;
-	roleId: number;
-	permissionId: number;
+	roleId: string;
+	permissionId: string;
 	permission: ManagedPermission;
 }
 
@@ -143,11 +143,11 @@ export type ManagedGroup = {
 	id: number;
 	name: string;
 	description: string;
-	tenantId?: number;
+	tenantId?: string;
 }
 
 export type ManagedGroupUser = {
 	id: number;
-	groupId: number;
-	userId: number;
+	groupId: string;
+	userId: string;
 }
