@@ -13,6 +13,7 @@ import {
 	IOServerConnection,
 	List,
 	Logger,
+	MediaSourceType,
 	Pipeline,
 	skipIfClosed,
 	SocketMessage
@@ -173,8 +174,36 @@ export class Peer extends EventEmitter {
 		this.#permissions = value;
 
 		// Notify the client of the changes
-		added.forEach((permission) => this.notify({ method: 'permissionAdded', data: { permission } })); // TODO: add to client
-		removed.forEach((permission) => this.notify({ method: 'permissionRemoved', data: { permission } })); // TODO: add to client
+		added.forEach((permission) => this.notify({ method: 'permissionAdded', data: { permission } }));
+		removed.forEach((permission) => this.notify({ method: 'permissionRemoved', data: { permission } }));
+
+		if (removed.includes(Permission.SHARE_AUDIO)) {
+			this.producers.forEach((p) => {
+				if (p.appData.source === MediaSourceType.MIC || p.appData.source === MediaSourceType.SCREENAUDIO)
+					p.close();
+			});
+		}
+
+		if (removed.includes(Permission.SHARE_VIDEO)) {
+			this.producers.forEach((p) => {
+				if (p.appData.source === MediaSourceType.WEBCAM)
+					p.close();
+			});
+		}
+
+		if (removed.includes(Permission.SHARE_SCREEN)) {
+			this.producers.forEach((p) => {
+				if (p.appData.source === MediaSourceType.SCREEN)
+					p.close();
+			});
+		}
+
+		if (removed.includes(Permission.EXTRA_VIDEO)) {
+			this.producers.forEach((p) => {
+				if (p.appData.source === MediaSourceType.EXTRAVIDEO)
+					p.close();
+			});
+		}
 	}
 
 	public hasPermission(permission: Permission): boolean {

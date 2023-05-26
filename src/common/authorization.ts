@@ -46,9 +46,6 @@ export const isAllowed = (room: Room, peer: Peer) => {
 	if (room.locked && !peer.hasPermission(Permission.BYPASS_ROOM_LOCK))
 		return false;
 
-	if (!peer.hasPermission(Permission.BYPASS_LOBBY))
-		return false;
-
 	return true;
 };
 

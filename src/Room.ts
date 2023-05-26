@@ -233,7 +233,6 @@ export default class Room extends EventEmitter {
 			data: {
 				sessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
-				permissions: peer.permissions,
 				logo: this.logo,
 				background: this.background,
 				maxActiveVideos: this.maxActiveVideos,
@@ -370,14 +369,27 @@ export default class Room extends EventEmitter {
 	public update(room: ManagedRoom): void {
 		logger.debug('update() [id: %s]', this.id);
 
-		this.name = room.name;
 		this.locked = room.locked;
-
-		// TODO: handle all possible changes
+		this.chatEnabled = room.chatEnabled;
+		this.filesharingEnabled = room.filesharingEnabled;
+		this.raiseHandEnabled = room.raiseHandEnabled;
+		this.localRecordingEnabled = room.localRecordingEnabled;
+		this.breakoutsEnabled = room.breakoutsEnabled;
+		this.logo = room.logo;
+		this.background = room.background;
+		this.maxActiveVideos = room.maxActiveVideos;
 
 		this.notifyPeers('roomUpdate', {
 			name: this.name,
 			locked: this.locked,
+			chatEnabled: this.chatEnabled,
+			filesharingEnabled: this.filesharingEnabled,
+			raiseHandEnabled: this.raiseHandEnabled,
+			localRecordingEnabled: this.localRecordingEnabled,
+			breakoutsEnabled: this.breakoutsEnabled,
+			logo: this.logo,
+			background: this.background,
+			maxActiveVideos: this.maxActiveVideos
 		});
 	}
 
@@ -390,10 +402,8 @@ export default class Room extends EventEmitter {
 		// Check if the peer is already in the room, if so, notify it
 		const peer = this.getPeerByManagedId(roomOwner.userId);
 
-		if (peer) {
+		if (peer)
 			this.updatePeerPermissions(peer);
-			peer.notify({ method: 'becameRoomOwner' }); // TODO: add client side
-		}
 	}
 
 	@skipIfClosed
@@ -405,10 +415,8 @@ export default class Room extends EventEmitter {
 		// Check if the peer is already in the room, if so, notify it
 		const peer = this.getPeerByManagedId(roomOwner.userId);
 
-		if (peer) {
+		if (peer)
 			this.updatePeerPermissions(peer);
-			peer.notify({ method: 'lostRoomOwner' }); // TODO: add client side
-		}
 	}
 
 	@skipIfClosed
