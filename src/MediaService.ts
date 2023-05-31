@@ -76,9 +76,8 @@ export default class MediaService {
 			for (const c of candidates) {
 				try {
 					const router = await c.getRouter({
-						roomId: room.id,
+						roomId: room.sessionId,
 						appData: {
-							roomId: room.id,
 							pipePromises: new Map<string, Promise<void>>(),
 						}
 					});
