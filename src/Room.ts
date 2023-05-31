@@ -343,9 +343,11 @@ export default class Room extends EventEmitter {
 		}
 	}
 
-	public updatePeerPermissions(peer: Peer): void {
+	public updatePeerPermissions(peer: Peer, lobby = false): void {
 		if (this.owners.find((o) => o.userId === peer.managedId)) {
 			peer.permissions = allPermissions;
+
+			if (lobby) this.promotePeer(peer);
 
 			return;
 		}
@@ -363,6 +365,9 @@ export default class Room extends EventEmitter {
 
 		// Combine and remove duplicates
 		peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions ]) ];
+
+		if (lobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK))
+			this.promotePeer(peer);
 	}
 
 	@skipIfClosed
