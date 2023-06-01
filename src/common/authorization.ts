@@ -6,8 +6,6 @@ import { MediaSourceType } from 'edumeet-common';
 export enum Permission {
 	// The role(s) will gain access to the room even if it is locked (!)
 	BYPASS_ROOM_LOCK = 'BYPASS_ROOM_LOCK',
-	// The role(s) will gain access to the room without going into the lobby.
-	BYPASS_LOBBY = 'BYPASS_LOBBY',
 	// The role(s) have permission to lock/unlock a room
 	CHANGE_ROOM_LOCK = 'CHANGE_ROOM_LOCK',
 	// The role(s) have permission to promote a peer from the lobby

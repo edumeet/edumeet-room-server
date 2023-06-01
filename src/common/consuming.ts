@@ -120,10 +120,29 @@ export const createConsumer = async (
 			data: { consumerId: consumer.id }
 		}));
 
-		consumer.on('producerresume', () => consumerPeer.notify({
-			method: 'consumerResumed',
-			data: { consumerId: consumer.id }
-		}));
+		consumer.on('producerresume', () => {
+			if (consumer.appData.suspended) {
+				consumerPeer.notify({
+					method: 'newConsumer',
+					data: {
+						peerId: producerPeer.id,
+						producerId: consumer.producerId,
+						id: consumer.id,
+						kind: consumer.kind,
+						rtpParameters: consumer.rtpParameters,
+						producerPaused: consumer.producerPaused,
+						appData: producer.appData,
+					}
+				});
+
+				delete consumer.appData.suspended;
+			} else {
+				consumerPeer.notify({
+					method: 'consumerResumed',
+					data: { consumerId: consumer.id }
+				});
+			}
+		});
 
 		consumer.on('score', (score) => consumerPeer.notify({
 			method: 'consumerScore',
@@ -139,18 +158,22 @@ export const createConsumer = async (
 			}
 		}));
 
-		consumerPeer.notify({
-			method: 'newConsumer',
-			data: {
-				peerId: producerPeer.id,
-				producerId: consumer.producerId,
-				id: consumer.id,
-				kind: consumer.kind,
-				rtpParameters: consumer.rtpParameters,
-				producerPaused: consumer.producerPaused,
-				appData: producer.appData,
-			}
-		});
+		if (consumer.producerPaused)
+			consumer.appData.suspended = true;
+		else {
+			consumerPeer.notify({
+				method: 'newConsumer',
+				data: {
+					peerId: producerPeer.id,
+					producerId: consumer.producerId,
+					id: consumer.id,
+					kind: consumer.kind,
+					rtpParameters: consumer.rtpParameters,
+					producerPaused: consumer.producerPaused,
+					appData: producer.appData,
+				}
+			});
+		}
 	} catch (error) {
 		return logger.error('createConsumer() [error: %o]', error);
 	}
