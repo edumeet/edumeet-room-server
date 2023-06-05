@@ -339,7 +339,7 @@ export default class Room extends EventEmitter {
 		} catch (error) {
 			logger.error('assignRouter() [%o]', error);
 
-			peer.rejectRouterReady(error);
+			// peer.rejectRouterReady(error);
 		}
 	}
 
