@@ -49,7 +49,7 @@ export default class Room extends EventEmitter {
 	public owners: ManagedRoomOwner[] = []; // Possibly updated by the management service
 	public userRoles: ManagedUserRole[] = []; // Possibly updated by the management service
 	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
-	public locked = false; // Possibly updated by the management service
+	public locked = true; // Possibly updated by the management service
 	public promoteOnHostJoin = false; // Possibly updated by the management service
 	public logo?: string; // Possibly updated by the management service
 	public background?: string; // Possibly updated by the management service

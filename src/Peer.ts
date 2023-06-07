@@ -198,7 +198,7 @@ export class Peer extends EventEmitter {
 			});
 		}
 
-		if (removed.includes(Permission.EXTRA_VIDEO)) {
+		if (removed.includes(Permission.SHARE_EXTRA_VIDEO)) {
 			this.producers.forEach((p) => {
 				if (p.appData.source === MediaSourceType.EXTRAVIDEO)
 					p.close();
