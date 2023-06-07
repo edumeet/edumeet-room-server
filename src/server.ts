@@ -69,7 +69,13 @@ webServer.listen({ port: actualConfig.listenPort, host: actualConfig.listenHost 
 
 const socketServer = new IOServer(webServer, {
 	cors: { origin: '*' },
-	cookie: false
+	cookie: false,
+	connectionStateRecovery: {
+		// the backup duration of the sessions and the packets
+		maxDisconnectionDuration: 5 * 60 * 1000,
+		// whether to skip middlewares upon successful recovery
+		skipMiddlewares: true,
+	}
 });
 
 socketServer.on('connection', socketHandler);
