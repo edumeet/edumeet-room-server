@@ -43,6 +43,7 @@ export class Consumer extends EventEmitter {
 	public producerId: string;
 	public kind: MediaKind;
 	public paused: boolean;
+	public preferredLayers: ConsumerLayers = { spatialLayer: 2, temporalLayer: 2 };
 	public producerPaused: boolean;
 	public rtpParameters: RtpParameters;
 	public appData: Record<string, unknown>;
@@ -168,7 +169,7 @@ export class Consumer extends EventEmitter {
 		spatialLayer,
 		temporalLayer,
 	}: {
-		spatialLayer?: number;
+		spatialLayer: number;
 		temporalLayer?: number;
 	}): Promise<void> {
 		logger.debug('setPreferredLayers()');
@@ -182,6 +183,11 @@ export class Consumer extends EventEmitter {
 				temporalLayer,
 			}
 		});
+
+		this.preferredLayers = {
+			spatialLayer,
+			temporalLayer,
+		};
 	}
 
 	@skipIfClosed

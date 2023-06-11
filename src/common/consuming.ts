@@ -5,6 +5,8 @@ import { Router } from '../media/Router';
 import { Logger } from 'edumeet-common';
 import { DataProducer } from '../media/DataProducer';
 import Room from '../Room';
+import { LayerWatcher } from './layerWatcher';
+import { LayerReporter } from './layerReporter';
 
 const logger = new Logger('createConsumer');
 
@@ -85,6 +87,9 @@ export const createConsumer = async (
 			rtpCapabilities: consumerPeer.rtpCapabilities,
 		});
 
+		if (consumer.kind === 'video')
+			consumer.appData.layerReporter = (producer.appData.layerWatcher as LayerWatcher).creatLayerReporter();
+
 		if (consumerPeer.closed)
 			return consumer.close();
 
@@ -108,6 +113,7 @@ export const createConsumer = async (
 
 		consumer.once('close', () => {
 			consumerPeer.consumers.delete(consumer.id);
+			(consumer.appData.layerReporter as LayerReporter)?.close();
 
 			consumerPeer.notify({
 				method: 'consumerClosed',

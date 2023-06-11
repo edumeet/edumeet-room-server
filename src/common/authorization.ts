@@ -52,34 +52,18 @@ export const peersWithPermission = (room: Room, permission: Permission) => {
 };
 
 export const permittedProducer = (source: MediaSourceType, room: Room, peer: Peer) => {
-	if (
-		!source ||
-		!Object.values(MediaSourceType)
-			.includes(source)
-	)
+	if (!source || !Object.values(MediaSourceType).includes(source))
 		throw new Error('invalid producer source');
 
-	if (
-		(source === MediaSourceType.MIC || source === MediaSourceType.SCREENAUDIO) &&
-		!peer.hasPermission(Permission.SHARE_AUDIO)
-	)
+	if ((source === MediaSourceType.MIC || source === MediaSourceType.SCREENAUDIO) && !peer.hasPermission(Permission.SHARE_AUDIO))
 		throw new Error('peer not authorized');
 
-	if (
-		source === MediaSourceType.WEBCAM &&
-		!peer.hasPermission(Permission.SHARE_VIDEO)
-	)
+	if (source === MediaSourceType.WEBCAM && !peer.hasPermission(Permission.SHARE_VIDEO))
 		throw new Error('peer not authorized');
 
-	if (
-		source === MediaSourceType.SCREEN &&
-		!peer.hasPermission(Permission.SHARE_SCREEN)
-	)
+	if (source === MediaSourceType.SCREEN && !peer.hasPermission(Permission.SHARE_SCREEN))
 		throw new Error('peer not authorized');
 
-	if (
-		source === MediaSourceType.EXTRAVIDEO &&
-		!peer.hasPermission(Permission.SHARE_EXTRA_VIDEO)
-	)
+	if (source === MediaSourceType.EXTRAVIDEO && !peer.hasPermission(Permission.SHARE_EXTRA_VIDEO))
 		throw new Error('peer not authorized');
 };
