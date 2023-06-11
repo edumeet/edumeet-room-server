@@ -38,7 +38,6 @@ export interface PeerInfo {
 	id: string;
 	displayName?: string;
 	picture?: string;
-	audioOnly: boolean;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
 	sessionId: string;
@@ -73,7 +72,6 @@ export class Peer extends EventEmitter {
 	public connections = List<BaseConnection>();
 	public displayName: string;
 	public picture?: string;
-	public audioOnly = false;
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	#escapeMeeting = false;
@@ -330,7 +328,6 @@ export class Peer extends EventEmitter {
 			id: this.id,
 			displayName: this.displayName,
 			picture: this.picture,
-			audioOnly: this.audioOnly,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			sessionId: this.sessionId,

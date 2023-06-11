@@ -61,7 +61,6 @@ describe('Peer', () => {
 		expect(peer.picture).toBe(picture);
 		expect(peer.sessionId).toBe(roomId);
 		expect(peer.connections.items[0]).toBe(connection);
-		expect(peer.audioOnly).toBe(false);
 	});
 
 	it('close()', () => {

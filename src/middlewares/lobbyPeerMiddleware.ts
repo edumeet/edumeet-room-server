@@ -54,21 +54,6 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				break;
 			}
 
-			case 'changeAudioOnly': {
-				const { audioOnly } = message.data;
-
-				peer.audioOnly = audioOnly;
-
-				room.notifyPeers('lobby:changeAudioOnly', {
-					peerId: peer.id,
-					audioOnly
-				}, peer);
-
-				context.handled = true;
-
-				break;
-			}
-
 			case 'updateToken': {
 				const { token } = message.data;
 				const managedId = token ? verifyPeer(token) : undefined;
