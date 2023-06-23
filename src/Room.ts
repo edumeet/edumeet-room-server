@@ -12,13 +12,13 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { ChatMessage, FileMessage, ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
+import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
-import { Permission, allPermissions, isAllowed, peersWithPermission } from './common/authorization';
+import { Permission, isAllowed, peersWithPermission, updatePeerPermissions } from './common/authorization';
 
 const logger = new Logger('Room');
 
@@ -176,7 +176,7 @@ export default class Room extends EventEmitter {
 		try {
 			this.waitingPeers.add(peer);
 
-			// This will resolve/reject when we have/failed to merged the room information from the management service
+			// This will resolve/reject when we have succeeded/failed to merge the room information from the management service
 			await this.roomReady;
 
 			if (this.closed)
@@ -184,16 +184,13 @@ export default class Room extends EventEmitter {
 
 			this.waitingPeers.remove(peer);
 
-			// This will updated the permissions of the peer based on what we possibly got from the management service
-			this.updatePeerPermissions(peer);
+			// This will update the permissions of the peer based on what we possibly got from the management service
+			updatePeerPermissions(this, peer);
 
 			if (isAllowed(this, peer))
 				this.allowPeer(peer);
 			else
 				this.parkPeer(peer);
-	
-			// TODO: Promote the peer if it is in the lobby and gets
-			// permission that allows it to pass
 		} catch (error) {
 			logger.error('addPeer() [error: %o]', error);
 
@@ -305,14 +302,6 @@ export default class Room extends EventEmitter {
 		this.allowPeer(peer);
 	}
 
-	public getPeers(excludePeer?: Peer): Peer[] {
-		return this.peers.items.filter((p) => p !== excludePeer);
-	}
-
-	public getBreakoutRooms(): BreakoutRoom[] {
-		return Array.from(this.breakoutRooms.values());
-	}
-
 	@skipIfClosed
 	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
 		const peers = this.getPeers(excludePeer);
@@ -342,293 +331,17 @@ export default class Room extends EventEmitter {
 		} catch (error) {
 			logger.error('assignRouter() [%o]', error);
 
-			peer.notify({
-				method: 'noMediaAvailable',
-				data: { error }
-			});
-
+			peer.notify({ method: 'noMediaAvailable', data: { error } });
 			peer.close();
 		}
 	}
 
-	public updatePeerPermissions(peer: Peer, lobby = false): void {
-		if (this.owners.find((o) => o.userId === peer.managedId)) {
-			peer.permissions = allPermissions;
-
-			if (lobby) this.promotePeer(peer);
-
-			return;
-		}
-
-		// Find the user roles the peer has, and get the roles for those user roles
-		const userPermissions = this.userRoles
-			.filter((ur) => ur.userId === peer.managedId)
-			.map((ur) => ur.role.permissions.map((p) => p.name))
-			.flat();
-		// Find the groups the peer is in, and get the roles for those groups
-		const groupPermissions = this.groupRoles
-			.filter((gr) => peer.groupIds.includes(gr.groupId))
-			.map((gr) => gr.role.permissions.map((p) => p.name))
-			.flat();
-		const defaultPermissions = this.defaultRole?.permissions.map((p) => p.name) ?? [];
-
-		// Combine and remove duplicates
-		peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
-
-		if (lobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK))
-			this.promotePeer(peer);
+	public getPeers(excludePeer?: Peer): Peer[] {
+		return this.peers.items.filter((p) => p !== excludePeer);
 	}
 
-	@skipIfClosed
-	public update(room: ManagedRoom): void {
-		logger.debug('update() [id: %s]', this.id);
-
-		this.locked = room.locked;
-		this.chatEnabled = room.chatEnabled;
-		this.filesharingEnabled = room.filesharingEnabled;
-		this.raiseHandEnabled = room.raiseHandEnabled;
-		this.localRecordingEnabled = room.localRecordingEnabled;
-		this.breakoutsEnabled = room.breakoutsEnabled;
-		this.maxActiveVideos = room.maxActiveVideos;
-
-		const managedSettings: RoomSettings = {
-			logo: room.logo,
-			background: room.background,
-
-			// Video settings
-			videoCodec: room.videoCodec,
-			simulcast: room.simulcast,
-			videoResolution: room.videoResolution,
-			videoFramerate: room.videoFramerate,
-
-			// Audio settings
-			audioCodec: room.audioCodec,
-			autoGainControl: room.autoGainControl,
-			echoCancellation: room.echoCancellation,
-			noiseSuppression: room.noiseSuppression,
-			sampleRate: room.sampleRate,
-			channelCount: room.channelCount,
-			sampleSize: room.sampleSize,
-			opusStereo: room.opusStereo,
-			opusDtx: room.opusDtx,
-			opusFec: room.opusFec,
-			opusPtime: room.opusPtime,
-			opusMaxPlaybackRate: room.opusMaxPlaybackRate,
-
-			// Screen sharing settings
-			screenSharingCodec: room.screenSharingCodec,
-			screenSharingSimulcast: room.screenSharingSimulcast,
-			screenSharingResolution: room.screenSharingResolution,
-			screenSharingFramerate: room.screenSharingFramerate
-		};
-
-		this.settings = managedSettings;
-
-		this.notifyPeers('roomUpdate', {
-			name: this.name,
-			locked: this.locked,
-			chatEnabled: this.chatEnabled,
-			filesharingEnabled: this.filesharingEnabled,
-			raiseHandEnabled: this.raiseHandEnabled,
-			localRecordingEnabled: this.localRecordingEnabled,
-			breakoutsEnabled: this.breakoutsEnabled,
-			maxActiveVideos: this.maxActiveVideos,
-
-			settings: managedSettings
-		});
-	}
-
-	@skipIfClosed
-	public addRoomOwner(roomOwner: ManagedRoomOwner): void {
-		logger.debug('addRoomOwner() [id: %s]', this.id);
-
-		this.owners.push(roomOwner);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peer = this.getPeerByManagedId(roomOwner.userId);
-
-		if (peer)
-			this.updatePeerPermissions(peer);
-	}
-
-	@skipIfClosed
-	public removeRoomOwner(roomOwner: ManagedRoomOwner): void {
-		logger.debug('removeRoomOwner() [id: %s]', this.id);
-
-		this.owners = this.owners.filter((o) => o.id !== roomOwner.id);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peer = this.getPeerByManagedId(roomOwner.userId);
-
-		if (peer)
-			this.updatePeerPermissions(peer);
-	}
-
-	@skipIfClosed
-	public addRoomUserRole(roomUserRole: ManagedUserRole): void {
-		logger.debug('addRoomUserRole() [id: %s]', this.id);
-
-		this.userRoles.push(roomUserRole);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peer = this.getPeerByManagedId(roomUserRole.userId);
-
-		if (peer)
-			this.updatePeerPermissions(peer);
-	}
-
-	@skipIfClosed
-	public removeRoomUserRole(roomUserRole: ManagedUserRole): void {
-		logger.debug('removeRoomUserRole() [id: %s]', this.id);
-
-		this.userRoles = this.userRoles.filter((ur) => ur.id !== roomUserRole.id);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peer = this.getPeerByManagedId(roomUserRole.userId);
-
-		if (peer)
-			this.updatePeerPermissions(peer);
-	}
-
-	@skipIfClosed
-	public addRoomGroupRole(roomGroupRole: ManagedGroupRole): void {
-		logger.debug('addRoomGroupRole() [id: %s]', this.id);
-
-		this.groupRoles.push(roomGroupRole);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peers = this.getPeersByGroupId(roomGroupRole.groupId);
-
-		peers.forEach((peer) => this.updatePeerPermissions(peer));
-	}
-
-	@skipIfClosed
-	public removeRoomGroupRole(roomGroupRole: ManagedGroupRole): void {
-		logger.debug('removeRoomGroupRole() [id: %s]', this.id);
-
-		this.groupRoles = this.groupRoles.filter((gr) => gr.id !== roomGroupRole.id);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peers = this.getPeersByGroupId(roomGroupRole.groupId);
-
-		peers.forEach((peer) => this.updatePeerPermissions(peer));
-	}
-
-	@skipIfClosed
-	public removeGroup(group: ManagedGroup): void {
-		logger.debug('removeGroup() [id: %s]', this.id);
-
-		this.groupRoles = this.groupRoles.filter((gr) => gr.groupId !== String(group.id));
-
-		// Check if the peer is already in the room, if so, notify it
-		const peers = this.getPeersByGroupId(String(group.id));
-
-		for (const peer of peers) {
-			peer.groupIds = peer.groupIds.filter((id) => id !== String(group.id));
-
-			this.updatePeerPermissions(peer);
-		}
-	}
-
-	@skipIfClosed
-	public addGroupUser(groupUser: ManagedGroupUser): void {
-		logger.debug('addGroupUser() [id: %s]', this.id);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peer = this.getPeerByManagedId(groupUser.userId);
-
-		if (peer) {
-			const groupRole = this.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
-
-			if (groupRole) {
-				peer.groupIds.push(groupUser.groupId);
-				this.updatePeerPermissions(peer);
-			}
-		}
-	}
-
-	@skipIfClosed
-	public removeGroupUser(groupUser: ManagedGroupUser): void {
-		logger.debug('removeGroupUser() [id: %s]', this.id);
-
-		// Check if the peer is already in the room, if so, notify it
-		const peer = this.getPeerByManagedId(groupUser.userId);
-
-		if (peer) {
-			const groupRole = this.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
-
-			if (groupRole) {
-				peer.groupIds = peer.groupIds.filter((id) => id !== groupUser.groupId);
-				this.updatePeerPermissions(peer);
-			}
-		}
-	}
-
-	@skipIfClosed
-	public removeRole(role: ManagedRole): void {
-		logger.debug('removeRole() [id: %s]', this.id);
-
-		this.userRoles.forEach((ur) => {
-			if (ur.roleId === String(role.id))
-				this.removeRoomUserRole(ur);
-		});
-
-		this.groupRoles.forEach((gr) => {
-			if (gr.roleId === String(role.id))
-				this.removeRoomGroupRole(gr);
-		});
-	}
-
-	@skipIfClosed
-	public addRolePermission(rolePermission: ManagedRolePermission): void {
-		logger.debug('addRolePermission() [id: %s]', this.id);
-
-		this.userRoles.forEach((ur) => {
-			if (ur.roleId === rolePermission.roleId) {
-				ur.role.permissions.push(rolePermission.permission);
-
-				const peer = this.getPeerByManagedId(ur.userId);
-
-				if (peer)
-					this.updatePeerPermissions(peer);
-			}
-		});
-
-		this.groupRoles.forEach((gr) => {
-			if (gr.roleId === rolePermission.roleId) {
-				gr.role.permissions.push(rolePermission.permission);
-
-				const peers = this.getPeersByGroupId(gr.groupId);
-
-				peers.forEach((peer) => this.updatePeerPermissions(peer));
-			}
-		});
-	}
-
-	@skipIfClosed
-	public removeRolePermission(rolePermission: ManagedRolePermission): void {
-		logger.debug('removeRolePermission() [id: %s]', this.id);
-
-		this.userRoles.forEach((ur) => {
-			if (ur.roleId === rolePermission.roleId) {
-				ur.role.permissions = ur.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
-
-				const peer = this.getPeerByManagedId(ur.userId);
-
-				if (peer)
-					this.updatePeerPermissions(peer);
-			}
-		});
-
-		this.groupRoles.forEach((gr) => {
-			if (gr.roleId === rolePermission.roleId) {
-				gr.role.permissions = gr.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
-
-				const peers = this.getPeersByGroupId(gr.groupId);
-
-				peers.forEach((peer) => this.updatePeerPermissions(peer));
-			}
-		});
+	public getBreakoutRooms(): BreakoutRoom[] {
+		return Array.from(this.breakoutRooms.values());
 	}
 
 	public getPeerByManagedId(managedId: string): Peer | undefined {

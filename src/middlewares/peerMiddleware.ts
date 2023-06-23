@@ -2,6 +2,7 @@ import { Logger, Middleware } from 'edumeet-common';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { verifyPeer } from '../common/token';
+import { updatePeerPermissions } from '../common/authorization';
 
 const logger = new Logger('PeerMiddleware');
 
@@ -87,7 +88,7 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				const managedId = token ? verifyPeer(token) : undefined;
 
 				peer.managedId = managedId;
-				room.updatePeerPermissions(peer);
+				updatePeerPermissions(room, peer);
 
 				context.handled = true;
 

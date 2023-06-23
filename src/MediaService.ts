@@ -87,10 +87,9 @@ export default class MediaService {
 					logger.error('getRouter() [error %o]', error);
 					if (error instanceof RoomClosedError) throw error;
 				}
-			}		
+			}
 		} while (candidates.length > 0);
-		
-		// TODO: notify client
+
 		throw new Error('no media nodes available');
 	}
 }

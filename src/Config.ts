@@ -5,7 +5,7 @@ export interface Config {
 		cert: string;
 		key: string;
 	};
-	managementService?: {
+	managementService: {
 		host: string;
 		jwtPublicKeys: Array<string>;
 	};

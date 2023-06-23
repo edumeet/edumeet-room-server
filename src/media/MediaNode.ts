@@ -134,17 +134,20 @@ export default class MediaNode {
 		const requestUUID = randomUUID();
 
 		this.pendingRequests.set(requestUUID, roomId);
+
 		if (!this.connection) {
 			this.connection = this.setupConnection();
 			this.connection.once('close', () => delete this.connection);
 		}
+
 		try {
 			await this.connection.ready;
 		} catch (error) {
 			this.connection.close();
-			this.pendingRequests.delete(requestUUID); 
+			this.pendingRequests.delete(requestUUID);
 			this.retryConnection();
-			throw error;	
+
+			throw error;
 		}
 
 		try {

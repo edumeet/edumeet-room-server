@@ -9,6 +9,7 @@ import Room from './Room';
 import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUser, ManagedUserRole } from './common/types';
 import MediaService from './MediaService';
 import { Config } from './Config';
+import { addGroupUser, addRolePermission, addRoomGroupRole, addRoomOwner, addRoomUserRole, removeGroup, removeGroupUser, removeRole, removeRolePermission, removeRoomGroupRole, removeRoomOwner, removeRoomUserRole, updateRoom } from './common/authorization';
 
 const actualConfig = config as Config;
 
@@ -142,10 +143,12 @@ export default class ManagementService {
 	@skipIfClosed
 	private registerRoomsServiceListeners(): void {
 		this.#roomsService
-			.on('patched', (room: ManagedRoom) => {
-				logger.debug('roomsService "patched" event [roomId: %s]', room.id);
+			.on('patched', (managedRoom: ManagedRoom) => {
+				logger.debug('roomsService "patched" event [roomId: %s]', managedRoom.id);
 
-				this.#managedRooms.get(String(room.id))?.update(room);
+				const room = this.#managedRooms.get(String(managedRoom.id));
+
+				if (room) updateRoom(room, managedRoom);
 			});
 	}
 
@@ -155,12 +158,16 @@ export default class ManagementService {
 			.on('created', (roomOwner: ManagedRoomOwner) => {
 				logger.debug('roomOwnersService "created" event [roomId: %s]', roomOwner.id);
 
-				this.#managedRooms.get(roomOwner.roomId)?.addRoomOwner(roomOwner);
+				const room = this.#managedRooms.get(roomOwner.roomId);
+
+				if (room) addRoomOwner(room, roomOwner);
 			})
 			.on('removed', (roomOwner: ManagedRoomOwner) => {
 				logger.debug('roomOwnersService "removed" event [roomId: %s]', roomOwner.id);
 
-				this.#managedRooms.get(roomOwner.roomId)?.removeRoomOwner(roomOwner);
+				const room = this.#managedRooms.get(roomOwner.roomId);
+
+				if (room) removeRoomOwner(room, roomOwner);
 			});
 	}
 
@@ -170,12 +177,16 @@ export default class ManagementService {
 			.on('created', (roomUserRole: ManagedUserRole) => {
 				logger.debug('roomUserRolesService "created" event [roomId: %s]', roomUserRole.id);
 
-				this.#managedRooms.get(roomUserRole.roomId)?.addRoomUserRole(roomUserRole);
+				const room = this.#managedRooms.get(roomUserRole.roomId);
+
+				if (room) addRoomUserRole(room, roomUserRole);
 			})
 			.on('removed', (roomUserRole: ManagedUserRole) => {
 				logger.debug('roomUserRolesService "removed" event [roomId: %s]', roomUserRole.id);
 
-				this.#managedRooms.get(roomUserRole.roomId)?.removeRoomUserRole(roomUserRole);
+				const room = this.#managedRooms.get(roomUserRole.roomId);
+
+				if (room) removeRoomUserRole(room, roomUserRole);
 			});
 	}
 
@@ -185,12 +196,16 @@ export default class ManagementService {
 			.on('created', (roomGroupRole: ManagedGroupRole) => {
 				logger.debug('roomGroupRolesService "created" event [roomId: %s]', roomGroupRole.id);
 
-				this.#managedRooms.get(roomGroupRole.roomId)?.addRoomGroupRole(roomGroupRole);
+				const room = this.#managedRooms.get(roomGroupRole.roomId);
+
+				if (room) addRoomGroupRole(room, roomGroupRole);
 			})
 			.on('removed', (roomGroupRole: ManagedGroupRole) => {
 				logger.debug('roomGroupRolesService "removed" event [roomId: %s]', roomGroupRole.id);
 
-				this.#managedRooms.get(roomGroupRole.roomId)?.removeRoomGroupRole(roomGroupRole);
+				const room = this.#managedRooms.get(roomGroupRole.roomId);
+
+				if (room) removeRoomGroupRole(room, roomGroupRole);
 			});
 	}
 
@@ -210,7 +225,7 @@ export default class ManagementService {
 			.on('removed', (group: ManagedGroup) => {
 				logger.debug('groupsService "removed" event [groupId: %s]', group.id);
 
-				this.#managedRooms.forEach((r) => r.removeGroup(group));
+				this.#managedRooms.forEach((r) => removeGroup(r, group));
 			});
 	}
 
@@ -220,12 +235,12 @@ export default class ManagementService {
 			.on('created', (groupUser: ManagedGroupUser) => {
 				logger.debug('groupUsersService "created" event [groupId: %s]', groupUser.id);
 
-				this.#managedRooms.forEach((r) => r.addGroupUser(groupUser));
+				this.#managedRooms.forEach((r) => addGroupUser(r, groupUser));
 			})
 			.on('removed', (groupUser: ManagedGroupUser) => {
 				logger.debug('groupUsersService "removed" event [groupId: %s]', groupUser.id);
 
-				this.#managedRooms.forEach((r) => r.removeGroupUser(groupUser));
+				this.#managedRooms.forEach((r) => removeGroupUser(r, groupUser));
 			});
 	}
 
@@ -235,7 +250,7 @@ export default class ManagementService {
 			.on('removed', (role: ManagedRole) => {
 				logger.debug('rolesService "removed" event [roleId: %s]', role.id);
 
-				this.#managedRooms.forEach((r) => r.removeRole(role));
+				this.#managedRooms.forEach((r) => removeRole(r, role));
 			});
 	}
 
@@ -245,12 +260,12 @@ export default class ManagementService {
 			.on('created', (rolePermission: ManagedRolePermission) => {
 				logger.debug('rolePermissionsService "created" event [roleId: %s]', rolePermission.id);
 
-				this.#managedRooms.forEach((r) => r.addRolePermission(rolePermission));
+				this.#managedRooms.forEach((r) => addRolePermission(r, rolePermission));
 			})
 			.on('removed', (rolePermission: ManagedRolePermission) => {
 				logger.debug('rolePermissionsService "removed" event [roleId: %s]', rolePermission.id);
 
-				this.#managedRooms.forEach((r) => r.removeRolePermission(rolePermission));
+				this.#managedRooms.forEach((r) => removeRolePermission(r, rolePermission));
 			});
 	}
 }

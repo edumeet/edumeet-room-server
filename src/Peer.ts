@@ -82,12 +82,8 @@ export class Peer extends EventEmitter {
 
 	// eslint-disable-next-line no-unused-vars
 	public resolveRouterReady!: (router: Router) => void;
-	// eslint-disable-next-line no-unused-vars
-	public rejectRouterReady!: (error: unknown) => void;
-
-	public routerReady: Promise<Router> = new Promise<Router>((resolve, reject) => {
+	public routerReady: Promise<Router> = new Promise<Router>((resolve) => {
 		this.resolveRouterReady = resolve;
-		this.rejectRouterReady = reject;
 	});
 
 	public transports = new Map<string, WebRtcTransport>();
