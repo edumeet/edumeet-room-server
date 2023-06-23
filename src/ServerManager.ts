@@ -3,19 +3,38 @@ import { verifyPeer } from './common/token';
 import MediaService from './MediaService';
 import { Peer } from './Peer';
 import Room from './Room';
+import ManagementService from './ManagementService';
+import { RoomSettings } from './common/types';
 
 const logger = new Logger('ServerManager');
 
+interface ServerManagerOptions {
+	mediaService: MediaService;
+	peers: Map<string, Peer>;
+	rooms: Map<string, Room>;
+	managedPeers: Map<string, Peer>;
+	managedRooms: Map<string, Room>;
+	managementService: ManagementService;
+}
+
 export default class ServerManager {
 	public closed = false;
-	public peers = new Map<string, Peer>();
-	public rooms = new Map<string, Room>();
+	public peers: Map<string, Peer>;
+	public rooms: Map<string, Room>;
+	public managedRooms: Map<string, Room>; // Mapped by ID from management service
+	public managedPeers: Map<string, Peer>; // Mapped by ID from management service
 	public mediaService: MediaService;
+	public managementService: ManagementService;
 
-	constructor({ mediaService }: { mediaService: MediaService }) {
+	constructor({ mediaService, peers, rooms, managedPeers, managedRooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
 
 		this.mediaService = mediaService;
+		this.peers = peers;
+		this.rooms = rooms;
+		this.managedPeers = managedPeers;
+		this.managedRooms = managedRooms;
+		this.managementService = managementService;
 	}
 
 	@skipIfClosed
@@ -27,6 +46,8 @@ export default class ServerManager {
 		this.mediaService.close();
 		this.peers.forEach((p) => p.close());
 		this.rooms.forEach((r) => r.close());
+
+		this.managedRooms.clear();
 		this.peers.clear();
 		this.rooms.clear();
 	}
@@ -36,15 +57,19 @@ export default class ServerManager {
 		connection: BaseConnection,
 		peerId: string,
 		roomId: string,
+		tenantId: string,
 		displayName?: string,
 		token?: string,
 	): void {
 		logger.debug(
-			'handleConnection() [peerId: %s, displayName: %s, roomId: %s]',
+			'handleConnection() [peerId: %s, displayName: %s, roomId: %s, tenantId: %s]',
 			peerId,
 			displayName,
-			roomId
+			roomId,
+			tenantId
 		);
+
+		const managedId = token ? verifyPeer(token) : undefined;
 
 		let peer = this.peers.get(peerId);
 
@@ -58,37 +83,118 @@ export default class ServerManager {
 			// then we must close the new connection.
 			// As long as the token is correct for the Peer, we can accept the new
 			// connection and close the old one.
-			if (token && verifyPeer(peerId, token)) {
+			if (managedId && managedId === peer.managedId)
 				peer.close();
-				this.peers.delete(peerId);
-			} else
+			else
 				throw new Error('Invalid token');
 		}
 
-		let room = this.rooms.get(roomId);
+		let room = this.rooms.get(`${tenantId}/${roomId}`);
 
 		if (!room) {
 			logger.debug(
-				'handleConnection() new room [roomId: %s]',
-				roomId
+				'handleConnection() new room [roomId: %s, tenantId: %s]',
+				roomId,
+				tenantId
 			);
 
 			room = new Room({
 				id: roomId,
+				tenantId,
 				mediaService: this.mediaService
 			});
 
-			this.rooms.set(roomId, room);
+			this.rooms.set(`${tenantId}/${roomId}`, room);
 
 			room.once('close', () => {
 				logger.debug('handleConnection() room closed [roomId: %s]', roomId);
-				this.rooms.delete(roomId);
+				this.rooms.delete(`${tenantId}/${roomId}`);
+
+				if (room?.managedId)
+					this.managedRooms.delete(room.managedId);
 			});
+
+			(async () => {
+				try {
+					const managedRoom = await this.managementService.getRoom(roomId, tenantId);
+
+					if (room.closed) return;
+
+					if (managedRoom) {
+						logger.debug(
+							'handleConnection() room is managed [roomId: %s, tenantId: %s, managedId: %s]',
+							roomId,
+							tenantId,
+							managedRoom.id
+						);
+
+						room.managedId = String(managedRoom.id);
+						room.name = managedRoom.name;
+						room.description = managedRoom.description;
+						room.owners = managedRoom.owners;
+						room.groupRoles = managedRoom.groupRoles;
+						room.userRoles = managedRoom.userRoles;
+						room.defaultRole = managedRoom.defaultRole;
+
+						room.maxActiveVideos = managedRoom.maxActiveVideos;
+						room.locked = managedRoom.locked;
+						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
+						room.chatEnabled = managedRoom.chatEnabled;
+						room.raiseHandEnabled = managedRoom.raiseHandEnabled;
+						room.filesharingEnabled = managedRoom.filesharingEnabled;
+						room.localRecordingEnabled = managedRoom.localRecordingEnabled;
+
+						const managedSettings: RoomSettings = {
+							logo: managedRoom.logo,
+							background: managedRoom.background,
+
+							// Video settings
+							videoCodec: managedRoom.videoCodec,
+							simulcast: managedRoom.simulcast,
+							videoResolution: managedRoom.videoResolution,
+							videoFramerate: managedRoom.videoFramerate,
+
+							// Audio settings
+							audioCodec: managedRoom.audioCodec,
+							autoGainControl: managedRoom.autoGainControl,
+							echoCancellation: managedRoom.echoCancellation,
+							noiseSuppression: managedRoom.noiseSuppression,
+							sampleRate: managedRoom.sampleRate,
+							channelCount: managedRoom.channelCount,
+							sampleSize: managedRoom.sampleSize,
+							opusStereo: managedRoom.opusStereo,
+							opusDtx: managedRoom.opusDtx,
+							opusFec: managedRoom.opusFec,
+							opusPtime: managedRoom.opusPtime,
+							opusMaxPlaybackRate: managedRoom.opusMaxPlaybackRate,
+
+							// Screen sharing settings
+							screenSharingCodec: managedRoom.screenSharingCodec,
+							screenSharingSimulcast: managedRoom.screenSharingSimulcast,
+							screenSharingResolution: managedRoom.screenSharingResolution,
+							screenSharingFramerate: managedRoom.screenSharingFramerate
+						};
+
+						room.settings = managedSettings;
+
+						this.managedRooms.set(String(managedRoom.id), room);
+					}
+				} catch (error) {
+					logger.error(
+						'handleConnection() error while getting room [roomId: %s, tenantId: %s, error: %o]',
+						roomId,
+						tenantId,
+						error
+					);
+				} finally {
+					room.resolveRoomReady();
+				}
+			})();
 		}
 
 		peer = new Peer({
 			id: peerId,
-			token,
+			managedId,
 			sessionId: room.sessionId,
 			displayName,
 			connection
@@ -96,15 +202,16 @@ export default class ServerManager {
 
 		this.peers.set(peerId, peer);
 
+		if (managedId) this.managedPeers.set(String(managedId), peer);
+
 		peer.once('close', () => {
 			logger.debug('handleConnection() peer closed [peerId: %s]', peerId);
 			this.peers.delete(peerId);
+
+			if (peer?.managedId)
+				this.managedPeers.delete(peer.managedId);
 		});
 
 		room.addPeer(peer);
-
-		// At this point we have a valid Peer that is waiting in the Join dialog.
-		// Register middleware to handle the Peer actually joining the room. For
-		// now, prime the room to be created if it does not exist.
 	}
 }

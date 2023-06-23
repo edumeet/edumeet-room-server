@@ -76,9 +76,8 @@ export default class MediaService {
 			for (const c of candidates) {
 				try {
 					const router = await c.getRouter({
-						roomId: room.id,
+						roomId: room.sessionId,
 						appData: {
-							roomId: room.id,
 							pipePromises: new Map<string, Promise<void>>(),
 						}
 					});
@@ -88,10 +87,9 @@ export default class MediaService {
 					logger.error('getRouter() [error %o]', error);
 					if (error instanceof RoomClosedError) throw error;
 				}
-			}		
+			}
 		} while (candidates.length > 0);
-		
-		// TODO: notify client
+
 		throw new Error('no media nodes available');
 	}
 }

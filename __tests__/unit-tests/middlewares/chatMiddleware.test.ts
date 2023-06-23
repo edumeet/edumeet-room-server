@@ -3,7 +3,6 @@ import { createChatMiddleware } from '../../../src/middlewares/chatMiddleware';
 import { PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
 import * as checkSessionId from '../../../src/common/checkSessionId';
-import { userRoles } from '../../../src/common/authorization';
 
 const next = jest.fn();
 
@@ -16,7 +15,10 @@ test('Should throw on peer not authorized', async () => {
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
-	const peer = { roles: [] };
+	const peer = {
+		permissions: [],
+		hasPermission: jest.fn(() => false)
+	};
 	const message = { method: 'chatMessage' };
 
 	const context = {
@@ -33,7 +35,10 @@ test('Should call next middleware on wrong session', async () => {
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
-	const peer = { roles: [] };
+	const peer = {
+		permissions: [],
+		hasPermission: jest.fn(() => true)
+	};
 	const message = { data: { sessionId: 'id2' } };
 
 	const context = {
@@ -55,7 +60,10 @@ test('Should notify peers on authorized peer sending chat message', async () => 
 	const options = { room, chatHistory } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
-	const peer = { roles: [ userRoles.NORMAL ] };
+	const peer = {
+		permissions: [],
+		hasPermission: jest.fn(() => true)
+	};
 	const message = {
 		method: 'chatMessage',
 		data: {
@@ -80,7 +88,10 @@ test('Should call next middleware if not chat message', async () => {
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
-	const peer = { roles: [ userRoles.NORMAL ] };
+	const peer = {
+		permissions: [],
+		hasPermission: jest.fn(() => true)
+	};
 	const message = {};
 
 	const context = {

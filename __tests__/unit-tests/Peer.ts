@@ -1,7 +1,6 @@
 import { BaseConnection, IOServerConnection } from 'edumeet-common';
 import 'jest';
 import { Socket } from 'socket.io';
-import { userRoles } from '../../src/common/authorization';
 import { Peer, PeerContext } from '../../src/Peer';
 import { Producer } from '../../src/media/Producer';
 import { Consumer } from '../../src/media/Consumer';
@@ -62,8 +61,6 @@ describe('Peer', () => {
 		expect(peer.picture).toBe(picture);
 		expect(peer.sessionId).toBe(roomId);
 		expect(peer.connections.items[0]).toBe(connection);
-		expect(peer.token).toBeDefined();
-		expect(peer.audioOnly).toBe(false);
 	});
 
 	it('close()', () => {
@@ -121,50 +118,6 @@ describe('Peer', () => {
 
 		expect(peer.raisedHand).toBe(true);
 		expect(peer.raisedHandTimestamp).toBeDefined();
-	});
-
-	it('addRole() - can\'t add normal', () => {
-		expect(peer.roles.filter((r) => r === userRoles.NORMAL).length).toBe(1);
-
-		peer.addRole(userRoles.NORMAL);
-
-		expect(peer.roles.filter((r) => r === userRoles.NORMAL).length).toBe(1);
-	});
-
-	it('addRole() - add moderator', () => {
-		spyEmit = jest.spyOn(peer, 'emit');
-
-		expect(peer.roles.length).toBe(1);
-
-		peer.addRole(userRoles.MODERATOR);
-
-		expect(peer.roles.length).toBe(2);
-		expect(peer.roles.filter((r) => r === userRoles.MODERATOR).length).toBe(1);
-		expect(spyEmit).toHaveBeenCalledTimes(1);
-	});
-
-	it('removeRole() - remove moderator', () => {
-		peer.addRole(userRoles.MODERATOR);
-		expect(peer.roles.length).toBe(2);
-
-		spyEmit = jest.spyOn(peer, 'emit');
-
-		peer.removeRole(userRoles.MODERATOR);
-
-		expect(peer.roles.length).toBe(1);
-		expect(peer.roles.filter((r) => r === userRoles.MODERATOR).length).toBe(0);
-		expect(spyEmit).toHaveBeenCalledTimes(1);
-	});
-
-	it('removeRole() - can\'t remove normal', () => {
-		spyEmit = jest.spyOn(peer, 'emit');
-
-		expect(peer.roles.length).toBe(1);
-
-		peer.removeRole(userRoles.NORMAL);
-
-		expect(peer.roles.length).toBe(1);
-		expect(spyEmit).toHaveBeenCalledTimes(0);
 	});
 
 	describe('Connections', () => {

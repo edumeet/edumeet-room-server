@@ -6,6 +6,7 @@ import net from 'net';
 import fs from 'fs';
 import ServerManager from './ServerManager';
 import { Logger } from 'edumeet-common';
+import ManagementService from './ManagementService';
 
 const SOCKET_PATH_UNIX = '/tmp/edumeet-room-server.sock';
 const SOCKET_PATH_WIN = path.join('\\\\?\\pipe', process.cwd(), 'edumeet-room-server');
@@ -122,8 +123,9 @@ class InteractiveServer {
 	}
 }
 
-export const interactiveServer = (serverManager: ServerManager) => {
+export const interactiveServer = (serverManager: ServerManager, managementService: ManagementService) => {
 	global.serverManager = serverManager;
+	global.managementService = managementService;
 
 	const server = net.createServer((socket) => {
 		const interactive = new InteractiveServer(socket);

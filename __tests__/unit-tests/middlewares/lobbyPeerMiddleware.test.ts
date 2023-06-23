@@ -51,7 +51,7 @@ test('changeDisplayName() - Should notify peers on happy path', async () => {
 	const spyNotifyPeers = jest.fn();
 	const room = {
 		sessionId: SESSION_ID,
-		notifyPeers: spyNotifyPeers
+		notifyPeersWithPermission: spyNotifyPeers
 	} as unknown as Room;
 
 	const sut = createLobbyPeerMiddleware({ room });
@@ -81,7 +81,7 @@ test('changePicture() - Should notify peers on happy path', async () => {
 	const spyNotifyPeers = jest.fn();
 	const room = {
 		sessionId: SESSION_ID,
-		notifyPeers: spyNotifyPeers
+		notifyPeersWithPermission: spyNotifyPeers
 	} as unknown as Room;
 
 	const sut = createLobbyPeerMiddleware({ room });

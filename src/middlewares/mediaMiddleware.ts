@@ -1,9 +1,11 @@
-import { Logger, MediaKind, Middleware } from 'edumeet-common';
+import { Logger, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumer, createDataConsumer } from '../common/consuming';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
+import { LayerWatcher } from '../common/layerWatcher';
+import { LayerReporter } from '../common/layerReporter';
 
 const logger = new Logger('MediaMiddleware');
 
@@ -35,9 +37,12 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				if (!transport)
 					throw new Error(`transport with id "${transportId}" not found`);
 
+				const layerWatcher = kind === 'video' ? new LayerWatcher() : undefined;
+
 				appData = {
 					...appData,
 					peerId: peer.id,
+					layerWatcher,
 				};
 
 				const producer = await transport.produce({ kind, rtpParameters, appData });
@@ -59,16 +64,17 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 					data: { producerId: producer.id, score }
 				}));
 
+				layerWatcher?.on('newLayer', (spatialLayer) => peer.notify({
+					method: 'newProducerLayer',
+					data: { producerId: producer.id, spatialLayer }
+				}));
+
 				response.id = producer.id;
 				context.handled = true;
 
 				(async () => {
 					for (const consumerPeer of room.getPeers(peer)) {
 						if (!consumerPeer.sameSession(peer))
-							continue;
-
-						// Avoid to create video consumer if a peer is in audio-only mode
-						if (consumerPeer.audioOnly && producer.kind === MediaKind.VIDEO)
 							continue;
 
 						await createConsumer(consumerPeer, peer, producer);
@@ -192,7 +198,10 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				if (!consumer)
 					throw new Error(`consumer with id "${consumerId}" not found`);
 
+				const layerReporter = consumer.appData.layerReporter as LayerReporter;
+
 				await consumer.pause();
+				layerReporter?.updateLayer(0);
 				context.handled = true;
 
 				break;
@@ -205,7 +214,10 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				if (!consumer)
 					throw new Error(`consumer with id "${consumerId}" not found`);
 
+				const layerReporter = consumer.appData.layerReporter as LayerReporter;
+
 				await consumer.resume();
+				layerReporter?.updateLayer(consumer.preferredLayers.spatialLayer);
 				context.handled = true;
 
 				break;
@@ -218,7 +230,10 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				if (!consumer)
 					throw new Error(`consumer with id "${consumerId}" not found`);
 
+				const layerReporter = consumer.appData.layerReporter as LayerReporter;
+
 				await consumer.setPreferredLayers({ spatialLayer, temporalLayer });
+				layerReporter?.updateLayer(spatialLayer);
 				context.handled = true;
 
 				break;

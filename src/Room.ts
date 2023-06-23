@@ -2,16 +2,6 @@ import { EventEmitter } from 'events';
 import MediaService from './MediaService';
 import { createMediaMiddleware } from './middlewares/mediaMiddleware';
 import { Peer, PeerContext } from './Peer';
-import {
-	allowedPeers,
-	isAllowed,
-	isAllowedBecauseMissing,
-	Permission,
-	promoteOnHostJoin,
-	userRoles,
-	allowWhenRoleMissing,
-	roomPermissions
-} from './common/authorization';
 import { randomUUID } from 'crypto';
 import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
@@ -22,17 +12,19 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { ChatMessage, FileMessage } from './common/types';
+import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
+import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 
 const logger = new Logger('Room');
 
 interface RoomOptions {
 	id: string;
+	tenantId: string;
 	name?: string;
 	mediaService: MediaService;
 }
@@ -42,21 +34,48 @@ export class RoomClosedError extends Error {
 		super(message);
 		this.name = 'RoomClosedError';
 	}
-
 }
 
 export default class Room extends EventEmitter {
-	public id: string;
-	public name?: string;
 	public sessionId = randomUUID();
 	public closed = false;
-	public locked = false;
+	public id: string;
+	public tenantId: string;
 	public readonly creationTimestamp = Date.now();
 
-	public mediaService: MediaService;
+	public managedId?: string; // Possibly updated by the management service
+	public name?: string; // Possibly updated by the management service
+	public description?: string; // Possibly updated by the management service
+	public owners: ManagedRoomOwner[] = []; // Possibly updated by the management service
+	public userRoles: ManagedUserRole[] = []; // Possibly updated by the management service
+	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
+	public defaultRole?: ManagedRole; // Possibly updated by the management service
+	public locked = true; // Possibly updated by the management service
+	public promoteOnHostJoin = false; // Possibly updated by the management service
 
+	public maxActiveVideos = 12; // Possibly updated by the management service
+	public breakoutsEnabled = true; // Possibly updated by the management service
+	public chatEnabled = true; // Possibly updated by the management service
+	public filesharingEnabled = true; // Possibly updated by the management service
+	public raiseHandEnabled = true; // Possibly updated by the management service
+	public localRecordingEnabled = true; // Possibly updated by the management service
+
+	public settings: RoomSettings = {};
+
+	// eslint-disable-next-line no-unused-vars
+	public resolveRoomReady!: () => void;
+	public roomReady = new Promise<void>((resolve) => {
+		this.resolveRoomReady = () => {
+			logger.debug('roomReady() "resolved" [id: %s, took: %d]', this.id, Date.now() - this.creationTimestamp);
+
+			resolve();
+		};
+	});
+
+	public mediaService: MediaService;
 	public routers = List<Router>();
 	public breakoutRooms = new Map<string, BreakoutRoom>();
+	public waitingPeers = List<Peer>();
 	public pendingPeers = List<Peer>();
 	public peers = List<Peer>();
 	public lobbyPeers = List<Peer>();
@@ -64,34 +83,56 @@ export default class Room extends EventEmitter {
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
 
-	private lobbyPeerMiddleware: Middleware<PeerContext>;
-	private initialMediaMiddleware: Middleware<PeerContext>;
-	private joinMiddleware: Middleware<PeerContext>;
-	private peerMiddlewares: Middleware<PeerContext>[] = [];
+	#lobbyPeerMiddleware: Middleware<PeerContext>;
+	#initialMediaMiddleware: Middleware<PeerContext>;
+	#joinMiddleware: Middleware<PeerContext>;
 
-	constructor({ id, name, mediaService }: RoomOptions) {
+	#peerMiddleware: Middleware<PeerContext>;
+	#moderatorMiddleware: Middleware<PeerContext>;
+	#mediaMiddleware: Middleware<PeerContext>;
+	#lockMiddleware: Middleware<PeerContext>;
+	#lobbyMiddleware: Middleware<PeerContext>;
+	#breakoutMiddleware: Middleware<PeerContext>;
+	#chatMiddleware: Middleware<PeerContext>;
+	#fileMiddleware: Middleware<PeerContext>;
+
+	#allMiddlewares: Middleware<PeerContext>[] = [];
+
+	constructor({ id, tenantId, name, mediaService }: RoomOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
 
 		this.id = id;
+		this.tenantId = tenantId;
 		this.name = name;
 		this.mediaService = mediaService;
 
-		this.lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
-		this.initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
-		this.joinMiddleware = createJoinMiddleware({ room: this });
+		this.#lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
+		this.#initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
+		this.#joinMiddleware = createJoinMiddleware({ room: this });
+		this.#peerMiddleware = createPeerMiddleware({ room: this });
+		this.#moderatorMiddleware = createModeratorMiddleware({ room: this });
+		this.#mediaMiddleware = createMediaMiddleware({ room: this });
+		this.#lockMiddleware = createLockMiddleware({ room: this });
+		this.#lobbyMiddleware = createLobbyMiddleware({ room: this });
+		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
+		this.#chatMiddleware = createChatMiddleware({ room: this });
+		this.#fileMiddleware = createFileMiddleware({ room: this });
 
-		this.peerMiddlewares.push(
-			createPeerMiddleware({ room: this }),
-			createModeratorMiddleware({ room: this }),
-			createMediaMiddleware({ room: this }),
-			createChatMiddleware({ room: this }),
-			createFileMiddleware({ room: this }),
-			createLockMiddleware({ room: this }),
-			createLobbyMiddleware({ room: this }),
-			createBreakoutMiddleware({ room: this }),
-		);
+		this.#allMiddlewares = [
+			this.#lobbyPeerMiddleware,
+			this.#initialMediaMiddleware,
+			this.#joinMiddleware,
+			this.#peerMiddleware,
+			this.#moderatorMiddleware,
+			this.#mediaMiddleware,
+			this.#lockMiddleware,
+			this.#lobbyMiddleware,
+			this.#breakoutMiddleware,
+			this.#chatMiddleware,
+			this.#fileMiddleware
+		];
 	}
 
 	@skipIfClosed
@@ -117,7 +158,7 @@ export default class Room extends EventEmitter {
 	}
 
 	public get empty(): boolean {
-		return this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
+		return this.waitingPeers.empty && this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
 	}
 
 	public addRouter(router: Router): void {
@@ -127,59 +168,48 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public addPeer(peer: Peer): void {
+	public async addPeer(peer: Peer): Promise<void> {
 		logger.debug('addPeer() [id: %s]', peer.id);
 		
 		peer.once('close', () => this.removePeer(peer));
 
-		// TODO: handle reconnect
-		if (isAllowed(this, peer))
-			this.allowPeer(peer);
-		else
-			this.parkPeer(peer);
+		try {
+			this.waitingPeers.add(peer);
 
-		// Register this listener to promote the peer if it is
-		// in the lobby and gets a role that allows it to pass
-		peer.on('gotRole', () => {
-			if (this.lobbyPeers.has(peer) && isAllowed(this, peer))
-				this.promotePeer(peer);
-		});
+			// This will resolve/reject when we have succeeded/failed to merge the room information from the management service
+			await this.roomReady;
+
+			if (this.closed)
+				throw new RoomClosedError('room closed');
+
+			this.waitingPeers.remove(peer);
+
+			// This will update the permissions of the peer based on what we possibly got from the management service
+			updatePeerPermissions(this, peer);
+
+			if (isAllowed(this, peer))
+				this.allowPeer(peer);
+			else
+				this.parkPeer(peer);
+		} catch (error) {
+			logger.error('addPeer() [error: %o]', error);
+
+			peer.close();
+		}
 	}
 
 	@skipIfClosed
 	public removePeer(peer: Peer): void {
 		logger.debug('removePeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
 
-		if (this.pendingPeers.remove(peer)) {
-			peer.pipeline.remove(this.initialMediaMiddleware);
-			peer.pipeline.remove(this.joinMiddleware);
-		}
+		this.#allMiddlewares.forEach((m) => peer.pipeline.remove(m));
 
-		if (this.peers.remove(peer)) {
-			peer.pipeline.remove(this.initialMediaMiddleware);
-			this.peerMiddlewares.forEach((m) => peer.pipeline.remove(m));
+		this.waitingPeers.remove(peer);
+		this.pendingPeers.remove(peer);
 
-			this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
-
-			// No peers left with PROMOTE_PEER, might need to give
-			// lobbyPeers to peers that are left
-			if (isAllowedBecauseMissing(this, peer, Permission.PROMOTE_PEER)) {
-				const lobbyPeers = this.lobbyPeers.items.map((p) => (p.peerInfo));
-
-				allowedPeers(this, Permission.PROMOTE_PEER).forEach((p) =>
-					p.notify({ method: 'parkedPeers', data: { lobbyPeers } }));
-			}
-		}
-		
-		if (this.lobbyPeers.remove(peer)) {
-			peer.pipeline.remove(this.lobbyPeerMiddleware);
-
-			this.notifyPeers('lobby:peerClosed', { peerId: peer.id }, peer);
-		}
-
-		// If the Room is the root room and there are no more peers in it, close
-		if (this.empty)
-			this.close();
+		if (this.peers.remove(peer)) this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
+		if (this.lobbyPeers.remove(peer)) this.notifyPeersWithPermission('lobby:peerClosed', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
+		if (this.empty) this.close();
 	}
 
 	@skipIfClosed
@@ -189,22 +219,24 @@ export default class Room extends EventEmitter {
 		this.assignRouter(peer);
 
 		this.pendingPeers.add(peer);
-		peer.pipeline.use(this.initialMediaMiddleware, this.joinMiddleware);
+		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
 
 		peer.notify({
 			method: 'roomReady',
 			data: {
 				sessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
-				roles: peer.roles.map((role) => role.id),
-				roomPermissions,
-				userRoles,
-				allowWhenRoleMissing
+
+				maxActiveVideos: this.maxActiveVideos,
+				breakoutsEnabled: this.breakoutsEnabled,
+				chatEnabled: this.chatEnabled,
+				filesharingEnabled: this.filesharingEnabled,
+				raiseHandEnabled: this.raiseHandEnabled,
+				localRecordingEnabled: this.localRecordingEnabled,
+
+				settings: this.settings,
 			}
 		});
-
-		if (promoteOnHostJoin(this, peer))
-			this.promoteAllPeers();
 	}
 
 	@skipIfClosed
@@ -212,67 +244,64 @@ export default class Room extends EventEmitter {
 		logger.debug('parkPeer() [id: %s]', peer.id);
 
 		this.lobbyPeers.add(peer);
-		peer.pipeline.use(this.lobbyPeerMiddleware);
+		peer.pipeline.use(this.#lobbyPeerMiddleware);
 		peer.notify({ method: 'enteredLobby', data: {} });
 
-		allowedPeers(this, Permission.PROMOTE_PEER).forEach((p) =>
-			p.notify({ method: 'parkedPeer', data: { peerId: peer.id } }));
+		this.notifyPeersWithPermission('parkedPeer', { peerId: peer.id }, Permission.PROMOTE_PEER);
 	}
 
 	@skipIfClosed
 	public joinPeer(peer: Peer): void {
 		logger.debug('joinPeer() [id: %s]', peer.id);
 
-		peer.pipeline.remove(this.joinMiddleware);
+		peer.pipeline.remove(this.#joinMiddleware);
 		this.pendingPeers.remove(peer);
-		peer.pipeline.use(...this.peerMiddlewares);
-		this.peers.add(peer);
 
-		this.notifyPeers('newPeer', {
-			...peer.peerInfo
-		}, peer);
+		peer.pipeline.use(
+			this.#peerMiddleware,
+			this.#lobbyMiddleware,
+			this.#moderatorMiddleware,
+			this.#mediaMiddleware,
+			this.#lockMiddleware,
+		);
+
+		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
+		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
+		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
+
+		this.peers.add(peer);
+		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
 	}
 
 	@skipIfClosed
 	public promoteAllPeers(): void {
-		for (const peer of this.lobbyPeers.items) {
-			this.promotePeer(peer);
-		}
+		this.lobbyPeers.items.forEach((p) => this.promotePeer(p));
 	}
 
 	@skipIfClosed
 	public promotePeer(peer: Peer): void {
 		logger.debug('promotePeer() [id: %s]', peer.id);
 
-		peer.pipeline.remove(this.lobbyPeerMiddleware);
+		peer.pipeline.remove(this.#lobbyPeerMiddleware);
 		this.lobbyPeers.remove(peer);
-		this.notifyPeers('lobby:promotedPeer', { peerId: peer.id }, peer);
+		this.notifyPeersWithPermission('lobby:promotedPeer', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
 		this.allowPeer(peer);
-	}
-
-	public getPeers(excludePeer?: Peer): Peer[] {
-		return this.peers.items.filter((p) => p !== excludePeer);
-	}
-
-	public getBreakoutRooms(): BreakoutRoom[] {
-		return Array.from(this.breakoutRooms.values());
 	}
 
 	@skipIfClosed
 	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
-		const peers = this.getPeers(excludePeer);
+		this.getPeers(excludePeer).forEach((p) => p.notify({ method, data }));
+	}
 
-		for (const peer of peers) {
-			peer.notify({ method, data });
-		}
+	@skipIfClosed
+	public notifyPeersWithPermission(method: string, data: unknown, permission: Permission, excludePeer?: Peer): void {
+		this.getPeers(excludePeer)
+			.filter((p) => p.hasPermission(permission))
+			.forEach((p) => p.notify({ method, data }));
 	}
 
 	public getActiveMediaNodes(): MediaNode[] {
-		return [ ...new Set(
-			this.routers.items.map(
-				(r) => r.mediaNode as unknown as MediaNode
-			)
-		) ];
+		return [ ...new Set(this.routers.items.map((r) => r.mediaNode)) ];
 	}
 
 	private async assignRouter(peer: Peer): Promise<void> {
@@ -287,7 +316,30 @@ export default class Room extends EventEmitter {
 		} catch (error) {
 			logger.error('assignRouter() [%o]', error);
 
-			peer.rejectRouterReady(error);
+			peer.notify({ method: 'noMediaAvailable', data: { error } });
+			peer.close();
 		}
+	}
+
+	public getPeers(excludePeer?: Peer): Peer[] {
+		return this.peers.items.filter((p) => p !== excludePeer);
+	}
+
+	public getBreakoutRooms(): BreakoutRoom[] {
+		return Array.from(this.breakoutRooms.values());
+	}
+
+	public getPeerByManagedId(managedId: string): Peer | undefined {
+		return this.peers.items.find((p) => p.managedId === managedId) ??
+		this.pendingPeers.items.find((p) => p.managedId === managedId) ??
+		this.lobbyPeers.items.find((p) => p.managedId === managedId);
+	}
+
+	public getPeersByGroupId(groupId: string): Peer[] {
+		return [
+			...this.peers.items.filter((p) => p.groupIds.includes(groupId)),
+			...this.pendingPeers.items.filter((p) => p.groupIds.includes(groupId)),
+			...this.lobbyPeers.items.filter((p) => p.groupIds.includes(groupId))
+		];
 	}
 }

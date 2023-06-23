@@ -5,6 +5,8 @@ import { Router } from '../media/Router';
 import { Logger } from 'edumeet-common';
 import { DataProducer } from '../media/DataProducer';
 import Room from '../Room';
+import { LayerWatcher } from './layerWatcher';
+import { LayerReporter } from './layerReporter';
 
 const logger = new Logger('createConsumer');
 
@@ -85,6 +87,9 @@ export const createConsumer = async (
 			rtpCapabilities: consumerPeer.rtpCapabilities,
 		});
 
+		if (consumer.kind === 'video')
+			consumer.appData.layerReporter = (producer.appData.layerWatcher as LayerWatcher).creatLayerReporter();
+
 		if (consumerPeer.closed)
 			return consumer.close();
 
@@ -108,6 +113,7 @@ export const createConsumer = async (
 
 		consumer.once('close', () => {
 			consumerPeer.consumers.delete(consumer.id);
+			(consumer.appData.layerReporter as LayerReporter)?.close();
 
 			consumerPeer.notify({
 				method: 'consumerClosed',
@@ -120,10 +126,29 @@ export const createConsumer = async (
 			data: { consumerId: consumer.id }
 		}));
 
-		consumer.on('producerresume', () => consumerPeer.notify({
-			method: 'consumerResumed',
-			data: { consumerId: consumer.id }
-		}));
+		consumer.on('producerresume', () => {
+			if (consumer.appData.suspended) {
+				consumerPeer.notify({
+					method: 'newConsumer',
+					data: {
+						peerId: producerPeer.id,
+						producerId: consumer.producerId,
+						id: consumer.id,
+						kind: consumer.kind,
+						rtpParameters: consumer.rtpParameters,
+						producerPaused: consumer.producerPaused,
+						appData: producer.appData,
+					}
+				});
+
+				delete consumer.appData.suspended;
+			} else {
+				consumerPeer.notify({
+					method: 'consumerResumed',
+					data: { consumerId: consumer.id }
+				});
+			}
+		});
 
 		consumer.on('score', (score) => consumerPeer.notify({
 			method: 'consumerScore',
@@ -139,18 +164,22 @@ export const createConsumer = async (
 			}
 		}));
 
-		consumerPeer.notify({
-			method: 'newConsumer',
-			data: {
-				peerId: producerPeer.id,
-				producerId: consumer.producerId,
-				id: consumer.id,
-				kind: consumer.kind,
-				rtpParameters: consumer.rtpParameters,
-				producerPaused: consumer.producerPaused,
-				appData: producer.appData,
-			}
-		});
+		if (consumer.producerPaused)
+			consumer.appData.suspended = true;
+		else {
+			consumerPeer.notify({
+				method: 'newConsumer',
+				data: {
+					peerId: producerPeer.id,
+					producerId: consumer.producerId,
+					id: consumer.id,
+					kind: consumer.kind,
+					rtpParameters: consumer.rtpParameters,
+					producerPaused: consumer.producerPaused,
+					appData: producer.appData,
+				}
+			});
+		}
 	} catch (error) {
 		return logger.error('createConsumer() [error: %o]', error);
 	}

@@ -1,5 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { hasPermission, Permission } from '../common/authorization';
+import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { Peer, PeerContext } from '../Peer';
 import BreakoutRoom from '../BreakoutRoom';
@@ -26,7 +26,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		
 		switch (message.method) {
 			case 'createBreakoutRoom': {
-				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
+				if (!peer.hasPermission(Permission.CREATE_ROOM))
 					throw new Error('peer not authorized');
 
 				const { name } = message.data;
@@ -48,7 +48,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			}
 
 			case 'ejectBreakoutRoom': {
-				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
+				if (!peer.hasPermission(Permission.CREATE_ROOM))
 					throw new Error('peer not authorized');
 
 				const { roomSessionId } = message.data;
@@ -66,7 +66,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			}
 
 			case 'removeBreakoutRoom': {
-				if (!hasPermission(room, peer, Permission.CREATE_ROOM))
+				if (!peer.hasPermission(Permission.CREATE_ROOM))
 					throw new Error('peer not authorized');
 
 				const { roomSessionId } = message.data;
@@ -85,7 +85,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			}
 
 			case 'joinBreakoutRoom': {
-				if (!hasPermission(room, peer, Permission.CHANGE_ROOM))
+				if (!peer.hasPermission(Permission.CHANGE_ROOM))
 					throw new Error('peer not authorized');
 
 				const { roomSessionId } = message.data;
@@ -110,7 +110,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			}
 
 			case 'leaveBreakoutRoom': {
-				if (!hasPermission(room, peer, Permission.CHANGE_ROOM))
+				if (!peer.hasPermission(Permission.CHANGE_ROOM))
 					throw new Error('peer not authorized');
 
 				if (peer.sessionId === room.sessionId)

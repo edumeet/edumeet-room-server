@@ -21,6 +21,7 @@ describe('Room', () => {
 
 		room1 = new Room({
 			id: roomId1,
+			tenantId: 'testTenantId',
 			mediaService,
 			name: roomName1,
 		});
@@ -34,7 +35,7 @@ describe('Room', () => {
 		expect(room1.name).toBe(roomName1);
 		expect(room1.sessionId).toBeDefined();
 		expect(room1.closed).toBe(false);
-		expect(room1.locked).toBe(false);
+		expect(room1.locked).toBe(true);
 
 		expect(room1.routers.length).toBe(0);
 		expect(room1.breakoutRooms.size).toBe(0);
