@@ -27,11 +27,7 @@ export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 					throw new Error('peer not authorized');
 
 				room.locked = true;
-
-				room.notifyPeers('lockRoom', {
-					peerId: peer.id,
-				}, peer);
-
+				room.notifyPeers('lockRoom', { peerId: peer.id }, peer);
 				context.handled = true;
 
 				break;
@@ -42,11 +38,7 @@ export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 					throw new Error('peer not authorized');
 
 				room.locked = false;
-
-				room.notifyPeers('unlockRoom', {
-					peerId: peer.id,
-				}, peer);
-
+				room.notifyPeers('unlockRoom', { peerId: peer.id }, peer);
 				room.promoteAllPeers();
 				
 				context.handled = true;

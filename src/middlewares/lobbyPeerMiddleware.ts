@@ -3,7 +3,7 @@ import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { verifyPeer } from '../common/token';
-import { updatePeerPermissions } from '../common/authorization';
+import { Permission, updatePeerPermissions } from '../common/authorization';
 
 const logger = new Logger('LobbyPeerMiddleware');
 
@@ -27,12 +27,10 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				const { displayName } = message.data;
 
 				peer.displayName = displayName;
-
-				// TODO: only send to PROMOTE_PEER peers
-				room.notifyPeers('lobby:changeDisplayName', {
+				room.notifyPeersWithPermission('lobby:changeDisplayName', {
 					peerId: peer.id,
 					displayName
-				}, peer);
+				}, Permission.PROMOTE_PEER, peer);
 
 				context.handled = true;
 
@@ -43,12 +41,10 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				const { picture } = message.data;
 
 				peer.picture = picture;
-
-				// TODO: only send to PROMOTE_PEER peers
-				room.notifyPeers('lobby:changePicture', {
+				room.notifyPeersWithPermission('lobby:changePicture', {
 					peerId: peer.id,
 					picture
-				}, peer);
+				}, Permission.PROMOTE_PEER, peer);
 
 				context.handled = true;
 

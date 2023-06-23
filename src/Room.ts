@@ -18,7 +18,7 @@ import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
-import { Permission, isAllowed, peersWithPermission, updatePeerPermissions } from './common/authorization';
+import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 
 const logger = new Logger('Room');
 
@@ -207,15 +207,9 @@ export default class Room extends EventEmitter {
 		this.waitingPeers.remove(peer);
 		this.pendingPeers.remove(peer);
 
-		if (this.peers.remove(peer))
-			this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
-		
-		if (this.lobbyPeers.remove(peer))
-			this.notifyPeers('lobby:peerClosed', { peerId: peer.id }, peer);
-
-		// If the Room is the root room and there are no more peers in it, close
-		if (this.empty)
-			this.close();
+		if (this.peers.remove(peer)) this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
+		if (this.lobbyPeers.remove(peer)) this.notifyPeersWithPermission('lobby:peerClosed', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
+		if (this.empty) this.close();
 	}
 
 	@skipIfClosed
@@ -243,8 +237,6 @@ export default class Room extends EventEmitter {
 				settings: this.settings,
 			}
 		});
-
-		// TODO: promote on host join
 	}
 
 	@skipIfClosed
@@ -255,8 +247,7 @@ export default class Room extends EventEmitter {
 		peer.pipeline.use(this.#lobbyPeerMiddleware);
 		peer.notify({ method: 'enteredLobby', data: {} });
 
-		peersWithPermission(this, Permission.PROMOTE_PEER).forEach((p) =>
-			p.notify({ method: 'parkedPeer', data: { peerId: peer.id } }));
+		this.notifyPeersWithPermission('parkedPeer', { peerId: peer.id }, Permission.PROMOTE_PEER);
 	}
 
 	@skipIfClosed
@@ -279,17 +270,12 @@ export default class Room extends EventEmitter {
 		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
 
 		this.peers.add(peer);
-
-		this.notifyPeers('newPeer', {
-			...peer.peerInfo
-		}, peer);
+		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
 	}
 
 	@skipIfClosed
 	public promoteAllPeers(): void {
-		for (const peer of this.lobbyPeers.items) {
-			this.promotePeer(peer);
-		}
+		this.lobbyPeers.items.forEach((p) => this.promotePeer(p));
 	}
 
 	@skipIfClosed
@@ -298,25 +284,24 @@ export default class Room extends EventEmitter {
 
 		peer.pipeline.remove(this.#lobbyPeerMiddleware);
 		this.lobbyPeers.remove(peer);
-		this.notifyPeers('lobby:promotedPeer', { peerId: peer.id }, peer);
+		this.notifyPeersWithPermission('lobby:promotedPeer', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
 		this.allowPeer(peer);
 	}
 
 	@skipIfClosed
 	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
-		const peers = this.getPeers(excludePeer);
+		this.getPeers(excludePeer).forEach((p) => p.notify({ method, data }));
+	}
 
-		for (const peer of peers) {
-			peer.notify({ method, data });
-		}
+	@skipIfClosed
+	public notifyPeersWithPermission(method: string, data: unknown, permission: Permission, excludePeer?: Peer): void {
+		this.getPeers(excludePeer)
+			.filter((p) => p.hasPermission(permission))
+			.forEach((p) => p.notify({ method, data }));
 	}
 
 	public getActiveMediaNodes(): MediaNode[] {
-		return [ ...new Set(
-			this.routers.items.map(
-				(r) => r.mediaNode as unknown as MediaNode
-			)
-		) ];
+		return [ ...new Set(this.routers.items.map((r) => r.mediaNode)) ];
 	}
 
 	private async assignRouter(peer: Peer): Promise<void> {

@@ -48,10 +48,6 @@ export const isAllowed = (room: Room, peer: Peer) => {
 	return true;
 };
 
-export const peersWithPermission = (room: Room, permission: Permission) => {
-	return room.peers.items.filter((peer) => peer.hasPermission(permission));
-};
-
 export const permittedProducer = (source: MediaSourceType, room: Room, peer: Peer) => {
 	if (!source || !Object.values(MediaSourceType).includes(source))
 		throw new Error('invalid producer source');
