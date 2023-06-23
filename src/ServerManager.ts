@@ -4,6 +4,7 @@ import MediaService from './MediaService';
 import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
+import { RoomSettings } from './common/types';
 
 const logger = new Logger('ServerManager');
 
@@ -20,8 +21,8 @@ export default class ServerManager {
 	public closed = false;
 	public peers: Map<string, Peer>;
 	public rooms: Map<string, Room>;
-	public managedRooms = new Map<string, Room>(); // Mapped by ID from management service
-	public managedPeers = new Map<string, Peer>(); // Mapped by ID from management service
+	public managedRooms: Map<string, Room>; // Mapped by ID from management service
+	public managedPeers: Map<string, Peer>; // Mapped by ID from management service
 	public mediaService: MediaService;
 	public managementService: ManagementService;
 
@@ -133,8 +134,8 @@ export default class ServerManager {
 						room.owners = managedRoom.owners;
 						room.groupRoles = managedRoom.groupRoles;
 						room.userRoles = managedRoom.userRoles;
-						room.logo = managedRoom.logo;
-						room.background = managedRoom.background;
+						room.defaultRole = managedRoom.defaultRole;
+
 						room.maxActiveVideos = managedRoom.maxActiveVideos;
 						room.locked = managedRoom.locked;
 						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
@@ -143,9 +144,49 @@ export default class ServerManager {
 						room.filesharingEnabled = managedRoom.filesharingEnabled;
 						room.localRecordingEnabled = managedRoom.localRecordingEnabled;
 
+						const managedSettings: RoomSettings = {
+							logo: managedRoom.logo,
+							background: managedRoom.background,
+
+							// Video settings
+							videoCodec: managedRoom.videoCodec,
+							simulcast: managedRoom.simulcast,
+							videoResolution: managedRoom.videoResolution,
+							videoFramerate: managedRoom.videoFramerate,
+
+							// Audio settings
+							audioCodec: managedRoom.audioCodec,
+							autoGainControl: managedRoom.autoGainControl,
+							echoCancellation: managedRoom.echoCancellation,
+							noiseSuppression: managedRoom.noiseSuppression,
+							sampleRate: managedRoom.sampleRate,
+							channelCount: managedRoom.channelCount,
+							sampleSize: managedRoom.sampleSize,
+							opusStereo: managedRoom.opusStereo,
+							opusDtx: managedRoom.opusDtx,
+							opusFec: managedRoom.opusFec,
+							opusPtime: managedRoom.opusPtime,
+							opusMaxPlaybackRate: managedRoom.opusMaxPlaybackRate,
+
+							// Screen sharing settings
+							screenSharingCodec: managedRoom.screenSharingCodec,
+							screenSharingSimulcast: managedRoom.screenSharingSimulcast,
+							screenSharingResolution: managedRoom.screenSharingResolution,
+							screenSharingFramerate: managedRoom.screenSharingFramerate
+						};
+
+						room.settings = managedSettings;
+
 						this.managedRooms.set(String(managedRoom.id), room);
 					}
-				} catch (error) {} finally {
+				} catch (error) {
+					logger.error(
+						'handleConnection() error while getting room [roomId: %s, tenantId: %s, error: %o]',
+						roomId,
+						tenantId,
+						error
+					);
+				} finally {
 					room.resolveRoomReady();
 				}
 			})();

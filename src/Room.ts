@@ -12,7 +12,7 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { ChatMessage, FileMessage, ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole } from './common/types';
+import { ChatMessage, FileMessage, ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
@@ -49,16 +49,18 @@ export default class Room extends EventEmitter {
 	public owners: ManagedRoomOwner[] = []; // Possibly updated by the management service
 	public userRoles: ManagedUserRole[] = []; // Possibly updated by the management service
 	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
+	public defaultRole?: ManagedRole; // Possibly updated by the management service
 	public locked = true; // Possibly updated by the management service
 	public promoteOnHostJoin = false; // Possibly updated by the management service
-	public logo?: string; // Possibly updated by the management service
-	public background?: string; // Possibly updated by the management service
+
 	public maxActiveVideos = 12; // Possibly updated by the management service
 	public breakoutsEnabled = true; // Possibly updated by the management service
 	public chatEnabled = true; // Possibly updated by the management service
 	public filesharingEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
+
+	public settings: RoomSettings = {};
 
 	// eslint-disable-next-line no-unused-vars
 	public resolveRoomReady!: () => void;
@@ -233,14 +235,15 @@ export default class Room extends EventEmitter {
 			data: {
 				sessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
-				logo: this.logo,
-				background: this.background,
+
 				maxActiveVideos: this.maxActiveVideos,
 				breakoutsEnabled: this.breakoutsEnabled,
 				chatEnabled: this.chatEnabled,
 				filesharingEnabled: this.filesharingEnabled,
 				raiseHandEnabled: this.raiseHandEnabled,
 				localRecordingEnabled: this.localRecordingEnabled,
+
+				settings: this.settings,
 			}
 		});
 
@@ -339,7 +342,12 @@ export default class Room extends EventEmitter {
 		} catch (error) {
 			logger.error('assignRouter() [%o]', error);
 
-			// peer.rejectRouterReady(error);
+			peer.notify({
+				method: 'noMediaAvailable',
+				data: { error }
+			});
+
+			peer.close();
 		}
 	}
 
@@ -362,9 +370,10 @@ export default class Room extends EventEmitter {
 			.filter((gr) => peer.groupIds.includes(gr.groupId))
 			.map((gr) => gr.role.permissions.map((p) => p.name))
 			.flat();
+		const defaultPermissions = this.defaultRole?.permissions.map((p) => p.name) ?? [];
 
 		// Combine and remove duplicates
-		peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions ]) ];
+		peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
 
 		if (lobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK))
 			this.promotePeer(peer);
@@ -380,9 +389,40 @@ export default class Room extends EventEmitter {
 		this.raiseHandEnabled = room.raiseHandEnabled;
 		this.localRecordingEnabled = room.localRecordingEnabled;
 		this.breakoutsEnabled = room.breakoutsEnabled;
-		this.logo = room.logo;
-		this.background = room.background;
 		this.maxActiveVideos = room.maxActiveVideos;
+
+		const managedSettings: RoomSettings = {
+			logo: room.logo,
+			background: room.background,
+
+			// Video settings
+			videoCodec: room.videoCodec,
+			simulcast: room.simulcast,
+			videoResolution: room.videoResolution,
+			videoFramerate: room.videoFramerate,
+
+			// Audio settings
+			audioCodec: room.audioCodec,
+			autoGainControl: room.autoGainControl,
+			echoCancellation: room.echoCancellation,
+			noiseSuppression: room.noiseSuppression,
+			sampleRate: room.sampleRate,
+			channelCount: room.channelCount,
+			sampleSize: room.sampleSize,
+			opusStereo: room.opusStereo,
+			opusDtx: room.opusDtx,
+			opusFec: room.opusFec,
+			opusPtime: room.opusPtime,
+			opusMaxPlaybackRate: room.opusMaxPlaybackRate,
+
+			// Screen sharing settings
+			screenSharingCodec: room.screenSharingCodec,
+			screenSharingSimulcast: room.screenSharingSimulcast,
+			screenSharingResolution: room.screenSharingResolution,
+			screenSharingFramerate: room.screenSharingFramerate
+		};
+
+		this.settings = managedSettings;
 
 		this.notifyPeers('roomUpdate', {
 			name: this.name,
@@ -392,9 +432,9 @@ export default class Room extends EventEmitter {
 			raiseHandEnabled: this.raiseHandEnabled,
 			localRecordingEnabled: this.localRecordingEnabled,
 			breakoutsEnabled: this.breakoutsEnabled,
-			logo: this.logo,
-			background: this.background,
-			maxActiveVideos: this.maxActiveVideos
+			maxActiveVideos: this.maxActiveVideos,
+
+			settings: managedSettings
 		});
 	}
 

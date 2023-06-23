@@ -60,6 +60,40 @@ export type SrtpCryptoSuite =
 	| 'AES_CM_128_HMAC_SHA1_80'
 	| 'AES_CM_128_HMAC_SHA1_32';
 
+export interface RoomSettings {
+	logo?: string;
+	background?: string;
+
+	// Video settings
+	videoCodec?: VideoCodec;
+	simulcast?: boolean;
+	videoResolution?: VideoResolution;
+	videoFramerate?: number;
+
+	// Audio settings
+	audioCodec?: string;
+	autoGainControl?: boolean;
+	echoCancellation?: boolean;
+	noiseSuppression?: boolean;
+	sampleRate?: number;
+	channelCount?: number;
+	sampleSize?: number;
+	opusStereo?: boolean;
+	opusDtx?: boolean;
+	opusFec?: boolean;
+	opusPtime?: number;
+	opusMaxPlaybackRate?: number;
+
+	// Screen sharing settings
+	screenSharingCodec?: VideoCodec;
+	screenSharingSimulcast?: boolean;
+	screenSharingResolution?: VideoResolution;
+	screenSharingFramerate?: number;
+}
+
+export type VideoCodec = 'vp8' | 'vp9' | 'h264' | 'h265' | 'av1';
+export type VideoResolution = 'low' | 'medium' | 'high' | 'veryhigh' | 'ultra';
+
 export type ManagedRoom = {
 	id: number;
 	name: string;
@@ -73,6 +107,7 @@ export type ManagedRoom = {
 	owners: ManagedRoomOwner[];
 	groupRoles: ManagedGroupRole[]; // Group roles in this room
 	userRoles: ManagedUserRole[]; // User roles in this room
+	defaultRole?: ManagedRole; // Default role for users without a role in this room
 
 	// Look and feel
 	logo?: string;
@@ -86,6 +121,32 @@ export type ManagedRoom = {
 	raiseHandEnabled: boolean;
 	filesharingEnabled: boolean;
 	localRecordingEnabled: boolean;
+
+	// Video settings
+	videoCodec?: VideoCodec;
+	simulcast?: boolean;
+	videoResolution?: VideoResolution;
+	videoFramerate?: number;
+
+	// Audio settings
+	audioCodec?: string;
+	autoGainControl?: boolean;
+	echoCancellation?: boolean;
+	noiseSuppression?: boolean;
+	sampleRate?: number;
+	channelCount?: number;
+	sampleSize?: number;
+	opusStereo?: boolean;
+	opusDtx?: boolean;
+	opusFec?: boolean;
+	opusPtime?: number;
+	opusMaxPlaybackRate?: number;
+
+	// Screen sharing settings
+	screenSharingCodec?: VideoCodec;
+	screenSharingSimulcast?: boolean;
+	screenSharingResolution?: VideoResolution;
+	screenSharingFramerate?: number;
 };
 
 export type ManagedUser = {
