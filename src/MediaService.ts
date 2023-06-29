@@ -68,27 +68,28 @@ export default class MediaService {
 	public async getRouter(room: Room, peer: Peer): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
-		const candidates: MediaNode[] = this.loadBalancer.getCandidates(room, peer);
+		let candidates: MediaNode[] = [];
 
-		// TODO: Filter out unhealthy media-nodes in LoadBalancer
-		for (const c of candidates.filter((node) => node.health === true)) {
-			try {
-				const router = await c.getRouter({
-					roomId: room.id,
-					appData: {
-						roomId: room.id,
-						pipePromises: new Map<string, Promise<void>>(),
-					}
-				});
+		do { 
+			candidates = this.loadBalancer.getCandidates(room, peer);
 
-				return router;
-			} catch (error) {
-				logger.error('getRouter() [error %o]', error);
-				if (error instanceof RoomClosedError) throw error;
+			for (const c of candidates) {
+				try {
+					const router = await c.getRouter({
+						roomId: room.sessionId,
+						appData: {
+							pipePromises: new Map<string, Promise<void>>(),
+						}
+					});
+
+					return router;
+				} catch (error) {
+					logger.error('getRouter() [error %o]', error);
+					if (error instanceof RoomClosedError) throw error;
+				}
 			}
-		}		
-		// TODO: hail mary attempt, loop until loadbalancer.getCandidates() returns [].length === 0
+		} while (candidates.length > 0);
+
 		throw new Error('no media nodes available');
-		// TODO: notify client
 	}
 }

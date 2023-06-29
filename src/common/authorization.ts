@@ -1,28 +1,12 @@
-import BreakoutRoom from '../BreakoutRoom';
 import { Peer } from '../Peer';
 import Room from '../Room';
-import { Role } from './types';
 import { MediaSourceType } from 'edumeet-common';
-
-export const userRoles: Record<string, Role> = {
-	// These can be changed, id must be unique.
-
-	// A person can give other peers any role that is promotable: true
-	// with a level up to and including their own highest role.
-	// Example: A MODERATOR can give other peers PRESENTER and MODERATOR
-	// roles (all peers always have NORMAL)
-	ADMIN: { id: 2529, label: 'admin', level: 50, promotable: true },
-	MODERATOR: { id: 5337, label: 'moderator', level: 40, promotable: true },
-	PRESENTER: { id: 9583, label: 'presenter', level: 30, promotable: true },
-	AUTHENTICATED: { id: 5714, label: 'authenticated', level: 20, promotable: false },
-	// Don't change anything after this point
-
-	// All users have this role by default, do not change or remove this role
-	NORMAL: { id: 4261, label: 'normal', level: 10, promotable: false }
-};
+import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './types';
 
 /* eslint-disable no-unused-vars, no-shadow */
 export enum Permission {
+	// The role(s) will gain access to the room even if it is locked (!)
+	BYPASS_ROOM_LOCK = 'BYPASS_ROOM_LOCK',
 	// The role(s) have permission to lock/unlock a room
 	CHANGE_ROOM_LOCK = 'CHANGE_ROOM_LOCK',
 	// The role(s) have permission to promote a peer from the lobby
@@ -40,7 +24,7 @@ export enum Permission {
 	// The role(s) have permission to share screen
 	SHARE_SCREEN = 'SHARE_SCREEN',
 	// The role(s) have permission to produce extra video
-	EXTRA_VIDEO = 'EXTRA_VIDEO',
+	SHARE_EXTRA_VIDEO = 'SHARE_EXTRA_VIDEO',
 	// The role(s) have permission to share files
 	SHARE_FILE = 'SHARE_FILE',
 	// The role(s) have permission to moderate files
@@ -55,166 +39,279 @@ export enum Permission {
 	CHANGE_ROOM = 'CHANGE_ROOM',
 }
 
-export enum Access {
-	// The role(s) will gain access to the room
-	// even if it is locked (!)
-	BYPASS_ROOM_LOCK = 'BYPASS_ROOM_LOCK',
+export const allPermissions = Object.values(Permission);
 
-	// The role(s) will gain access to the room without
-	// going into the lobby. If you want to restrict access to your
-	// server to only directly allow authenticated users, you could
-	// add the userRoles.AUTHENTICATED to the user in the userMapping
-	// function, and change to BYPASS_LOBBY : [ userRoles.AUTHENTICATED ]
-	BYPASS_LOBBY = 'BYPASS_LOBBY',
-}
+export const isAllowed = (room: Room, peer: Peer) => {
+	if (room.locked && !peer.hasPermission(Permission.BYPASS_ROOM_LOCK))
+		return false;
 
-export const roomAccess = {
-	[Access.BYPASS_ROOM_LOCK]: [ userRoles.ADMIN ],
-	[Access.BYPASS_LOBBY]: [ userRoles.NORMAL ],
-};
-
-export const roomPermissions = {
-	[Permission.CHANGE_ROOM_LOCK]: [ userRoles.NORMAL ],
-	[Permission.PROMOTE_PEER]: [ userRoles.NORMAL ],
-	[Permission.MODIFY_ROLE]: [ userRoles.NORMAL ],
-	[Permission.SEND_CHAT]: [ userRoles.NORMAL ],
-	[Permission.MODERATE_CHAT]: [ userRoles.NORMAL ],
-	[Permission.SHARE_AUDIO]: [ userRoles.NORMAL ],
-	[Permission.SHARE_VIDEO]: [ userRoles.NORMAL ],
-	[Permission.SHARE_SCREEN]: [ userRoles.NORMAL ],
-	[Permission.EXTRA_VIDEO]: [ userRoles.NORMAL ],
-	[Permission.SHARE_FILE]: [ userRoles.NORMAL ],
-	[Permission.MODERATE_FILES]: [ userRoles.NORMAL ],
-	[Permission.MODERATE_ROOM]: [ userRoles.NORMAL ],
-	[Permission.LOCAL_RECORD_ROOM]: [ userRoles.NORMAL ],
-	[Permission.CREATE_ROOM]: [ userRoles.NORMAL ],
-	[Permission.CHANGE_ROOM]: [ userRoles.NORMAL ],
-};
-
-export const allowWhenRoleMissing: Permission[] = [];
-export const activateOnHostJoin = false;
-/* eslint-enable no-unused-vars, no-shadow */
-
-export const hasPermission = (
-	room: Room | BreakoutRoom,
-	peer: Peer,
-	permission: Permission
-): boolean => {
-	const exists = peer.roles.some((role) =>
-		roomPermissions[permission].some((roomRole) => role.id === roomRole.id)
-	);
-
-	if (exists)
-		return true;
-
-	let actualRoom: Room;
-
-	if (room instanceof BreakoutRoom)
-		actualRoom = room.parent;
-	else
-		actualRoom = room;
-
-	if (
-		allowWhenRoleMissing.includes(permission) &&
-		permittedPeers(actualRoom, permission).length === 0
-	)
-		return true;
-
-	return false;
-};
-
-export const hasAccess = (peer: Peer, access: Access): boolean => {
-	return peer.roles.some((role) =>
-		roomAccess[access].some((roomRole) => role.id === roomRole.id)
-	);
-};
-
-export const isAllowed = (room: Room, peer: Peer): boolean => {
-	return hasAccess(peer, Access.BYPASS_ROOM_LOCK) ||
-		(!room.locked && hasAccess(peer, Access.BYPASS_LOBBY));
-};
-
-export const isAllowedBecauseMissing = (
-	room: Room,
-	peer: Peer,
-	permission: Permission
-) => {
-	return !room.lobbyPeers.empty &&
-		hasPermission(room, peer, permission) &&
-		permittedPeers(room, permission).length === 0;
-};
-
-export const promoteOnHostJoin = (room: Room, peer: Peer): boolean => {
-	return activateOnHostJoin && !room.lobbyPeers.empty && !room.locked &&
-		hasPermission(room, peer, Permission.PROMOTE_PEER);
-};
-
-export const allowedPeers = (
-	room: Room,
-	permission: Permission,
-	excludePeer?: Peer
-): Peer[] => {
-	const peers = permittedPeers(room, permission, excludePeer, false);
-
-	if (peers.length > 0)
-		return peers;
-	else if (allowWhenRoleMissing.includes(permission))
-		return room.getPeers(excludePeer);
-
-	return [];
-};
-
-export const permittedPeers = (
-	room: Room,
-	permission: Permission,
-	excludePeer?: Peer,
-	pending = true,
-): Peer[] => {
-	const peers = [ ...room.peers.items ];
-
-	if (pending)
-		peers.push(...room.pendingPeers.items);
-
-	return peers.filter(
-		(p) =>
-			p !== excludePeer &&
-			p.roles.some(
-				(role) =>
-					roomPermissions[permission].some((roomRole) =>
-						role.id === roomRole.id)
-			)
-	);
+	return true;
 };
 
 export const permittedProducer = (source: MediaSourceType, room: Room, peer: Peer) => {
-	if (
-		!source ||
-		!Object.values(MediaSourceType)
-			.includes(source)
-	)
+	if (!source || !Object.values(MediaSourceType).includes(source))
 		throw new Error('invalid producer source');
 
-	if (
-		(source === MediaSourceType.MIC || source === MediaSourceType.SCREENAUDIO) &&
-		!hasPermission(room, peer, Permission.SHARE_AUDIO)
-	)
+	if ((source === MediaSourceType.MIC || source === MediaSourceType.SCREENAUDIO) && !peer.hasPermission(Permission.SHARE_AUDIO))
 		throw new Error('peer not authorized');
 
-	if (
-		source === MediaSourceType.WEBCAM &&
-		!hasPermission(room, peer, Permission.SHARE_VIDEO)
-	)
+	if (source === MediaSourceType.WEBCAM && !peer.hasPermission(Permission.SHARE_VIDEO))
 		throw new Error('peer not authorized');
 
-	if (
-		source === MediaSourceType.SCREEN &&
-		!hasPermission(room, peer, Permission.SHARE_SCREEN)
-	)
+	if (source === MediaSourceType.SCREEN && !peer.hasPermission(Permission.SHARE_SCREEN))
 		throw new Error('peer not authorized');
 
-	if (
-		source === MediaSourceType.EXTRAVIDEO &&
-		!hasPermission(room, peer, Permission.EXTRA_VIDEO)
-	)
+	if (source === MediaSourceType.EXTRAVIDEO && !peer.hasPermission(Permission.SHARE_EXTRA_VIDEO))
 		throw new Error('peer not authorized');
+};
+
+export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): void => {
+	const hadPromotePermission = peer.hasPermission(Permission.PROMOTE_PEER);
+	let shouldPromote = false;
+	let shouldGiveLobbyPeers = false;
+
+	if (room.owners.find((o) => o.userId === peer.managedId)) { // Owner gets everything
+		peer.permissions = allPermissions;
+
+		shouldPromote = inLobby;
+		shouldGiveLobbyPeers = !hadPromotePermission;
+	} else {
+		// Find the user roles the peer has, and get the roles for those user roles
+		const userPermissions = room.userRoles
+			.filter((ur) => ur.userId === peer.managedId)
+			.map((ur) => ur.role.permissions.map((p) => p.name))
+			.flat();
+		// Find the groups the peer is in, and get the roles for those groups
+		const groupPermissions = room.groupRoles
+			.filter((gr) => peer.groupIds.includes(gr.groupId))
+			.map((gr) => gr.role.permissions.map((p) => p.name))
+			.flat();
+		const defaultPermissions = room.defaultRole?.permissions.map((p) => p.name) ?? [];
+
+		// Combine and remove duplicates
+		peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
+
+		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+	}
+
+	if (shouldPromote) return room.promotePeer(peer); // We return here because the peer will get the lobbyPeers when it joins
+	if (shouldGiveLobbyPeers) peer.notify({ method: 'parkedPeers', data: { lobbyPeers: room.lobbyPeers.items.map((p) => (p.peerInfo)) } });
+};
+
+export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
+	room.locked = managedRoom.locked;
+	room.chatEnabled = managedRoom.chatEnabled;
+	room.filesharingEnabled = managedRoom.filesharingEnabled;
+	room.raiseHandEnabled = managedRoom.raiseHandEnabled;
+	room.localRecordingEnabled = managedRoom.localRecordingEnabled;
+	room.breakoutsEnabled = managedRoom.breakoutsEnabled;
+	room.maxActiveVideos = managedRoom.maxActiveVideos;
+
+	// TODO: handle defaultRole changing
+
+	const managedSettings: RoomSettings = {
+		logo: managedRoom.logo,
+		background: managedRoom.background,
+
+		// Video settings
+		videoCodec: managedRoom.videoCodec,
+		simulcast: managedRoom.simulcast,
+		videoResolution: managedRoom.videoResolution,
+		videoFramerate: managedRoom.videoFramerate,
+
+		// Audio settings
+		audioCodec: managedRoom.audioCodec,
+		autoGainControl: managedRoom.autoGainControl,
+		echoCancellation: managedRoom.echoCancellation,
+		noiseSuppression: managedRoom.noiseSuppression,
+		sampleRate: managedRoom.sampleRate,
+		channelCount: managedRoom.channelCount,
+		sampleSize: managedRoom.sampleSize,
+		opusStereo: managedRoom.opusStereo,
+		opusDtx: managedRoom.opusDtx,
+		opusFec: managedRoom.opusFec,
+		opusPtime: managedRoom.opusPtime,
+		opusMaxPlaybackRate: managedRoom.opusMaxPlaybackRate,
+
+		// Screen sharing settings
+		screenSharingCodec: managedRoom.screenSharingCodec,
+		screenSharingSimulcast: managedRoom.screenSharingSimulcast,
+		screenSharingResolution: managedRoom.screenSharingResolution,
+		screenSharingFramerate: managedRoom.screenSharingFramerate
+	};
+
+	room.settings = managedSettings;
+
+	room.notifyPeers('roomUpdate', {
+		name: room.name,
+		locked: room.locked,
+		chatEnabled: room.chatEnabled,
+		filesharingEnabled: room.filesharingEnabled,
+		raiseHandEnabled: room.raiseHandEnabled,
+		localRecordingEnabled: room.localRecordingEnabled,
+		breakoutsEnabled: room.breakoutsEnabled,
+		maxActiveVideos: room.maxActiveVideos,
+
+		settings: room.settings
+	});
+};
+
+export const addRoomOwner = (room: Room, roomOwner: ManagedRoomOwner): void => {
+	room.owners.push(roomOwner);
+
+	// Check if the peer is already in the room, if so, notify it
+	const peer = room.getPeerByManagedId(roomOwner.userId);
+
+	if (peer) updatePeerPermissions(room, peer);
+};
+
+export const removeRoomOwner = (room: Room, roomOwner: ManagedRoomOwner): void => {
+	room.owners = room.owners.filter((o) => o.id !== roomOwner.id);
+
+	// Check if the peer is already in the room, if so, notify it
+	const peer = room.getPeerByManagedId(roomOwner.userId);
+
+	if (peer) updatePeerPermissions(room, peer);
+};
+
+export const addRoomUserRole = (room: Room, roomUserRole: ManagedUserRole): void => {
+	room.userRoles.push(roomUserRole);
+
+	// Check if the peer is already in the room, if so, notify it
+	const peer = room.getPeerByManagedId(roomUserRole.userId);
+
+	if (peer) updatePeerPermissions(room, peer);
+};
+
+export const removeRoomUserRole = (room: Room, roomUserRole: ManagedUserRole): void => {
+	room.userRoles = room.userRoles.filter((ur) => ur.id !== roomUserRole.id);
+
+	// Check if the peer is already in the room, if so, notify it
+	const peer = room.getPeerByManagedId(roomUserRole.userId);
+
+	if (peer) updatePeerPermissions(room, peer);
+};
+
+export const addRoomGroupRole = (room: Room, roomGroupRole: ManagedGroupRole): void => {
+	room.groupRoles.push(roomGroupRole);
+
+	// Check if the peer is already in the room, if so, notify it
+	const peers = room.getPeersByGroupId(roomGroupRole.groupId);
+
+	peers.forEach((peer) => updatePeerPermissions(room, peer));
+};
+
+export const removeRoomGroupRole = (room: Room, roomGroupRole: ManagedGroupRole): void => {
+	room.groupRoles = room.groupRoles.filter((gr) => gr.id !== roomGroupRole.id);
+
+	// Check if the peer is already in the room, if so, notify it
+	const peers = room.getPeersByGroupId(roomGroupRole.groupId);
+
+	peers.forEach((peer) => updatePeerPermissions(room, peer));
+};
+
+export const removeGroup = (room: Room, group: ManagedGroup): void => {
+	room.groupRoles = room.groupRoles.filter((gr) => gr.groupId !== String(group.id));
+
+	// Check if the peer is already in the room, if so, notify it
+	const peers = room.getPeersByGroupId(String(group.id));
+
+	for (const peer of peers) {
+		peer.groupIds = peer.groupIds.filter((id) => id !== String(group.id));
+
+		updatePeerPermissions(room, peer);
+	}
+};
+
+export const addGroupUser = (room: Room, groupUser: ManagedGroupUser): void => {
+	// Check if the peer is already in the room, if so, notify it
+	const peer = room.getPeerByManagedId(groupUser.userId);
+
+	if (peer) {
+		const groupRole = room.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
+
+		if (groupRole) {
+			peer.groupIds.push(groupUser.groupId);
+			updatePeerPermissions(room, peer);
+		}
+	}
+};
+
+export const removeGroupUser = (room: Room, groupUser: ManagedGroupUser): void => {
+	// Check if the peer is already in the room, if so, notify it
+	const peer = room.getPeerByManagedId(groupUser.userId);
+
+	if (peer) {
+		const groupRole = room.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
+
+		if (groupRole) {
+			peer.groupIds = peer.groupIds.filter((id) => id !== groupUser.groupId);
+			updatePeerPermissions(room, peer);
+		}
+	}
+};
+
+export const removeRole = (room: Room, role: ManagedRole): void => {
+	room.userRoles.forEach((ur) => {
+		if (ur.roleId === String(role.id))
+			removeRoomUserRole(room, ur);
+	});
+
+	room.groupRoles.forEach((gr) => {
+		if (gr.roleId === String(role.id))
+			removeRoomGroupRole(room, gr);
+	});
+
+	if (room.defaultRole?.id === role.id) {
+		delete room.defaultRole;
+		
+		const peers = room.getPeers();
+
+		peers.forEach((peer) => updatePeerPermissions(room, peer));
+	}
+};
+
+export const addRolePermission = (room: Room, rolePermission: ManagedRolePermission): void => {
+	room.userRoles.forEach((ur) => {
+		if (ur.roleId === rolePermission.roleId) {
+			ur.role.permissions.push(rolePermission.permission);
+
+			const peer = room.getPeerByManagedId(ur.userId);
+
+			if (peer) updatePeerPermissions(room, peer);
+		}
+	});
+
+	room.groupRoles.forEach((gr) => {
+		if (gr.roleId === rolePermission.roleId) {
+			gr.role.permissions.push(rolePermission.permission);
+
+			const peers = room.getPeersByGroupId(gr.groupId);
+
+			peers.forEach((peer) => updatePeerPermissions(room, peer));
+		}
+	});
+};
+
+export const removeRolePermission = (room: Room, rolePermission: ManagedRolePermission): void => {
+	room.userRoles.forEach((ur) => {
+		if (ur.roleId === rolePermission.roleId) {
+			ur.role.permissions = ur.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
+
+			const peer = room.getPeerByManagedId(ur.userId);
+
+			if (peer) updatePeerPermissions(room, peer);
+		}
+	});
+
+	room.groupRoles.forEach((gr) => {
+		if (gr.roleId === rolePermission.roleId) {
+			gr.role.permissions = gr.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
+
+			const peers = room.getPeersByGroupId(gr.groupId);
+
+			peers.forEach((peer) => updatePeerPermissions(room, peer));
+		}
+	});
 };

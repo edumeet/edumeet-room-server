@@ -1,5 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { hasPermission, Permission } from '../common/authorization';
+import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { ChatMessage } from '../common/types';
 import { PeerContext } from '../Peer';
@@ -25,7 +25,7 @@ export const createChatMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 		
 		switch (message.method) {
 			case 'chatMessage': {
-				if (!hasPermission(room, peer, Permission.SEND_CHAT))
+				if (!peer.hasPermission(Permission.SEND_CHAT))
 					throw new Error('peer not authorized');
 
 				const { text } = message.data;

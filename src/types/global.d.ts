@@ -6,10 +6,12 @@ import { Consumer } from 'mediasoup/node/lib/Consumer';
 import { DataProducer } from 'mediasoup/node/lib/DataProducer';
 import { DataConsumer } from 'mediasoup/node/lib/DataConsumer';
 import ServerManager from '../ServerManager';
+import ManagementService from '../ManagementService';
 
 /* eslint-disable no-var */
 declare global {
 	var serverManager: ServerManager;
+	var managementService: ManagementService;
 	var workers: Map<number, Worker>;
 	var routers: Map<string, Router>;
 	var transports: Map<string, Transport>;

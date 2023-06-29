@@ -12,10 +12,18 @@ import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
 import LoadBalancer from './LoadBalancer';
 import { Config } from './Config';
+import { Peer } from './Peer';
+import Room from './Room';
+import ManagementService from './ManagementService';
 
 const actualConfig = config as Config;
 
 const logger = new Logger('Server');
+
+const peers = new Map<string, Peer>();
+const rooms = new Map<string, Room>();
+const managedPeers = new Map<string, Peer>();
+const managedRooms = new Map<string, Room>();
 
 logger.debug('Starting...');
 
@@ -26,9 +34,10 @@ const defaultClientPosition = new KDPoint(
 const kdTree = new KDTree([]);
 const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
 const mediaService = MediaService.create(loadBalancer, kdTree, actualConfig);
-const serverManager = new ServerManager({ mediaService });
+const managementService = new ManagementService({ managedPeers, managedRooms, mediaService });
+const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
 
-interactiveServer(serverManager);
+interactiveServer(serverManager, managementService);
 
 let webServer: http.Server | https.Server;
 
@@ -60,7 +69,13 @@ webServer.listen({ port: actualConfig.listenPort, host: actualConfig.listenHost 
 
 const socketServer = new IOServer(webServer, {
 	cors: { origin: '*' },
-	cookie: false
+	cookie: false,
+	connectionStateRecovery: {
+		// the backup duration of the sessions and the packets
+		maxDisconnectionDuration: 5 * 60 * 1000,
+		// whether to skip middlewares upon successful recovery
+		skipMiddlewares: true,
+	}
 });
 
 socketServer.on('connection', socketHandler);

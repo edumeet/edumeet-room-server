@@ -18,7 +18,6 @@ describe('DataProducer', () => {
 	let fakeRouter: Router;
 	let fakeConnection: MediaNodeConnection;
 	let spyNotify: jest.SpyInstance;
-	const CLOSE_METHOD = 'closeDataProducer';
 
 	beforeEach(() => {
 		fakeSctpStreamParameters = {};
@@ -48,19 +47,6 @@ describe('DataProducer', () => {
 		});
 
 		expect(dataProducer).toBeInstanceOf(DataProducer);
-	});
-
-	it('close() - Should be closed and notify connection', () => {
-		const expected = { method: CLOSE_METHOD,
-			data: {
-				routerId: fakeRouter.id,
-				dataProducerId: dataProducer.id,
-			}
-		};
-
-		dataProducer.close();
-		expect(dataProducer.closed).toBe(true);
-		expect(spyNotify).toHaveBeenCalledWith(expected);
 	});
 
 	it('close() - Should not notify on remote close', () => {

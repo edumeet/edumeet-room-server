@@ -1,9 +1,7 @@
 import 'jest';
 import MediaService from '../../src/MediaService';
-import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
-import { userRoles } from '../../src/common/authorization';
 import LoadBalancer from '../../src/LoadBalancer';
 import { Config } from '../../src/Config';
 import { BaseConnection, KDTree } from 'edumeet-common';
@@ -13,17 +11,11 @@ import { MediaNodeConnection } from '../../src/media/MediaNodeConnection';
 describe('Room', () => {
 	let room1: Room;
 	let spyEmit: jest.SpyInstance;
-	let spyNotifyPeers: jest.SpyInstance;
-	let spyAddPeer: jest.SpyInstance;
-	let spyRemovePeer: jest.SpyInstance;
-	let spyAddPendingPeer: jest.SpyInstance;
-	let spyRemovePendingPeer: jest.SpyInstance;
-	let spyAddLobbyPeer: jest.SpyInstance;
-	let spyRemoveLobbyPeer: jest.SpyInstance;
 	const roomId1 = 'testRoom1';
 	const roomName1 = 'testRoomName1';
 	const config = { mediaNodes: [] } as unknown as Config;
 	const loadBalancer = {} as unknown as LoadBalancer;	
+	const mediaNodeId = 'mediaNodeId';
 
 	beforeEach(() => {
 		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
@@ -31,18 +23,12 @@ describe('Room', () => {
 
 		room1 = new Room({
 			id: roomId1,
+			tenantId: 'testTenantId',
 			mediaService,
 			name: roomName1,
 		});
 
 		spyEmit = jest.spyOn(room1, 'emit');
-		spyNotifyPeers = jest.spyOn(room1, 'notifyPeers');
-		spyAddPeer = jest.spyOn(room1.peers, 'add');
-		spyRemovePeer = jest.spyOn(room1.peers, 'remove');
-		spyAddPendingPeer = jest.spyOn(room1.pendingPeers, 'add');
-		spyRemovePendingPeer = jest.spyOn(room1.pendingPeers, 'remove');
-		spyAddLobbyPeer = jest.spyOn(room1.lobbyPeers, 'add');
-		spyRemoveLobbyPeer = jest.spyOn(room1.lobbyPeers, 'remove');
 	});
 
 	it('Has correct properties', () => {
@@ -51,7 +37,7 @@ describe('Room', () => {
 		expect(room1.name).toBe(roomName1);
 		expect(room1.sessionId).toBeDefined();
 		expect(room1.closed).toBe(false);
-		expect(room1.locked).toBe(false);
+		expect(room1.locked).toBe(true);
 
 		expect(room1.routers.length).toBe(0);
 		expect(room1.breakoutRooms.size).toBe(0);
@@ -74,7 +60,7 @@ describe('Room', () => {
 		beforeEach(() => {
 			router = {
 				mediaNode: {
-					id: 'mediaNodeId'
+					id: mediaNodeId 
 				},
 				connection: jest.fn(),
 				id: 'routerId',
@@ -111,7 +97,7 @@ describe('Room', () => {
 			const result = room1.getActiveMediaNodes();
 
 			expect(result.length).toBe(1);
-			expect(result[0].id).toBe('mediaNodeId');
+			expect(result[0].id).toBe(mediaNodeId);
 		});
 	});
 });

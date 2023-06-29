@@ -1,4 +1,4 @@
-import { hasPermission, Permission } from '../common/authorization';
+import { Permission } from '../common/authorization';
 import { PeerContext } from '../Peer';
 import { thisSession } from '../common/checkSessionId';
 import { Logger, Middleware } from 'edumeet-common';
@@ -23,7 +23,7 @@ export const createLobbyMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 		
 		switch (message.method) {
 			case 'promotePeer': {
-				if (!hasPermission(room, peer, Permission.PROMOTE_PEER))
+				if (!peer.hasPermission(Permission.PROMOTE_PEER))
 					throw new Error('peer not authorized');
 
 				const { peerId } = message.data;
@@ -39,7 +39,7 @@ export const createLobbyMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 			}
 
 			case 'promoteAllPeers': {
-				if (!hasPermission(room, peer, Permission.PROMOTE_PEER))
+				if (!peer.hasPermission(Permission.PROMOTE_PEER))
 					throw new Error('peer not authorized');
 
 				room.promoteAllPeers();

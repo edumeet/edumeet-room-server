@@ -49,9 +49,7 @@ describe('PipeConsumer', () => {
 	});
 
 	it('close() - Should not notify connection on remote close', () => {
-		const REMOTE_CLOSE = true;
-
-		pipeConsumer.close(REMOTE_CLOSE);
+		pipeConsumer.close(true);
 
 		expect(spyConnectionNotify).not.toHaveBeenCalled();
 	});

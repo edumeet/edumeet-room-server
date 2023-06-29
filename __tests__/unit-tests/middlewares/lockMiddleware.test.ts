@@ -1,6 +1,4 @@
 import { List, Next } from 'edumeet-common';
-import { userRoles } from '../../../src/common/authorization';
-import { MiddlewareOptions } from '../../../src/common/types';
 import { createLockMiddleware } from '../../../src/middlewares/lockMiddleware';
 import { Peer, PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
@@ -16,6 +14,10 @@ test('Should not handle unrelated message', async () => {
 	const sut = createLockMiddleware({ room });
 
 	const context = {
+		peer: {
+			permissions: [],
+			hasPermission: jest.fn(() => true)
+		},
 		message: {
 			method: 'non-existing-method',
 			data: {
@@ -37,6 +39,10 @@ test('Should not handle wrong session', async () => {
 	const sut = createLockMiddleware({ room });
 
 	const context = {
+		peer: {
+			permissions: [],
+			hasPermission: jest.fn(() => true)
+		},
 		message: {
 			data: {
 				sessionId: 'wrong id',
@@ -56,7 +62,8 @@ test('lockRoom() - Should throw on not authorized', async () => {
 
 	const sut = createLockMiddleware({ room });
 	const peer = {
-		roles: []
+		permissions: [],
+		hasPermission: jest.fn(() => false)
 	};
 
 	const context = {
@@ -82,7 +89,8 @@ test('lockRoom() - Should lock room on happy path', async () => {
 
 	const sut = createLockMiddleware({ room });
 	const peer = {
-		roles: [ userRoles.NORMAL ]
+		permissions: [],
+		hasPermission: jest.fn(() => true)
 	};
 
 	const context = {
@@ -109,7 +117,8 @@ test('unlockRoom() - Should throw on not authorized', async () => {
 
 	const sut = createLockMiddleware({ room });
 	const peer = {
-		roles: []
+		permissions: [],
+		hasPermission: jest.fn(() => true)
 	};
 
 	const context = {
@@ -138,7 +147,8 @@ test('unlockRoom() - Should unlock room on happy path', async () => {
 
 	const sut = createLockMiddleware({ room });
 	const peer = {
-		roles: [ userRoles.NORMAL ]
+		permissions: [],
+		hasPermission: jest.fn(() => true)
 	};
 
 	const context = {

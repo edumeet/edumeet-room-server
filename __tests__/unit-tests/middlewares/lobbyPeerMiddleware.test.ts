@@ -1,5 +1,4 @@
 import { Next } from 'edumeet-common';
-import { MiddlewareOptions } from '../../../src/common/types';
 import { createLobbyPeerMiddleware } from '../../../src/middlewares/lobbyPeerMiddleware';
 import { PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
@@ -52,7 +51,7 @@ test('changeDisplayName() - Should notify peers on happy path', async () => {
 	const spyNotifyPeers = jest.fn();
 	const room = {
 		sessionId: SESSION_ID,
-		notifyPeers: spyNotifyPeers
+		notifyPeersWithPermission: spyNotifyPeers
 	} as unknown as Room;
 
 	const sut = createLobbyPeerMiddleware({ room });
@@ -82,7 +81,7 @@ test('changePicture() - Should notify peers on happy path', async () => {
 	const spyNotifyPeers = jest.fn();
 	const room = {
 		sessionId: SESSION_ID,
-		notifyPeers: spyNotifyPeers
+		notifyPeersWithPermission: spyNotifyPeers
 	} as unknown as Room;
 
 	const sut = createLobbyPeerMiddleware({ room });

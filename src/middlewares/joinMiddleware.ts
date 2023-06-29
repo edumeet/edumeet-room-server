@@ -1,8 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import {
-	hasPermission,
-	Permission,
-} from '../common/authorization';
+import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumers } from '../common/consuming';
 import { PeerContext } from '../Peer';
@@ -41,7 +38,7 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				peer.picture = picture;
 				peer.rtpCapabilities = rtpCapabilities;
 
-				const lobbyPeers = hasPermission(room, peer, Permission.PROMOTE_PEER) ?
+				const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER) ?
 					room.lobbyPeers.items.map((p) => (p.peerInfo)) : [];
 
 				response.peers = room.getPeers().map((p) => (p.peerInfo));

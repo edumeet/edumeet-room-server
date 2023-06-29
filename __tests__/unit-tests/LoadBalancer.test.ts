@@ -6,9 +6,9 @@ import Room from '../../src/Room';
 
 const kdPoint1 = new KDPoint([ 50, 10 ]);
 const kdPoint2= new KDPoint([ 50, 10 ]);
-const mediaNode1 = { id: 'id1', load: 0.2, kdPoint: kdPoint1 } as unknown as MediaNode;
-const mediaNode2 = { id: 'id2', load: 0.3, kdPoint: kdPoint2 } as unknown as MediaNode;
-const mediaNode3 = { id: 'id2', load: 0.9, kdPoint: kdPoint2 } as unknown as MediaNode;
+const mediaNode1 = { id: 'id1', load: 0.2, health: true, kdPoint: kdPoint1 } as unknown as MediaNode;
+const mediaNode2 = { id: 'id2', load: 0.3, health: true, kdPoint: kdPoint2 } as unknown as MediaNode;
+const mediaNode3 = { id: 'id2', load: 0.9, health: true, kdPoint: kdPoint2 } as unknown as MediaNode;
 const defaultClientPosition = new KDPoint([ 50, 10 ]);
 const clientAddress = '5.44.192.0';
 
@@ -44,7 +44,7 @@ test.each([
 	expect(candidates[1]).toBe(mediaNode2);
 });
 
-test('Should place sticky candidate first return array', () => {
+test('Should place sticky candidate first in return array', () => {
 	const spyGetActiveMediaNodes = jest.fn().mockReturnValue([ mediaNode2 ]);
 	const room = {
 		getActiveMediaNodes: spyGetActiveMediaNodes

@@ -121,7 +121,7 @@ test('MediaService getRouter() should stop trying on successful candidate', asyn
 	});
 	const peer = new Peer({
 		id: 'id',
-		roomId: 'id'
+		sessionId: 'id'
 	});
 
 	await expect(sut.getRouter(room, peer)).resolves.not.toThrow();

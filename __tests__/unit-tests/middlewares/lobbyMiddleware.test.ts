@@ -1,6 +1,4 @@
 import { List, Next } from 'edumeet-common';
-import { userRoles } from '../../../src/common/authorization';
-import { MiddlewareOptions } from '../../../src/common/types';
 import { createLobbyMiddleware } from '../../../src/middlewares/lobbyMiddleware';
 import { Peer, PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
@@ -55,7 +53,8 @@ test('promotePeer() - Should throw on not authorized', async () => {
 	} as unknown as Room;
 
 	const peer = {
-		roles: []
+		permissions: [],
+		hasPermission: jest.fn(() => false)
 	};
 	const sut = createLobbyMiddleware({ room });
 
@@ -78,9 +77,7 @@ test('promotePeer() - Should throw on peer not found', async () => {
 		lobbyPeers: List<Peer>()
 	} as unknown as Room;
 
-	const peer = {
-		roles: [ userRoles.NORMAL ]
-	};
+	const peer = {};
 	const sut = createLobbyMiddleware({ room });
 
 	const context = {
@@ -111,7 +108,8 @@ test('promotePeer() - Should promote peer on happy path', async () => {
 	room.lobbyPeers.add(lobbyPeer);
 
 	const peer = {
-		roles: [ userRoles.NORMAL ]
+		permissions: [],
+		hasPermission: jest.fn(() => true)
 	};
 	const sut = createLobbyMiddleware({ room });
 
@@ -141,7 +139,8 @@ test('promoteAllPeers() - Should promote peers on happy path', async () => {
 	} as unknown as Room;
 
 	const peer = {
-		roles: [ userRoles.NORMAL ]
+		permissions: [],
+		hasPermission: jest.fn(() => true)
 	};
 	const sut = createLobbyMiddleware({ room });
 
@@ -170,7 +169,8 @@ test('promoteAllPeers() - Should throw on not authorized', async () => {
 	} as unknown as Room;
 
 	const peer = {
-		roles: [ ]
+		permissions: [],
+		hasPermission: jest.fn(() => false)
 	};
 	const sut = createLobbyMiddleware({ room });
 

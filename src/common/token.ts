@@ -1,14 +1,17 @@
-import { randomUUID } from 'crypto';
+import config from '../../config/config.json';
 import jwt, { JwtPayload } from 'jsonwebtoken';
+import { Config } from '../Config';
 
-export const signingkey = randomUUID();
+export const actualConfig = config as Config;
 
-export const verifyPeer = (peerId: string, token: string): boolean => {
-	try {
-		const decoded = jwt.verify(token, signingkey) as JwtPayload;
+const signingKeys = actualConfig.managementService?.jwtPublicKeys || [];
 
-		return decoded.id === peerId;
-	} catch (e) {}
+export const verifyPeer = (token: string): string | undefined => {
+	for (const key of signingKeys) {
+		try {
+			const { sub } = jwt.verify(token, key) as JwtPayload;
 
-	return false;
+			return sub;
+		} catch (err) {}
+	}
 };
