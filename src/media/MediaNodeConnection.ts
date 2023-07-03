@@ -1,12 +1,34 @@
 import { EventEmitter } from 'events';
-import { BaseConnection, InboundNotification, InboundRequest, Logger, Pipeline, skipIfClosed, SocketMessage } from 'edumeet-common';
+import { InboundNotification, InboundRequest, Logger, Pipeline, skipIfClosed, SocketMessage, SocketTimeoutError } from 'edumeet-common';
+import { io, Socket } from 'socket.io-client';
 
 const logger = new Logger('MediaNodeConnection');
 
 interface MediaNodeConnectionOptions {
-	connection: BaseConnection;
+	url: string,
+	timeout: number,
 }
 
+interface ClientServerEvents {
+	/* eslint-disable no-unused-vars */
+	notification: (notification: SocketMessage) => void;
+	request: (request: SocketMessage, result: (
+		serverError: unknown | null,
+		responseData: unknown) => void
+	) => void;
+	/* eslint-enable no-unused-vars */
+}
+
+interface ServerClientEvents {
+	/* eslint-disable no-unused-vars */
+	notification: (notification: SocketMessage) => void;
+	request: (request: SocketMessage, result: (
+		timeout: Error | null,
+		serverError: unknown | null,
+		responseData: unknown) => void
+	) => void;
+	/* eslint-enable no-unused-vars */
+}
 export interface MediaNodeConnectionContext {
 	message: SocketMessage;
 	response: Record<string, unknown>;
@@ -18,52 +40,58 @@ export declare interface MediaNodeConnection {
 	on(event: 'close', listener: () => void): this;
 	on(event: 'notification', listener: InboundNotification): this;
 	on(event: 'request', listener: InboundRequest): this;
+	on(event: 'load', listener: (load: number) => void): this;
 }
 /* eslint-enable no-unused-vars */
 
 export class MediaNodeConnection extends EventEmitter {
 	public closed = false;
-	public connection: BaseConnection;
 	public pipeline = Pipeline<MediaNodeConnectionContext>();
-	private _load: number | undefined;
-
-	private resolveReady!: () => void;
-	private resolveReadyTimeoutHandle: NodeJS.Timeout | undefined;
+	
+	public resolveReady!: () => void;
+	// eslint-disable-next-line no-unused-vars
+	public rejectReady!: (error: unknown) => void;
+	#resolveReadyTimeoutHandle: NodeJS.Timeout | undefined;
 	public ready = new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
-		this.resolveReadyTimeoutHandle = setTimeout(() => { reject('Timeout waiting for media-node connection'); }, 750);
+		this.rejectReady = reject;
 	});
+	
+	#socket: Socket<ClientServerEvents, ServerClientEvents>;
+	#timeout;
 
-	constructor({
-		connection,
-	}: MediaNodeConnectionOptions) {
-		logger.debug('constructor()');
-
+	constructor({ url, timeout = 3000 }: MediaNodeConnectionOptions) {
+		logger.debug('constructor() [url: %s, timeout: %s]', url, timeout);
 		super();
 
-		this.connection = connection;
-		this.handleConnection();
+		this.#timeout = timeout;
+		this.#socket = io(url, {
+			transports: [ 'websocket', 'polling' ],
+			rejectUnauthorized: false,
+			closeOnBeforeunload: false,
+		});
+
+		this.#handleSocket();
 	}
 
 	@skipIfClosed
 	public close(): void {
 		logger.debug('close()');
-
 		this.closed = true;
-
-		this.connection.close();
-
+		if (this.#socket.connected) this.#socket.disconnect();
+		this.#socket.removeAllListeners();
 		this.emit('close');
+		this.#socket.off();
 	}
 
-	@skipIfClosed
-	private handleConnection(): void {
-
-		this.connection.on('notification', async (notification) => {
-			this._load = notification.data?.load;
+	#handleSocket(): void {
+		this.#resolveReadyTimeoutHandle = setTimeout(() => { this.rejectReady('Timeout waiting for media-node connection'); }, this.#timeout);
+		
+		this.#socket.on('notification', async (notification) => {
+			this.emit('load', notification.data?.load);
 
 			if (notification.method === 'mediaNodeReady') {
-				clearTimeout(this.resolveReadyTimeoutHandle);
+				clearTimeout(this.#resolveReadyTimeoutHandle);
 				
 				return this.resolveReady(); 
 			}
@@ -84,9 +112,10 @@ export class MediaNodeConnection extends EventEmitter {
 			}
 		});
 
-		this.connection.on('request', async (request, respond, reject) => {
+		this.#socket.on('request', async (request, result) => {
+			logger.debug('"request" event [request: %o]', request);
 			try {
-				this._load = request.data?.load;
+				this.emit('load', request.data?.load);
 				const context = {
 					message: request,
 					response: {},
@@ -96,26 +125,32 @@ export class MediaNodeConnection extends EventEmitter {
 				await this.pipeline.execute(context);
 
 				if (context.handled)
-					respond(context.response);
+					result(null, context.response);
 				else {
 					logger.debug('request() unhandled request [method: %s]', request.method);
-					reject('Server error');
+					result('Server error', null);
 				}
 			} catch (error) {
 				logger.error('request() [error: %o]', error);
 
-				reject('Server error');
+				result('Server error', null);
 			}
 		});
 
-		this.connection.once('close', () => this.close());
+		this.#socket.once('disconnect', () => {
+			logger.debug('socket disconnected');
+			this.close(); 
+		});
+		this.#socket.on('connect', () => {
+			logger.debug('handleSocket() connected');
+		});
 	}
 
 	@skipIfClosed
 	public notify(notification: SocketMessage): void {
 		logger.debug('notify() [method: %s]', notification.method);
 
-		this.connection.notify(notification);
+		this.#socket.emit('notification', notification);
 	}
 
 	@skipIfClosed
@@ -123,14 +158,24 @@ export class MediaNodeConnection extends EventEmitter {
 		logger.debug('request() [method: %s]', request.method);
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const response: any = await this.connection.request(request);
+		const response: any = await this.#sendRequestOnWire(request);
 
-		this._load = response?.load;
+		this.emit('load', response?.load);
 			
 		return response;
 	}
-
-	public get load(): number | undefined {
-		return this._load;
+	
+	#sendRequestOnWire(socketMessage: SocketMessage): Promise<unknown> {
+		return new Promise((resolve, reject) => {
+			if (!this.#socket) {
+				reject('No socket connection');
+			} else {
+				this.#socket.timeout(this.#timeout).emit('request', socketMessage, (timeout, serverError, response) => {
+					if (timeout) reject(new SocketTimeoutError('Request timed out'));
+					else if (serverError) reject(serverError);
+					else resolve(response);
+				});
+			}
+		});
 	}
 }

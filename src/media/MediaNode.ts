@@ -14,7 +14,6 @@ import { createRoutersMiddleware } from '../middlewares/routersMiddleware';
 import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
-import { IONodeConnection } from '../IONodeConnection';
 
 const logger = new Logger('MediaNode');
 
@@ -36,35 +35,36 @@ export default class MediaNode {
 	public closed = false;
 	public hostname: string;
 	public port: number;
-	#secret: string;
 	public readonly kdPoint: KDPoint;
 	public connection?: MediaNodeConnection;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
-	private retryTimeoutHandle: undefined | NodeJS.Timeout;
 	public health = true;
+	#secret: string;
+	#load = 0;
+	#retryTimeoutHandle: undefined | NodeJS.Timeout;
 
-	private routersMiddleware =
+	#routersMiddleware =
 		createRoutersMiddleware({ routers: this.routers });
-	private webRtcTransportsMiddleware =
+	#webRtcTransportsMiddleware =
 		createWebRtcTransportsMiddleware({ routers: this.routers });
-	private pipeTransportsMiddleware =
+	#pipeTransportsMiddleware =
 		createPipeTransportsMiddleware({ routers: this.routers });
-	private producersMiddleware =
+	#producersMiddleware =
 		createProducersMiddleware({ routers: this.routers });
-	private pipeProducersMiddleware =
+	#pipeProducersMiddleware =
 		createPipeProducersMiddleware({ routers: this.routers });
-	private dataProducersMiddleware =
+	#dataProducersMiddleware =
 		createDataProducersMiddleware({ routers: this.routers });
-	private pipeDataProducersMiddleware =
+	#pipeDataProducersMiddleware =
 		createPipeDataProducersMiddleware({ routers: this.routers });
-	private consumersMiddleware =
+	#consumersMiddleware =
 		createConsumersMiddleware({ routers: this.routers });
-	private pipeConsumersMiddleware =
+	#pipeConsumersMiddleware =
 		createPipeConsumersMiddleware({ routers: this.routers });
-	private dataConsumersMiddleware =
+	#dataConsumersMiddleware =
 		createDataConsumersMiddleware({ routers: this.routers });
-	private pipeDataConsumersMiddleware =
+	#pipeDataConsumersMiddleware =
 		createPipeDataConsumersMiddleware({ routers: this.routers });
 
 	constructor({
@@ -97,7 +97,7 @@ export default class MediaNode {
 
 	private async retryConnection(): Promise<void> {
 		logger.debug('retryConnection()');
-		if (this.retryTimeoutHandle) {
+		if (this.#retryTimeoutHandle) {
 			return;
 		}
 		this.health = false;
@@ -111,7 +111,7 @@ export default class MediaNode {
 
 		do {
 			const timeoutPromise = new Promise((_, reject) => {
-				this.retryTimeoutHandle = setTimeout(
+				this.#retryTimeoutHandle = setTimeout(
 					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
 			});
 			const healthPromise = axios.get(`https://${this.hostname}:${this.port}/health`);
@@ -122,11 +122,10 @@ export default class MediaNode {
 			} catch (error) {
 				logger.error(error);
 			} finally {
-				clearTimeout(this.retryTimeoutHandle);
+				clearTimeout(this.#retryTimeoutHandle);
 			}
 			retryCount++;
 		} while (retryCount <= backoffIntervals.length && this.health === false);
-		delete this.retryTimeoutHandle;
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -196,44 +195,48 @@ export default class MediaNode {
 	}
 
 	private setupConnection(): MediaNodeConnection {
-		const socket = IONodeConnection.create({
-			url: `wss://${this.hostname}:${this.port}${this.#secret ? `?secret=${this.#secret}` : ''}`,
+		const secret = this.#secret ? `?secret=${this.#secret}` : '';
+		const connection = new MediaNodeConnection({
+			url: `wss://${this.hostname}:${this.port}${secret}`,
 			timeout: 3000 });
 
-		const connection = new MediaNodeConnection({ connection: socket });
-
 		connection.pipeline.use(
-			this.routersMiddleware,
-			this.webRtcTransportsMiddleware,
-			this.pipeTransportsMiddleware,
-			this.producersMiddleware,
-			this.pipeProducersMiddleware,
-			this.dataProducersMiddleware,
-			this.pipeDataProducersMiddleware,
-			this.consumersMiddleware,
-			this.pipeConsumersMiddleware,
-			this.dataConsumersMiddleware,
-			this.pipeDataConsumersMiddleware
+			this.#routersMiddleware,
+			this.#webRtcTransportsMiddleware,
+			this.#pipeTransportsMiddleware,
+			this.#producersMiddleware,
+			this.#pipeProducersMiddleware,
+			this.#dataProducersMiddleware,
+			this.#pipeDataProducersMiddleware,
+			this.#consumersMiddleware,
+			this.#pipeConsumersMiddleware,
+			this.#dataConsumersMiddleware,
+			this.#pipeDataConsumersMiddleware
 		);
 
+		connection.on('load', (load) => {
+			if (typeof load === 'number') this.#load = load;
+			else logger.error('Got erroneous load from media-node');
+		});
+
 		connection.once('close', () => {
-			connection.pipeline.remove(this.routersMiddleware);
-			connection.pipeline.remove(this.webRtcTransportsMiddleware);
-			connection.pipeline.remove(this.pipeTransportsMiddleware);
-			connection.pipeline.remove(this.producersMiddleware);
-			connection.pipeline.remove(this.pipeProducersMiddleware);
-			connection.pipeline.remove(this.dataProducersMiddleware);
-			connection.pipeline.remove(this.pipeDataProducersMiddleware);
-			connection.pipeline.remove(this.consumersMiddleware);
-			connection.pipeline.remove(this.pipeConsumersMiddleware);
-			connection.pipeline.remove(this.dataConsumersMiddleware);
-			connection.pipeline.remove(this.pipeDataConsumersMiddleware);
+			connection.pipeline.remove(this.#routersMiddleware);
+			connection.pipeline.remove(this.#webRtcTransportsMiddleware);
+			connection.pipeline.remove(this.#pipeTransportsMiddleware);
+			connection.pipeline.remove(this.#producersMiddleware);
+			connection.pipeline.remove(this.#pipeProducersMiddleware);
+			connection.pipeline.remove(this.#dataProducersMiddleware);
+			connection.pipeline.remove(this.#pipeDataProducersMiddleware);
+			connection.pipeline.remove(this.#consumersMiddleware);
+			connection.pipeline.remove(this.#pipeConsumersMiddleware);
+			connection.pipeline.remove(this.#dataConsumersMiddleware);
+			connection.pipeline.remove(this.#pipeDataConsumersMiddleware);
 		});
 
 		return connection;
 	}
 
 	public get load(): number {
-		return this.connection?.load ?? 0;
+		return this.#load;
 	}
 }
