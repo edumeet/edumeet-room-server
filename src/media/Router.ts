@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
 import { PipeProducer } from './PipeProducer';
@@ -46,7 +45,6 @@ export interface PipeToRouterResult {
 
 interface InternalRouterOptions extends RouterOptions {
 	mediaNode: MediaNode;
-	connection: MediaNodeConnection;
 	appData?: Record<string, unknown>;
 }
 
@@ -62,7 +60,6 @@ export declare interface Router {
 export class Router extends EventEmitter {
 	public closed = false;
 	public mediaNode: MediaNode;
-	public connection: MediaNodeConnection;
 	public id: string;
 	public rtpCapabilities: RtpCapabilities;
 	public appData: Record<string, unknown>;
@@ -84,7 +81,6 @@ export class Router extends EventEmitter {
 
 	constructor({
 		mediaNode,
-		connection,
 		id,
 		rtpCapabilities,
 		appData = {}
@@ -94,7 +90,6 @@ export class Router extends EventEmitter {
 		super();
 
 		this.mediaNode = mediaNode;
-		this.connection = connection;
 		this.id = id;
 		this.rtpCapabilities = rtpCapabilities;
 		this.appData = appData;
@@ -109,7 +104,7 @@ export class Router extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closeRouter',
 				data: { routerId: this.id }
 			});
@@ -125,7 +120,7 @@ export class Router extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed
@@ -135,7 +130,7 @@ export class Router extends EventEmitter {
 	}: { producerId: string, rtpCapabilities: RtpCapabilities }): Promise<boolean> {
 		logger.debug('canConsume()');
 
-		const { canConsume } = await this.connection.request({
+		const { canConsume } = await this.mediaNode.request({
 			method: 'canConsume',
 			data: {
 				routerId: this.id,
@@ -156,7 +151,7 @@ export class Router extends EventEmitter {
 
 		const {
 			id,
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'createActiveSpeakerObserver',
 			data: {
 				routerId: this.id,
@@ -166,7 +161,7 @@ export class Router extends EventEmitter {
 
 		const activeSpeakerObserver = new ActiveSpeakerObserver({
 			router: this,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			appData,
 		});
@@ -186,7 +181,7 @@ export class Router extends EventEmitter {
 
 		const {
 			id,
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'createAudioLevelObserver',
 			data: {
 				routerId: this.id,
@@ -196,7 +191,7 @@ export class Router extends EventEmitter {
 
 		const audioLevelObserver = new AudioLevelObserver({
 			router: this,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			appData,
 		});
@@ -221,7 +216,7 @@ export class Router extends EventEmitter {
 			iceCandidates,
 			dtlsParameters,
 			sctpParameters,
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'createWebRtcTransport',
 			data: {
 				routerId: this.id,
@@ -232,7 +227,7 @@ export class Router extends EventEmitter {
 
 		const transport = new WebRtcTransport({
 			router: this,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			iceParameters,
 			iceCandidates,
@@ -259,14 +254,14 @@ export class Router extends EventEmitter {
 			ip,
 			port,
 			srtpParameters,
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'createPipeTransport',
 			data: { routerId: this.id, internal }
 		}) as PipeTransportOptions;
 
 		const transport = new PipeTransport({
 			router: this,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			ip,
 			port,

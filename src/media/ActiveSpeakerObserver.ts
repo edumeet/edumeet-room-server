@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { Producer } from './Producer';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('ActiveSpeakerObserver');
 
@@ -14,7 +14,7 @@ export interface ActiveSpeakerObserverOptions {
 
 interface InternalActiveSpeakerObserverOptions extends ActiveSpeakerObserverOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 }
 
 export declare interface ActiveSpeakerObserver {
@@ -27,14 +27,14 @@ export declare interface ActiveSpeakerObserver {
 export class ActiveSpeakerObserver extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public activeSpeakerId?: string;
 	public appData: Record<string, unknown>;
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		appData = {},
 	}: InternalActiveSpeakerObserverOptions) {
@@ -43,7 +43,7 @@ export class ActiveSpeakerObserver extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.appData = appData;
 
@@ -57,7 +57,7 @@ export class ActiveSpeakerObserver extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closeActiveSpeakerObserver',
 				data: {
 					routerId: this.router.id,
@@ -73,7 +73,7 @@ export class ActiveSpeakerObserver extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed
@@ -89,7 +89,7 @@ export class ActiveSpeakerObserver extends EventEmitter {
 	public async addProducer(producer: Producer): Promise<void> {
 		logger.debug('addProducer() [id:%s, producerId:%s]', this.id, producer.id);
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'activeSpeakerObserverAddProducer',
 			data: {
 				routerId: this.router.id,
@@ -103,7 +103,7 @@ export class ActiveSpeakerObserver extends EventEmitter {
 	public async removeProducer(producer: Producer): Promise<void> {
 		logger.debug('removeProducer() [id:%s, producerId:%s]', this.id, producer.id);
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'activeSpeakerObserverRemoveProducer',
 			data: {
 				routerId: this.router.id,

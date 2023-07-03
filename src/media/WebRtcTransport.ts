@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Producer, ProducerOptions } from './Producer';
 import { Consumer, ConsumerOptions } from './Consumer';
 import { Router } from './Router';
@@ -10,6 +9,7 @@ import { Logger, skipIfClosed } from 'edumeet-common';
 import { DataProducer, DataProducerOptions } from './DataProducer';
 import { DataConsumer, DataConsumerOptions } from './DataConsumer';
 import { MediaKind } from 'edumeet-common';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('WebRtcTransport');
 
@@ -48,7 +48,7 @@ export interface WebRtcTransportOptions {
 
 interface InternalWebRtcTransportOptions extends WebRtcTransportOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 	appData?: Record<string, unknown>;
 }
 
@@ -60,7 +60,7 @@ export declare interface WebRtcTransport {
 export class WebRtcTransport extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public iceParameters: IceParameters;
 	public iceCandidates: IceCandidate[];
@@ -76,7 +76,7 @@ export class WebRtcTransport extends EventEmitter {
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		iceParameters,
 		iceCandidates,
@@ -89,7 +89,7 @@ export class WebRtcTransport extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.iceParameters = iceParameters;
 		this.iceCandidates = iceCandidates;
@@ -107,7 +107,7 @@ export class WebRtcTransport extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closeWebRtcTransport',
 				data: {
 					routerId: this.router.id,
@@ -126,7 +126,7 @@ export class WebRtcTransport extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed
@@ -135,7 +135,7 @@ export class WebRtcTransport extends EventEmitter {
 	}: { dtlsParameters: DtlsParameters }) {
 		logger.debug('connect()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'connectWebRtcTransport',
 			data: {
 				routerId: this.router.id,
@@ -149,7 +149,7 @@ export class WebRtcTransport extends EventEmitter {
 	public async restartIce(): Promise<unknown> {
 		logger.debug('restartIce()');
 
-		const { iceParameters } = await this.connection.request({
+		const { iceParameters } = await this.mediaNode.request({
 			method: 'restartIce',
 			data: {
 				routerId: this.router.id,
@@ -166,7 +166,7 @@ export class WebRtcTransport extends EventEmitter {
 	public async setMaxIncomingBitrate(bitrate: number): Promise<void> {
 		logger.debug('setMaxIncomingBitrate()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'setMaxIncomingBitrate',
 			data: {
 				routerId: this.router.id,
@@ -185,7 +185,7 @@ export class WebRtcTransport extends EventEmitter {
 	}: ProduceOptions): Promise<Producer> {
 		logger.debug('produce()');
 
-		const { id } = await this.connection.request({
+		const { id } = await this.mediaNode.request({
 			method: 'produce',
 			data: {
 				routerId: this.router.id,
@@ -198,7 +198,7 @@ export class WebRtcTransport extends EventEmitter {
 
 		const producer = new Producer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			kind,
 			paused,
@@ -230,7 +230,7 @@ export class WebRtcTransport extends EventEmitter {
 			paused,
 			producerPaused,
 			rtpParameters
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'consume',
 			data: {
 				routerId: this.router.id,
@@ -242,7 +242,7 @@ export class WebRtcTransport extends EventEmitter {
 
 		const consumer = new Consumer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			producerId,
 			kind,
@@ -271,7 +271,7 @@ export class WebRtcTransport extends EventEmitter {
 	}: DataProduceOptions): Promise<DataProducer> {
 		logger.debug('produce()');
 
-		const { id } = await this.connection.request({
+		const { id } = await this.mediaNode.request({
 			method: 'produceData',
 			data: {
 				routerId: this.router.id,
@@ -284,7 +284,7 @@ export class WebRtcTransport extends EventEmitter {
 
 		const dataProducer = new DataProducer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			sctpStreamParameters,
 			label,
@@ -314,7 +314,7 @@ export class WebRtcTransport extends EventEmitter {
 			sctpStreamParameters,
 			label,
 			protocol,
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'consumeData',
 			data: {
 				routerId: this.router.id,
@@ -325,7 +325,7 @@ export class WebRtcTransport extends EventEmitter {
 
 		const dataConsumer = new DataConsumer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			dataProducerId,
 			sctpStreamParameters,

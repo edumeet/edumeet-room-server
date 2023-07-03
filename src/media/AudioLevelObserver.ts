@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { Producer } from './Producer';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('AudioLevelObserver');
 
@@ -14,7 +14,7 @@ export interface AudioLevelObserverOptions {
 
 interface InternalAudioLevelObserverOptions extends AudioLevelObserverOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 }
 
 interface AudioLevel {
@@ -34,14 +34,14 @@ export declare interface AudioLevelObserver {
 export class AudioLevelObserver extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public audioLevels?: AudioLevels;
 	public appData: Record<string, unknown>;
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		appData = {},
 	}: InternalAudioLevelObserverOptions) {
@@ -50,7 +50,7 @@ export class AudioLevelObserver extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.appData = appData;
 
@@ -64,7 +64,7 @@ export class AudioLevelObserver extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closeAudioLevelObserver',
 				data: {
 					routerId: this.router.id,
@@ -80,7 +80,7 @@ export class AudioLevelObserver extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed
@@ -96,7 +96,7 @@ export class AudioLevelObserver extends EventEmitter {
 	public async addProducer(producer: Producer): Promise<void> {
 		logger.debug('addProducer() [id:%s, producer:%o]', this.id, producer);
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'audioLevelObserverAddProducer',
 			data: {
 				routerId: this.router.id,
@@ -110,7 +110,7 @@ export class AudioLevelObserver extends EventEmitter {
 	public async removeProducer(producer: Producer): Promise<void> {
 		logger.debug('removeProducer() [id:%s, producer:%o]', this.id, producer);
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'audioLevelObserverRemoveProducer',
 			data: {
 				routerId: this.router.id,

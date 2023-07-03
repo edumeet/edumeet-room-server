@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { KDPoint, Logger, skipIfClosed } from 'edumeet-common';
+import { KDPoint, Logger, SocketMessage, SocketTimeoutError, skipIfClosed } from 'edumeet-common';
 import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
 import { createDataConsumersMiddleware } from '../middlewares/dataConsumersMiddleware';
 import { createDataProducersMiddleware } from '../middlewares/dataProducersMiddleware';
@@ -14,6 +14,7 @@ import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransport
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 import https from 'https';
+import EventEmitter from 'events';
 
 const logger = new Logger('MediaNode');
 
@@ -30,15 +31,15 @@ interface MediaNodeOptions {
 	kdPoint: KDPoint
 }
 
-export default class MediaNode {
+export default class MediaNode extends EventEmitter {
 	public id: string;
 	public closed = false;
 	public hostname: string;
 	public port: number;
 	public readonly kdPoint: KDPoint;
-	public connection?: MediaNodeConnection;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
+	#connection?: MediaNodeConnection;
 	#health = true;
 	#secret: string;
 	#load = 0;
@@ -76,6 +77,8 @@ export default class MediaNode {
 	}: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
+		super();
+
 		this.id = id;
 		this.hostname = hostname;
 		this.port = port;
@@ -92,10 +95,10 @@ export default class MediaNode {
 		this.routers.forEach((router) => router.close(true));
 		this.routers.clear();
 
-		this.connection?.close();
+		this.#connection?.close();
 	}
 
-	private async retryConnection(): Promise<void> {
+	async #retryConnection(): Promise<void> {
 		logger.debug('retryConnection()');
 		if (this.#retryTimeoutHandle) {
 			return;
@@ -139,17 +142,16 @@ export default class MediaNode {
 
 		this.pendingRequests.set(requestUUID, roomId);
 
-		if (!this.connection) {
-			this.connection = this.setupConnection();
-			this.connection.once('close', () => delete this.connection);
+		if (!this.#connection) {
+			this.#connection = this.#setupConnection();
 		}
 
 		try {
-			await this.connection.ready;
+			await this.#connection.ready;
 		} catch (error) {
-			this.connection.close();
+			this.#connection.close();
 			this.pendingRequests.delete(requestUUID);
-			this.retryConnection();
+			this.#retryConnection();
 
 			throw error;
 		}
@@ -158,7 +160,7 @@ export default class MediaNode {
 			const {
 				id,
 				rtpCapabilities
-			} = await this.connection?.request({
+			} = await this.#connection?.request({
 				method: 'getRouter',
 				data: { roomId }
 			}) as RouterOptions;
@@ -168,7 +170,6 @@ export default class MediaNode {
 			if (!router) {
 				router = new Router({
 					mediaNode: this,
-					connection: this.connection,
 					id,
 					rtpCapabilities,
 					appData
@@ -182,8 +183,8 @@ export default class MediaNode {
 						this.routers.size === 0 &&
 								this.pendingRequests.size === 0
 					) {
-						this.connection?.close();
-						delete this.connection;
+						this.#connection?.close();
+						this.#connection = undefined;
 					}
 				});
 			} 
@@ -192,14 +193,14 @@ export default class MediaNode {
 
 		} catch (error) {
 			logger.error(error);
-			this.retryConnection();
+			this.#retryConnection();
 			throw error;
 		} finally {
 			this.pendingRequests.delete(requestUUID); 
 		}
 	}
 
-	private setupConnection(): MediaNodeConnection {
+	#setupConnection(): MediaNodeConnection {
 		const secret = this.#secret ? `?secret=${this.#secret}` : '';
 		const connection = new MediaNodeConnection({
 			url: `wss://${this.hostname}:${this.port}${secret}`,
@@ -220,7 +221,7 @@ export default class MediaNode {
 		);
 
 		connection.on('load', (load) => {
-			if (typeof load === 'number') this.#load = load;
+			if (!load || typeof load === 'number') this.#load = load;
 			else logger.error('Got erroneous load from media-node');
 		});
 
@@ -236,9 +237,31 @@ export default class MediaNode {
 			connection.pipeline.remove(this.#pipeConsumersMiddleware);
 			connection.pipeline.remove(this.#dataConsumersMiddleware);
 			connection.pipeline.remove(this.#pipeDataConsumersMiddleware);
+			this.#connection = undefined;
 		});
 
 		return connection;
+	}
+
+	@skipIfClosed
+	public notify(notification: SocketMessage): void {
+		logger.debug('notify() [method: %s]', notification.method);
+
+		this.#connection?.emit('notification', notification);
+	}
+	
+	@skipIfClosed
+	public async request(request: SocketMessage): Promise<unknown> {
+		logger.debug('request() [method: %s]', request.method);
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const response = this.#connection?.request(request);
+			
+			return response;
+		} catch (error) {
+			logger.error(error);
+			if (error instanceof SocketTimeoutError) this.#retryConnection();
+		}
 	}
 
 	public get load(): number {
