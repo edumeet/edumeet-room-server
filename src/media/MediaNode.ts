@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { randomUUID } from 'crypto';
 import { KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
@@ -14,6 +13,7 @@ import { createRoutersMiddleware } from '../middlewares/routersMiddleware';
 import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
+import https from 'https';
 
 const logger = new Logger('MediaNode');
 
@@ -39,7 +39,7 @@ export default class MediaNode {
 	public connection?: MediaNodeConnection;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
-	public health = true;
+	#health = true;
 	#secret: string;
 	#load = 0;
 	#retryTimeoutHandle: undefined | NodeJS.Timeout;
@@ -100,7 +100,7 @@ export default class MediaNode {
 		if (this.#retryTimeoutHandle) {
 			return;
 		}
-		this.health = false;
+		this.#health = false;
 		const backoffIntervals = [
 			5000, 5000, 5000,
 			30000, 30000, 30000,
@@ -114,18 +114,23 @@ export default class MediaNode {
 				this.#retryTimeoutHandle = setTimeout(
 					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
 			});
-			const healthPromise = axios.get(`https://${this.hostname}:${this.port}/health`);
+			const healthPromise = new Promise<void>((resolve, reject) => {
+				https.get(`https://${this.hostname}:${this.port}/health`, (resp) => {
+					if (resp.statusCode === 200) resolve();
+					else reject();
+				}).on('error', () => reject());
+			});
 
 			try {
 				await Promise.race([ timeoutPromise, healthPromise ]);
-				this.health = true;
+				this.#health = true;
 			} catch (error) {
 				logger.error(error);
 			} finally {
 				clearTimeout(this.#retryTimeoutHandle);
 			}
 			retryCount++;
-		} while (retryCount <= backoffIntervals.length && this.health === false);
+		} while (retryCount <= backoffIntervals.length && this.#health === false);
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -238,5 +243,9 @@ export default class MediaNode {
 
 	public get load(): number {
 		return this.#load;
+	}
+
+	public get health(): boolean {
+		return this.#health;
 	}
 }
