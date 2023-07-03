@@ -39,6 +39,7 @@ export default class ManagementService {
 	});
 
 	#client: Application;
+	#jwtExpiry = 0;
 
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
@@ -96,6 +97,9 @@ export default class ManagementService {
 		logger.debug('getRoom() [name: %s]', name);
 
 		await this.ready;
+		if (this.#jwtExpiry * 1000 < Date.now()) {
+			await this.#client.reAuthenticate(true);
+		}
 
 		const { total, data } = await this.#roomsService.find({ query: { name, tenantId } });
 
@@ -116,7 +120,10 @@ export default class ManagementService {
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
 		})
-			.then(this.resolveReady)
+			.then((resp) => {
+				this.#jwtExpiry = Number(resp.authentication.payload.exp);
+				this.resolveReady();
+			})
 			.catch(this.rejectReady);
 	}
 

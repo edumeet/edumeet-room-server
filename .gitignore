@@ -13,3 +13,4 @@
 yarn-error.log
 *.code-workspace
 *.tar
+.env
