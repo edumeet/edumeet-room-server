@@ -44,6 +44,7 @@ export default class MediaNode extends EventEmitter {
 	#secret: string;
 	#load = 0;
 	#retryTimeoutHandle: undefined | NodeJS.Timeout;
+	#retryingConnection = false;
 
 	#routersMiddleware =
 		createRoutersMiddleware({ routers: this.routers });
@@ -100,9 +101,8 @@ export default class MediaNode extends EventEmitter {
 
 	async #retryConnection(): Promise<void> {
 		logger.debug('retryConnection()');
-		if (this.#retryTimeoutHandle) {
-			return;
-		}
+		if (this.#retryingConnection) return;
+		this.#retryingConnection = true;
 		this.#health = false;
 		const backoffIntervals = [
 			5000, 5000, 5000,
@@ -118,15 +118,19 @@ export default class MediaNode extends EventEmitter {
 					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
 			});
 			const healthPromise = new Promise<void>((resolve, reject) => {
-				https.get(`https://${this.hostname}:${this.port}/health`, (resp) => {
-					if (resp.statusCode === 200) resolve();
-					else reject();
-				}).on('error', () => reject());
+				https.get(`https://${this.hostname}:${this.port}/health`,
+					(resp) => {
+						if (resp.statusCode === 200) resolve();
+					}).on('error', (err) => {
+					logger.error(err);
+					reject(new Error('retryConnection() [%o]', err));
+				});
 			});
 
 			try {
 				await Promise.race([ timeoutPromise, healthPromise ]);
 				this.#health = true;
+				this.#retryingConnection = false;
 			} catch (error) {
 				logger.error(error);
 			} finally {
@@ -238,15 +242,16 @@ export default class MediaNode extends EventEmitter {
 			connection.pipeline.remove(this.#dataConsumersMiddleware);
 			connection.pipeline.remove(this.#pipeDataConsumersMiddleware);
 			this.#connection = undefined;
+			this.#retryConnection();
 		});
 
 		return connection;
 	}
 
 	@skipIfClosed
-	public notify(notification: SocketMessage): void {
+	public async notify(notification: SocketMessage): Promise<void> {
 		logger.debug('notify() [method: %s]', notification.method);
-
+		await this.#connection?.ready;
 		this.#connection?.emit('notification', notification);
 	}
 	
@@ -254,13 +259,17 @@ export default class MediaNode extends EventEmitter {
 	public async request(request: SocketMessage): Promise<unknown> {
 		logger.debug('request() [method: %s]', request.method);
 		try {
+			await this.#connection?.ready;
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const response = this.#connection?.request(request);
+			const response: any = await this.#connection?.request(request);
 			
 			return response;
+			
 		} catch (error) {
-			logger.error(error);
-			if (error instanceof SocketTimeoutError) this.#retryConnection();
+			if (error instanceof SocketTimeoutError) {
+				this.#retryConnection();
+			}
+			throw error;
 		}
 	}
 
