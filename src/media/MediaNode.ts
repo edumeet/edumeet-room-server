@@ -31,6 +31,20 @@ interface MediaNodeOptions {
 	kdPoint: KDPoint
 }
 
+export const ConnectionStatus = Object.freeze({
+	ERROR: 'error',
+	RETRYING: 'retrying',
+	OK: 'ok'
+});
+export type ConnectionStatus = typeof ConnectionStatus[keyof typeof ConnectionStatus]
+	
+type MediaNodeHealth = {
+		connection: {
+			status: ConnectionStatus,
+			timeoutHandle: undefined | NodeJS.Timeout
+		},
+		load: number };
+
 export default class MediaNode extends EventEmitter {
 	public id: string;
 	public closed = false;
@@ -40,11 +54,8 @@ export default class MediaNode extends EventEmitter {
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
 	#connection?: MediaNodeConnection;
-	#health = true;
+	#health: MediaNodeHealth;
 	#secret: string;
-	#load = 0;
-	#retryTimeoutHandle: undefined | NodeJS.Timeout;
-	#retryingConnection = false;
 
 	#routersMiddleware =
 		createRoutersMiddleware({ routers: this.routers });
@@ -85,6 +96,12 @@ export default class MediaNode extends EventEmitter {
 		this.port = port;
 		this.#secret = secret;
 		this.kdPoint = kdPoint;
+		this.#health = {
+			connection: {
+				status: ConnectionStatus.OK,
+				timeoutHandle: undefined },
+			load: 0
+		};
 	}
 
 	@skipIfClosed
@@ -101,9 +118,8 @@ export default class MediaNode extends EventEmitter {
 
 	async #retryConnection(): Promise<void> {
 		logger.debug('retryConnection()');
-		if (this.#retryingConnection) return;
-		this.#retryingConnection = true;
-		this.#health = false;
+		if (this.connectionStatus === ConnectionStatus.RETRYING) return;
+		this.#health.connection.status = ConnectionStatus.RETRYING;
 		const backoffIntervals = [
 			5000, 5000, 5000,
 			30000, 30000, 30000,
@@ -114,31 +130,34 @@ export default class MediaNode extends EventEmitter {
 
 		do {
 			const timeoutPromise = new Promise((_, reject) => {
-				this.#retryTimeoutHandle = setTimeout(
+				this.#health.connection.timeoutHandle = setTimeout(
 					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
 			});
-			const healthPromise = new Promise<void>((resolve, reject) => {
+			const healthPromise = new Promise<void>((resolve) => {
 				https.get(`https://${this.hostname}:${this.port}/health`,
 					(resp) => {
 						if (resp.statusCode === 200) resolve();
 					}).on('error', (err) => {
 					logger.error(err);
-					reject(new Error('retryConnection() [%o]', err));
 				});
 			});
 
 			try {
 				await Promise.race([ timeoutPromise, healthPromise ]);
-				this.#health = true;
-				this.#retryingConnection = false;
+				this.#health.connection.status = ConnectionStatus.OK;
 			} catch (error) {
 				logger.error(error);
 			} finally {
-				clearTimeout(this.#retryTimeoutHandle);
+				clearTimeout(this.#health.connection.timeoutHandle);
 			}
 			retryCount++;
-		} while (retryCount <= backoffIntervals.length && this.#health === false);
-		this.#retryingConnection = false;
+		} while (retryCount < backoffIntervals.length 
+				&& this.connectionStatus !== ConnectionStatus.OK);
+		
+		if (retryCount === backoffIntervals.length) {
+			// We ran out of backoff intervals. MediaNode will be left in error state.
+			this.#health.connection.status = ConnectionStatus.ERROR;
+		}
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -226,7 +245,7 @@ export default class MediaNode extends EventEmitter {
 		);
 
 		connection.on('load', (load) => {
-			if (load && typeof load === 'number') this.#load = load;
+			if (load && typeof load === 'number') this.#health.load = load;
 			else logger.error('Got erroneous load from media-node');
 		});
 
@@ -275,10 +294,10 @@ export default class MediaNode extends EventEmitter {
 	}
 
 	public get load(): number {
-		return this.#load;
+		return this.#health.load;
 	}
 
-	public get health(): boolean {
-		return this.#health;
+	public get connectionStatus(): ConnectionStatus {
+		return this.#health.connection.status;
 	}
 }
