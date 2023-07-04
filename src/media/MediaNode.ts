@@ -138,6 +138,7 @@ export default class MediaNode extends EventEmitter {
 			}
 			retryCount++;
 		} while (retryCount <= backoffIntervals.length && this.#health === false);
+		this.#retryingConnection = false;
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -225,7 +226,7 @@ export default class MediaNode extends EventEmitter {
 		);
 
 		connection.on('load', (load) => {
-			if (!load || typeof load === 'number') this.#load = load;
+			if (load && typeof load === 'number') this.#load = load;
 			else logger.error('Got erroneous load from media-node');
 		});
 
