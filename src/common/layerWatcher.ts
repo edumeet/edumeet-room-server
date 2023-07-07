@@ -19,7 +19,7 @@ export class LayerWatcher extends EventEmitter {
 	private layerReporters: LayerReporter[] = [];
 	private currentLayer: Layer = 2;
 
-	public creatLayerReporter(): LayerReporter {
+	public createLayerReporter(): LayerReporter {
 		const layerReporter = new LayerReporter();
 
 		this.layerReporters.push(layerReporter);

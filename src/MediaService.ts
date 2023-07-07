@@ -43,11 +43,11 @@ export default class MediaService {
 				hostname,
 				port,
 				secret,
-				kdPoint: new KDPoint([ longitude, latitude ])
+				kdPoint: new KDPoint([ latitude, longitude ])
 			});
 
 			mediaService.mediaNodes.add(mediaNode);
-			kdTree.addNode(new KDPoint([ longitude, latitude ], { mediaNode }));
+			kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
 		}
 		kdTree.rebalance();
 		
