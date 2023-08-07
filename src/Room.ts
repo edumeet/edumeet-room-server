@@ -18,6 +18,7 @@ import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
+import { ActiveSpeakerObserver } from './media/ActiveSpeakerObserver';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 
 const logger = new Logger('Room');
@@ -82,6 +83,18 @@ export default class Room extends EventEmitter {
 
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
+
+	public breakoutActiveSpeakerObservers = new Map<string, ActiveSpeakerObserver>();
+
+	// eslint-disable-next-line no-unused-vars
+	#resolveActiveSpeakerObserverReady!: (observer: ActiveSpeakerObserver) => void;
+	// eslint-disable-next-line no-unused-vars
+	#rejectActiveAudioObserverReady!: (error: unknown) => void;
+
+	public activeSpeakerObserverReady: Promise<ActiveSpeakerObserver> = new Promise<ActiveSpeakerObserver>((resolve, reject) => {
+		this.#resolveActiveSpeakerObserverReady = resolve;
+		this.#rejectActiveAudioObserverReady = reject;
+	});
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
 	#initialMediaMiddleware: Middleware<PeerContext>;
@@ -163,7 +176,28 @@ export default class Room extends EventEmitter {
 
 	public addRouter(router: Router): void {
 		if (this.routers.has(router)) return;
+		// TODO: is this good enough to avoid duplicate observers?
+		if (this.routers.length === 0) {
+			(async () => {
+				try {
+					const observer = await router.createActiveSpeakerObserver({});
 
+					observer.on('dominantspeaker', (dominantSpeakerId) => {
+						const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
+
+						if (activePeer) 
+							this.notifyPeers('activeSpeaker', {
+								peerId: activePeer.id,
+								sessionId: this.sessionId
+							});
+					});
+					this.#resolveActiveSpeakerObserverReady(observer);
+				} catch (error) {
+					logger.error('createActiveSpeakerObserver(): [%o]', error);
+					this.#rejectActiveAudioObserverReady(error);
+				} 
+			})();
+		}
 		this.routers.add(router);
 	}
 
@@ -257,6 +291,22 @@ export default class Room extends EventEmitter {
 		peer.pipeline.remove(this.#joinMiddleware);
 		this.pendingPeers.remove(peer);
 
+		// Notify newly joined peer about the active speaker.
+		(async () => {
+			const observer = await this.activeSpeakerObserverReady;
+
+			if (!observer) return;
+			const activePeer = this.peers.items.find((p) => p.producers.has(observer.activeSpeakerId ?? ''));
+
+			if (!activePeer) return;
+
+			peer.notify({ method: 'activeSpeaker',
+				data: {
+					peerId: activePeer.id,
+					sessionId: this.sessionId
+				} });
+		})();
+
 		peer.pipeline.use(
 			this.#peerMiddleware,
 			this.#lobbyMiddleware,
@@ -302,6 +352,29 @@ export default class Room extends EventEmitter {
 
 	public getActiveMediaNodes(): MediaNode[] {
 		return [ ...new Set(this.routers.items.map((r) => r.mediaNode)) ];
+	}
+
+	public async addBreakoutRoom(breakoutRoom: BreakoutRoom) {
+		this.breakoutRooms.set(breakoutRoom.sessionId, breakoutRoom);
+		if (this.routers.items.length === 0) return;
+		try {
+			const observer = await this.routers.items[0].createActiveSpeakerObserver({});
+
+			observer.on('dominantspeaker', (dominantSpeakerId) => {
+				const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
+
+				if (activePeer) 
+					breakoutRoom.notifyPeers('activeSpeaker', {
+						peerId: activePeer.id,
+						sessionId: breakoutRoom.sessionId
+					});
+			});
+
+			breakoutRoom.resolveActiveSpeakerObserverReady(observer);
+		} catch (error) {
+			logger.error('addBreakoutRoom() [%o]', error);
+			breakoutRoom.rejectActiveAudioObserverReady(error);
+		}
 	}
 
 	private async assignRouter(peer: Peer): Promise<void> {

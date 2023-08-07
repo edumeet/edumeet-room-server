@@ -1,4 +1,4 @@
-import { Logger, Middleware } from 'edumeet-common';
+import { Logger, MediaKind, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumer, createDataConsumer } from '../common/consuming';
@@ -80,6 +80,26 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 						await createConsumer(consumerPeer, peer, producer);
 					}
 				})();
+
+				if (producer.kind === MediaKind.AUDIO) {
+					(async () => {
+						try {
+							const breakoutRoom = room.breakoutRooms.get(peer.sessionId);
+
+							const observer = room.sessionId === peer.sessionId ? 
+								await room.activeSpeakerObserverReady : 
+								await breakoutRoom?.activeSpeakerObserverReady;
+
+							await observer?.addProducer(producer);
+							producer.on('close', () => {
+								observer?.removeProducer(producer).catch((error) => logger.error(error));
+							});
+						} catch (error) {
+							logger.error('createMediaMiddleware() [%o]', error);
+						}
+					}
+					)();
+				}
 
 				break;
 			}

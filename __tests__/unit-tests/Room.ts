@@ -4,7 +4,9 @@ import Room from '../../src/Room';
 import { Router } from '../../src/media/Router';
 import LoadBalancer from '../../src/LoadBalancer';
 import { Config } from '../../src/Config';
-import { KDTree } from 'edumeet-common';
+import { BaseConnection, KDTree } from 'edumeet-common';
+import { ActiveSpeakerObserver } from '../../src/media/ActiveSpeakerObserver';
+import { MediaNodeConnection } from '../../src/media/MediaNodeConnection';
 
 describe('Room', () => {
 	let room1: Room;
@@ -64,7 +66,14 @@ describe('Room', () => {
 				id: 'routerId',
 				rtpCapabilities: jest.fn(),
 				appData: {},
-				close: jest.fn()
+				close: jest.fn(),
+				createActiveSpeakerObserver: jest.fn().mockResolvedValue(
+					new ActiveSpeakerObserver(
+						{ id: 'id',
+							router,
+							connection: {
+								once: jest.fn()
+							} as unknown as MediaNodeConnection }))
 			} as unknown as Router;
 			spyClose = jest.spyOn(router, 'close');
 			spyAdd = jest.spyOn(room1.routers, 'add');
