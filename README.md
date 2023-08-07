@@ -47,5 +47,5 @@ $ DEBUG=edumeet:* yarn start
 | listenPort | Socket port to listen on | `"port"` | ``8443`` |
 | listenHost | Ip/address the server will listen on | `"string"` | ``0.0.0.0``
 | tls | TLS configuration for the server | `object` | ``{ "cert": "./certs edumeet-demo-cert.pem", "key": "./certs/edumeet-demo-key.pem"}`` |
-| mediaNodes | Array of media nodes to use | `array` | ``[ { "host": "localhost", "port": 3000, "secret": "secret-shared-with-media-node", "latitude": 63.430481, "latitude": 10.394964 } ]`` |
+| mediaNodes | Array of media nodes to use | `array` | ``[ { "host": "localhost", "port": 3000, "secret": "secret-shared-with-media-node", "latitude": 63.430481, "longitude": 10.394964 } ]`` |
 ---

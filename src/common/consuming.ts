@@ -88,7 +88,7 @@ export const createConsumer = async (
 		});
 
 		if (consumer.kind === 'video')
-			consumer.appData.layerReporter = (producer.appData.layerWatcher as LayerWatcher).creatLayerReporter();
+			consumer.appData.layerReporter = (producer.appData.layerWatcher as LayerWatcher).createLayerReporter();
 
 		if (consumerPeer.closed)
 			return consumer.close();
