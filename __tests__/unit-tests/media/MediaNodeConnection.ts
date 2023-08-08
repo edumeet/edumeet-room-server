@@ -1,54 +1,81 @@
-import { BaseConnection, SocketMessage } from 'edumeet-common';
-import 'jest';
-import { EventEmitter } from 'stream';
+import { AddressInfo, ListenOptions } from 'net';
 import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 
-class MockConnection extends EventEmitter {
-	id = 'id';
-	request = jest.fn();
-	close = jest.fn();
-	notify = jest.fn();
-}
+import { Server as IOServer } from 'socket.io';
+import https from 'node:https';
+import { readFileSync } from 'fs';
+import path from 'path';
 
-describe('MediaNodeConnection', () => {
-	let mockConnection: BaseConnection;
-	let fakeRequest: SocketMessage; 
-	let fakeRespond: jest.SpyInstance;  
-	let fakeReject: jest.SpyInstance;  
+const createServer = async (): Promise<{
+	httpServer: https.Server,
+	ioServer: IOServer,
+	addressInfo?: AddressInfo,
+    url: string
+}> => {
+	const options: ListenOptions = {
+		host: 'localhost',
+		port: Math.floor((Math.random() * (60000)) + 3000)
+	};
+	const httpsServer = https.createServer({
+		cert: readFileSync(path.join(process.cwd(), './certs/edumeet-demo-cert.pem')),
+		key: readFileSync(path.join(process.cwd(), './certs/edumeet-demo-key.pem'))
+	}).listen(options);
 
-	beforeEach(() => {
-		mockConnection = new MockConnection();
-		fakeRespond = jest.fn();
-		fakeReject = jest.fn();
-	});
-
-	afterEach(() => {
-		jest.clearAllMocks();
-	});
-	
-	it('notify() - Should call notify on connection', async () => {
-		const sut = new MediaNodeConnection({ connection: mockConnection });
-
-		mockConnection.emit('notification', { method: 'mediaNodeReady' });
-		const fakeSocketMessage = {} as unknown as SocketMessage;
-		const spyConnectionNotify = jest.spyOn(mockConnection, 'notify');
-
-		sut.notify(fakeSocketMessage);
-		await new Promise(process.nextTick);
-
-		expect(spyConnectionNotify).toHaveBeenCalled();
-		sut.close();
-	});
+	return new Promise((resolve) => {
+		httpsServer.on('listening', () => {
+			const addressInfo = httpsServer.address() as AddressInfo;
+			const ioServer = new IOServer(httpsServer);
 		
-	it('request - Should call reject when not handled by middleware', async () => {
-		const sut = new MediaNodeConnection({ connection: mockConnection });
-
-		mockConnection.emit('notification', { method: 'mediaNodeReady' });
-
-		mockConnection.emit('request', fakeRequest, fakeRespond, fakeReject);
-		await new Promise(process.nextTick);
-		expect(fakeReject).toHaveBeenCalled();
-		expect(fakeRespond).not.toHaveBeenCalled();
-		sut.close();
+			resolve({
+				httpServer: httpsServer,
+				ioServer,
+				url: `wss://${addressInfo.address}:${addressInfo.port}`
+			});
+		});
 	});
+
+};
+
+it('close()', () => {
+	const sut = new MediaNodeConnection({
+		url: 'url',
+		timeout: 500
+	});
+
+	expect(sut.closed).toBe(false);
+	sut.close();
+	expect(sut.closed).toBe(true);
+});
+
+it('should reject on socket timeout', async () => {
+	const sut = new MediaNodeConnection({
+		url: 'url',
+		timeout: 10
+	});
+
+	await expect(sut.ready).rejects.toBe('Timeout waiting for media-node connection');
+	sut.close();
+});
+
+it('mediaNodeReady', async () => {
+	const { ioServer, httpServer, url } = await createServer();
+
+	ioServer.on('connect', (socket) => {
+		socket.emit('notification', {
+			method: 'mediaNodeReady',
+			data: {
+				workers: 2
+			}
+		});
+	});
+
+	const sut = new MediaNodeConnection({
+		url,
+		timeout: 500
+	});
+
+	await expect(sut.ready).resolves.toBe(undefined);
+	ioServer.close();
+	httpServer.close();
+	sut.close();
 });
