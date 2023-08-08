@@ -164,7 +164,7 @@ export default class Room extends EventEmitter {
 		this.lobbyPeers.clear();
 		this.breakoutRooms.clear();
 		this.routers.clear();
-		this.activeSpeakerObserverReady.then((o) => o.close());
+		this.activeSpeakerObserverReady.then((o) => o.close()).catch((e) => logger.error(e));
 
 		this.emit('close');
 	}
