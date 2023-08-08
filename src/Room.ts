@@ -84,16 +84,14 @@ export default class Room extends EventEmitter {
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
 
-	public breakoutActiveSpeakerObservers = new Map<string, ActiveSpeakerObserver>();
-
-	// eslint-disable-next-line no-unused-vars
+	/* eslint-disable no-unused-vars */
 	#resolveActiveSpeakerObserverReady!: (observer: ActiveSpeakerObserver) => void;
-	// eslint-disable-next-line no-unused-vars
-	#rejectActiveAudioObserverReady!: (error: unknown) => void;
+	#rejectActiveSpeakerObserverReady!: (error: unknown) => void;
+	/* eslint-enable no-unused-vars */
 
-	public activeSpeakerObserverReady: Promise<ActiveSpeakerObserver> = new Promise<ActiveSpeakerObserver>((resolve, reject) => {
+	public activeSpeakerObserverReady = new Promise<ActiveSpeakerObserver>((resolve, reject) => {
 		this.#resolveActiveSpeakerObserverReady = resolve;
-		this.#rejectActiveAudioObserverReady = reject;
+		this.#rejectActiveSpeakerObserverReady = reject;
 	});
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
@@ -166,6 +164,7 @@ export default class Room extends EventEmitter {
 		this.lobbyPeers.clear();
 		this.breakoutRooms.clear();
 		this.routers.clear();
+		this.activeSpeakerObserverReady.then((o) => o.close());
 
 		this.emit('close');
 	}
@@ -176,28 +175,10 @@ export default class Room extends EventEmitter {
 
 	public addRouter(router: Router): void {
 		if (this.routers.has(router)) return;
-		// TODO: is this good enough to avoid duplicate observers?
-		if (this.routers.length === 0) {
-			(async () => {
-				try {
-					const observer = await router.createActiveSpeakerObserver({});
 
-					observer.on('dominantspeaker', (dominantSpeakerId) => {
-						const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
-
-						if (activePeer) 
-							this.notifyPeers('activeSpeaker', {
-								peerId: activePeer.id,
-								sessionId: this.sessionId
-							});
-					});
-					this.#resolveActiveSpeakerObserverReady(observer);
-				} catch (error) {
-					logger.error('createActiveSpeakerObserver(): [%o]', error);
-					this.#rejectActiveAudioObserverReady(error);
-				} 
-			})();
-		}
+		/* At this point we know our first router exists in media-node service.
+		We can safely create our ActiveSpeakerObserver. */
+		if (this.routers.length === 0) this.createActiveSpeakerObserver(router);
 		this.routers.add(router);
 	}
 
@@ -247,6 +228,27 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
+	private async createActiveSpeakerObserver(router: Router) {
+		try {
+			const observer = await router.createActiveSpeakerObserver({});
+
+			observer.on('dominantspeaker', (dominantSpeakerId: string) => {
+				const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
+
+				if (activePeer) 
+					this.notifyPeers('activeSpeaker', {
+						peerId: activePeer.id,
+						sessionId: this.sessionId
+					});
+			});
+			this.#resolveActiveSpeakerObserverReady(observer);
+		} catch (error) {
+			logger.error('createActiveSpeakerObserver(): [%o]', error);
+			this.#rejectActiveSpeakerObserverReady(error);
+		} 
+	}
+
+	@skipIfClosed
 	private allowPeer(peer: Peer): void {
 		logger.debug('allowPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
 
@@ -291,6 +293,20 @@ export default class Room extends EventEmitter {
 		peer.pipeline.remove(this.#joinMiddleware);
 		this.pendingPeers.remove(peer);
 
+		peer.pipeline.use(
+			this.#peerMiddleware,
+			this.#lobbyMiddleware,
+			this.#moderatorMiddleware,
+			this.#mediaMiddleware,
+			this.#lockMiddleware,
+		);
+
+		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
+		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
+		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
+
+		this.peers.add(peer);
+
 		// Notify newly joined peer about the active speaker.
 		(async () => {
 			const observer = await this.activeSpeakerObserverReady;
@@ -306,20 +322,6 @@ export default class Room extends EventEmitter {
 					sessionId: this.sessionId
 				} });
 		})();
-
-		peer.pipeline.use(
-			this.#peerMiddleware,
-			this.#lobbyMiddleware,
-			this.#moderatorMiddleware,
-			this.#mediaMiddleware,
-			this.#lockMiddleware,
-		);
-
-		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
-		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
-		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
-
-		this.peers.add(peer);
 		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
 	}
 
