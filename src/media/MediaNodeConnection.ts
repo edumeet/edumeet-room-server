@@ -81,7 +81,8 @@ export class MediaNodeConnection extends EventEmitter {
 		if (this.#socket.connected) this.#socket.disconnect();
 		this.#socket.removeAllListeners();
 		this.emit('close');
-		this.#socket.off();
+		this.#socket.disconnect();
+		clearTimeout(this.#resolveReadyTimeoutHandle);
 	}
 
 	#handleSocket(): void {
