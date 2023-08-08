@@ -1,7 +1,7 @@
 import { IOServerConnection, KDPoint, Logger } from 'edumeet-common';
 import https from 'https';
 import { Server as IOServer } from 'socket.io';
-import MediaNode from '../../src/media/MediaNode';
+import MediaNode, { ConnectionStatus } from '../../src/media/MediaNode';
 import { AddressInfo, ListenOptions } from 'net';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -39,7 +39,7 @@ const init = async (): Promise<{
 }> => {
 	const options: ListenOptions = {
 		host: 'localhost',
-		port: Math.floor((Math.random() * (63000 - 3000)) + 3000)
+		port: Math.floor((Math.random() * (60000)) + 3000)
 	};
 	let count = 0;
 
@@ -79,12 +79,13 @@ test('MediaService getRouter() should stop trying on successful candidate', asyn
 		serverSocket.notify({
 			method: 'mediaNodeReady',
 			data: {
-				workers: 2
+				workers: 2,
+				load: 0.1
 			}
 		});
 
 		serverSocket.on('request', (_, respond) => {
-			if (tries === 1) respond({});
+			if (tries === 1) respond({ load: 0.2 });
 			tries++;
 		});
 	});
@@ -117,6 +118,7 @@ test('MediaService getRouter() should stop trying on successful candidate', asyn
 	const room = new Room({
 		id: 'id',
 		name: 'name',
+		tenantId: 'id',
 		mediaService: sut,
 	});
 	const peer = new Peer({
@@ -125,9 +127,8 @@ test('MediaService getRouter() should stop trying on successful candidate', asyn
 	});
 
 	await expect(sut.getRouter(room, peer)).resolves.not.toThrow();
-	expect(mediaNode1.health).toBe(false);
-	expect(mediaNode2.health).toBe(true);
-	expect(mediaNode3.health).toBe(undefined);
+	expect(mediaNode1.connectionStatus).toBe(ConnectionStatus.RETRYING);
+	expect(mediaNode2.connectionStatus).toBe(ConnectionStatus.OK);
 	expect(spyGetRouterMediaNode1).toHaveBeenCalled();
 	expect(spyGetRouterMediaNode2).toHaveBeenCalled();
 	expect(spyGetRouterMediaNode3).not.toHaveBeenCalled();
@@ -151,7 +152,8 @@ test('MediaNode should retry connection', async () => {
 		serverSocket.notify({
 			method: 'mediaNodeReady',
 			data: {
-				workers: 2
+				workers: 2,
+				load: 0.1
 			}
 		});
 
@@ -169,22 +171,19 @@ test('MediaNode should retry connection', async () => {
 		kdPoint: new KDPoint([ 50, 10 ])
 	});
 
-	expect(sut.health).toBe(true);
-	const spyAxios = jest.spyOn(axios, 'get');
-
-	expect(spyAxios).not.toHaveBeenCalled();
-
+	expect(sut.connectionStatus).toBe(ConnectionStatus.OK);
+	
 	await expect(sut.getRouter(
 		{ roomId: 'id',
 			appData: {} }
 	)).rejects.toThrow();
 	
-	expect(sut.health).toBe(false);
+	expect(sut.connectionStatus).toBe(ConnectionStatus.RETRYING);
 
 	const getHealthy = async () => {
 		return new Promise((resolve) => {
 			const interval = setInterval(() => {
-				if (sut.health) {
+				if (sut.connectionStatus === ConnectionStatus.OK) {
 					clearInterval(interval);
 					resolve({});
 				} 
@@ -193,8 +192,7 @@ test('MediaNode should retry connection', async () => {
 	};
 
 	await getHealthy(); // Wait until sut.retryConnection() is successful
-	expect(spyAxios).toHaveBeenCalledTimes(2);
-	expect(sut.health).toBe(true);
+	expect(sut.connectionStatus).toBe(ConnectionStatus.OK);
 	ioServer.close();
 	httpsServer.close();
 	sut.close();

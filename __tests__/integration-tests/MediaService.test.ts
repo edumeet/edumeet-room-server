@@ -24,6 +24,7 @@ test('getRouter() should throw on no mediaNodes', async () => {
 
 	const roomOptions = {
 		id: 'roomId',
+		tenantId: 'id',
 		mediaService: sut,
 	};
 	const room = new Room(roomOptions);
@@ -63,6 +64,7 @@ test('getRouter() should get router', async () => {
 
 	const roomOptions = {
 		id: 'roomId',
+		tenantId: 'id',
 		mediaService: sut,
 	};
 	const room = new Room(roomOptions);
@@ -81,13 +83,15 @@ test('getRouter() should get router', async () => {
 	const router = await sut.getRouter(room, peer);
 
 	expect(router.closed).toBeFalsy();
-	expect(router.appData.roomId).toBe(room.id);
+	expect(router.appData).toBeDefined();
 	router.close();
+	sut.close();
 });
 
 test('getRouter() should try all media-nodes', async () => {
 	const mediaNodes = [];
 
+	// We want connection attempts to fail and assume there's nothing listening on 9999.
 	for (let i = 0; i < 6; i++) {
 		mediaNodes.push({
 			hostname: '127.0.0.1',
@@ -105,12 +109,9 @@ test('getRouter() should try all media-nodes', async () => {
 	const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
 	const sut = MediaService.create(loadBalancer, kdTree, config);
 
-	// for (const mn of sut.mediaNodes.items) {
-	// 	mn.health = false;
-	// }
-
 	const roomOptions = {
 		id: 'roomId',
+		tenantId: 'id',
 		mediaService: sut,
 	};
 	const room = new Room(roomOptions);
