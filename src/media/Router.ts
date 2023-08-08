@@ -146,7 +146,7 @@ export class Router extends EventEmitter {
 	public async createActiveSpeakerObserver({
 		interval,
 		appData = {}
-	}: ActiveSpeakerObserverOptions): Promise<ActiveSpeakerObserver> {
+	}: Omit<ActiveSpeakerObserverOptions, 'id'>): Promise<ActiveSpeakerObserver> {
 		logger.debug('createActiveSpeakerObserver()');
 
 		const {

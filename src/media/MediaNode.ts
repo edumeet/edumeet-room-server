@@ -11,6 +11,7 @@ import { createPipeTransportsMiddleware } from '../middlewares/pipeTransportsMid
 import { createProducersMiddleware } from '../middlewares/producersMiddleware';
 import { createRoutersMiddleware } from '../middlewares/routersMiddleware';
 import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
+import { createActiveSpeakerMiddleware } from '../middlewares/activeSpeakerMiddleware';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 import https from 'https';
@@ -79,6 +80,8 @@ export default class MediaNode extends EventEmitter {
 		createDataConsumersMiddleware({ routers: this.routers });
 	#pipeDataConsumersMiddleware =
 		createPipeDataConsumersMiddleware({ routers: this.routers });
+	#activeSpeakerMiddleware = 
+		createActiveSpeakerMiddleware({ routers: this.routers });
 
 	constructor({
 		id,
@@ -241,7 +244,8 @@ export default class MediaNode extends EventEmitter {
 			this.#consumersMiddleware,
 			this.#pipeConsumersMiddleware,
 			this.#dataConsumersMiddleware,
-			this.#pipeDataConsumersMiddleware
+			this.#pipeDataConsumersMiddleware,
+			this.#activeSpeakerMiddleware
 		);
 
 		connection.on('load', (load) => {
@@ -261,6 +265,7 @@ export default class MediaNode extends EventEmitter {
 			connection.pipeline.remove(this.#pipeConsumersMiddleware);
 			connection.pipeline.remove(this.#dataConsumersMiddleware);
 			connection.pipeline.remove(this.#pipeDataConsumersMiddleware);
+			connection.pipeline.remove(this.#activeSpeakerMiddleware);
 			this.#connection = undefined;
 			this.#retryConnection();
 		});

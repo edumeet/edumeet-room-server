@@ -18,6 +18,7 @@ import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
+import { ActiveSpeakerObserver } from './media/ActiveSpeakerObserver';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 
 const logger = new Logger('Room');
@@ -82,6 +83,16 @@ export default class Room extends EventEmitter {
 
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
+
+	/* eslint-disable no-unused-vars */
+	#resolveActiveSpeakerObserverReady!: (observer: ActiveSpeakerObserver) => void;
+	#rejectActiveSpeakerObserverReady!: (error: unknown) => void;
+	/* eslint-enable no-unused-vars */
+
+	public activeSpeakerObserverReady = new Promise<ActiveSpeakerObserver>((resolve, reject) => {
+		this.#resolveActiveSpeakerObserverReady = resolve;
+		this.#rejectActiveSpeakerObserverReady = reject;
+	});
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
 	#initialMediaMiddleware: Middleware<PeerContext>;
@@ -153,6 +164,7 @@ export default class Room extends EventEmitter {
 		this.lobbyPeers.clear();
 		this.breakoutRooms.clear();
 		this.routers.clear();
+		this.activeSpeakerObserverReady.then((o) => o.close()).catch((e) => logger.error(e));
 
 		this.emit('close');
 	}
@@ -164,6 +176,9 @@ export default class Room extends EventEmitter {
 	public addRouter(router: Router): void {
 		if (this.routers.has(router)) return;
 
+		/* At this point we know our first router exists in media-node service.
+		We can safely create our ActiveSpeakerObserver. */
+		if (this.routers.length === 0) this.createActiveSpeakerObserver(router);
 		this.routers.add(router);
 	}
 
@@ -210,6 +225,27 @@ export default class Room extends EventEmitter {
 		if (this.peers.remove(peer)) this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
 		if (this.lobbyPeers.remove(peer)) this.notifyPeersWithPermission('lobby:peerClosed', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
 		if (this.empty) this.close();
+	}
+
+	@skipIfClosed
+	private async createActiveSpeakerObserver(router: Router) {
+		try {
+			const observer = await router.createActiveSpeakerObserver({});
+
+			observer.on('dominantspeaker', (dominantSpeakerId: string) => {
+				const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
+
+				if (activePeer) 
+					this.notifyPeers('activeSpeaker', {
+						peerId: activePeer.id,
+						sessionId: this.sessionId
+					});
+			});
+			this.#resolveActiveSpeakerObserverReady(observer);
+		} catch (error) {
+			logger.error('createActiveSpeakerObserver(): [%o]', error);
+			this.#rejectActiveSpeakerObserverReady(error);
+		} 
 	}
 
 	@skipIfClosed
@@ -270,6 +306,22 @@ export default class Room extends EventEmitter {
 		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
 
 		this.peers.add(peer);
+
+		// Notify newly joined peer about the active speaker.
+		(async () => {
+			const observer = await this.activeSpeakerObserverReady;
+
+			if (!observer) return;
+			const activePeer = this.peers.items.find((p) => p.producers.has(observer.activeSpeakerId ?? ''));
+
+			if (!activePeer) return;
+
+			peer.notify({ method: 'activeSpeaker',
+				data: {
+					peerId: activePeer.id,
+					sessionId: this.sessionId
+				} });
+		})();
 		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
 	}
 
@@ -302,6 +354,29 @@ export default class Room extends EventEmitter {
 
 	public getActiveMediaNodes(): MediaNode[] {
 		return [ ...new Set(this.routers.items.map((r) => r.mediaNode)) ];
+	}
+
+	public async addBreakoutRoom(breakoutRoom: BreakoutRoom) {
+		this.breakoutRooms.set(breakoutRoom.sessionId, breakoutRoom);
+		if (this.routers.items.length === 0) return;
+		try {
+			const observer = await this.routers.items[0].createActiveSpeakerObserver({});
+
+			observer.on('dominantspeaker', (dominantSpeakerId) => {
+				const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
+
+				if (activePeer) 
+					breakoutRoom.notifyPeers('activeSpeaker', {
+						peerId: activePeer.id,
+						sessionId: breakoutRoom.sessionId
+					});
+			});
+
+			breakoutRoom.resolveActiveSpeakerObserverReady(observer);
+		} catch (error) {
+			logger.error('addBreakoutRoom() [%o]', error);
+			breakoutRoom.rejectActiveAudioObserverReady(error);
+		}
 	}
 
 	private async assignRouter(peer: Peer): Promise<void> {
