@@ -1,7 +1,7 @@
 import { IOServerConnection, KDPoint } from 'edumeet-common';
 import https from 'https';
 import { Server as IOServer } from 'socket.io';
-import MediaNode, { ConnectionStatus } from '../../../src/media/MediaNode';
+import MediaNode from '../../../src/media/MediaNode';
 import { AddressInfo, ListenOptions } from 'net';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -9,6 +9,7 @@ import MediaService from '../../../src/MediaService';
 import LoadBalancer from '../../../src/LoadBalancer';
 import Room from '../../../src/Room';
 import { Peer } from '../../../src/Peer';
+import { ConnectionStatus } from '../../../src/media/MediaNodeHealth';
 
 /**
  * Either:

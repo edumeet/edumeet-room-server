@@ -1,8 +1,9 @@
 import { KDPoint, KDTree } from 'edumeet-common';
 import LoadBalancer from '../../src/LoadBalancer';
-import MediaNode, { ConnectionStatus } from '../../src/media/MediaNode';
+import MediaNode from '../../src/media/MediaNode';
 import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
+import { ConnectionStatus } from '../../src/media/MediaNodeHealth';
 
 const kdPoint1 = new KDPoint([ 50, 10 ]);
 const kdPoint2= new KDPoint([ 50, 10 ]);

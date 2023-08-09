@@ -1,10 +1,11 @@
 import { KDPoint, KDTree } from 'edumeet-common';
 import LoadBalancer from '../../src/LoadBalancer';
-import MediaNode, { ConnectionStatus } from '../../src/media/MediaNode';
+import MediaNode from '../../src/media/MediaNode';
 import { Router } from '../../src/media/Router';
 import MediaService from '../../src/MediaService';
 import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
+import { ConnectionStatus } from '../../src/media/MediaNodeHealth';
 
 const mockMediaService = {} as unknown as MediaService;
 const mockObserver = { on: jest.fn() };
