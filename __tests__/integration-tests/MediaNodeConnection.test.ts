@@ -1,10 +1,10 @@
 import { AddressInfo, ListenOptions } from 'net';
-import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 
 import { Server as IOServer } from 'socket.io';
 import https from 'node:https';
 import { readFileSync } from 'fs';
 import path from 'path';
+import { MediaNodeConnection } from '../../src/media/MediaNodeConnection';
 
 const createServer = async (): Promise<{
 	httpServer: https.Server,
