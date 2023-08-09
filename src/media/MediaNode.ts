@@ -40,10 +40,7 @@ export const ConnectionStatus = Object.freeze({
 export type ConnectionStatus = typeof ConnectionStatus[keyof typeof ConnectionStatus]
 	
 type MediaNodeHealth = {
-		connection: {
-			status: ConnectionStatus,
-			timeoutHandle: undefined | NodeJS.Timeout
-		},
+		connection: ConnectionStatus,
 		load: number };
 
 export default class MediaNode extends EventEmitter {
@@ -100,9 +97,7 @@ export default class MediaNode extends EventEmitter {
 		this.#secret = secret;
 		this.kdPoint = kdPoint;
 		this.#health = {
-			connection: {
-				status: ConnectionStatus.OK,
-				timeoutHandle: undefined },
+			connection: ConnectionStatus.OK,
 			load: 0
 		};
 	}
@@ -119,10 +114,11 @@ export default class MediaNode extends EventEmitter {
 		this.#connection?.close();
 	}
 
-	async #retryConnection(): Promise<void> {
+	@skipIfClosed
+	private async retryConnection(): Promise<void> {
 		logger.debug('retryConnection()');
 		if (this.connectionStatus === ConnectionStatus.RETRYING) return;
-		this.#health.connection.status = ConnectionStatus.RETRYING;
+		this.#health.connection = ConnectionStatus.RETRYING;
 		const backoffIntervals = [
 			5000, 5000, 5000,
 			30000, 30000, 30000,
@@ -132,34 +128,42 @@ export default class MediaNode extends EventEmitter {
 		let retryCount = 0;
 
 		do {
-			const timeoutPromise = new Promise((_, reject) => {
-				this.#health.connection.timeoutHandle = setTimeout(
-					() => reject(new Error('retryConnection() Timeout')), backoffIntervals[retryCount]);
-			});
-			const healthPromise = new Promise<void>((resolve) => {
-				https.get(`https://${this.hostname}:${this.port}/health`,
-					(resp) => {
-						if (resp.statusCode === 200) resolve();
-					}).on('error', (err) => {
-					logger.error(err);
-				});
-			});
-
+			logger.debug('retryConnection() [retryCount: %s, timeout: %s seconds]', retryCount, backoffIntervals[retryCount]/1000);
 			try {
-				await Promise.race([ timeoutPromise, healthPromise ]);
-				this.#health.connection.status = ConnectionStatus.OK;
+				await new Promise<void>((resolve, reject) => {
+					const req = https.get({
+						hostname: this.hostname,
+						port: this.port,
+						path: '/health',
+						timeout: backoffIntervals[retryCount] },
+					(resp) => {
+						logger.debug('retryConnection() Got response from MediaNode [statuscode: %s]', resp.statusCode);
+						if (resp.statusCode === 200) {
+							this.#health.connection = ConnectionStatus.OK; 
+							resolve();
+						}
+						reject(new Error('retryConnection() Status code was not 200.'));
+					});
+
+					req.on('error', () => {
+						reject(new Error('retryConnection() Error'));
+						req.destroy();
+					});
+					req.on('timeout', () => {
+						reject(new Error('retryConnection() Timeout'));
+						req.destroy();
+					});
+				});
 			} catch (error) {
 				logger.error(error);
-			} finally {
-				clearTimeout(this.#health.connection.timeoutHandle);
-			}
-			retryCount++;
+				retryCount++;
+			} 
 		} while (retryCount < backoffIntervals.length 
 				&& this.connectionStatus !== ConnectionStatus.OK);
 		
 		if (retryCount === backoffIntervals.length) {
 			// We ran out of backoff intervals. MediaNode will be left in error state.
-			this.#health.connection.status = ConnectionStatus.ERROR;
+			this.#health.connection = ConnectionStatus.ERROR;
 		}
 	}
 
@@ -178,7 +182,7 @@ export default class MediaNode extends EventEmitter {
 		} catch (error) {
 			this.#connection.close();
 			this.pendingRequests.delete(requestUUID);
-			this.#retryConnection();
+			this.retryConnection();
 
 			throw error;
 		}
@@ -220,7 +224,7 @@ export default class MediaNode extends EventEmitter {
 
 		} catch (error) {
 			logger.error(error);
-			this.#retryConnection();
+			this.retryConnection();
 			throw error;
 		} finally {
 			this.pendingRequests.delete(requestUUID); 
@@ -267,7 +271,6 @@ export default class MediaNode extends EventEmitter {
 			connection.pipeline.remove(this.#pipeDataConsumersMiddleware);
 			connection.pipeline.remove(this.#activeSpeakerMiddleware);
 			this.#connection = undefined;
-			this.#retryConnection();
 		});
 
 		return connection;
@@ -292,7 +295,7 @@ export default class MediaNode extends EventEmitter {
 			
 		} catch (error) {
 			if (error instanceof SocketTimeoutError) {
-				this.#retryConnection();
+				this.retryConnection();
 			}
 			throw error;
 		}
@@ -303,6 +306,6 @@ export default class MediaNode extends EventEmitter {
 	}
 
 	public get connectionStatus(): ConnectionStatus {
-		return this.#health.connection.status;
+		return this.#health.connection;
 	}
 }
