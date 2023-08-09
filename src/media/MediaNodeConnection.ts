@@ -13,7 +13,7 @@ interface ClientServerEvents {
 	/* eslint-disable no-unused-vars */
 	notification: (notification: SocketMessage) => void;
 	request: (request: SocketMessage, result: (
-		serverError: unknown | null,
+		serverError: unknown,
 		responseData: unknown) => void
 	) => void;
 	/* eslint-enable no-unused-vars */
@@ -24,7 +24,7 @@ interface ServerClientEvents {
 	notification: (notification: SocketMessage) => void;
 	request: (request: SocketMessage, result: (
 		timeout: Error | null,
-		serverError: unknown | null,
+		serverError: unknown,
 		responseData: unknown) => void
 	) => void;
 	/* eslint-enable no-unused-vars */
