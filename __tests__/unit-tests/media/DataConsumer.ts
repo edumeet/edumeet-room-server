@@ -1,41 +1,35 @@
 import { SocketMessage } from 'edumeet-common';
 import 'jest';
 import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
-import { EventEmitter } from 'events';
 import { DataConsumer } from '../../../src/media/DataConsumer';
-import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 import { Router } from '../../../src/media/Router';
-
-class MockConnection extends EventEmitter {
-	pipeline = { use: jest.fn(), remove: jest.fn() };
-	notify = jest.fn();
-}
+import MediaNode from '../../../src/media/MediaNode';
 
 describe('Consumer', () => {
 	const dataConsumerId = 'id'; 
 	const dataProducerId = 'id'; 
 	let fakeRouter: Router;
-	let fakeConnection: MediaNodeConnection;
 	let fakeAppData: Record<string, unknown>;
 	let fakeSctpStreamParameters: SctpStreamParameters;
 	let dataConsumer: DataConsumer;
 	let spyNotify: jest.SpyInstance;
+	let mediaNode: MediaNode;
 
 	beforeEach(() => {
-		fakeConnection = new MockConnection() as unknown as MediaNodeConnection;
 		fakeRouter = { id: 'id' } as unknown as Router;
 		fakeAppData = { 'fake': 'fake' };
+		spyNotify = jest.fn();
+		mediaNode = { notify: spyNotify, once: jest.fn() } as unknown as MediaNode;
 		dataConsumer = new DataConsumer({
+			mediaNode,
 			id: dataConsumerId,
 			router: fakeRouter,
-			connection: fakeConnection,
 			appData: fakeAppData,
 			sctpStreamParameters: fakeSctpStreamParameters,
 			dataProducerId: dataProducerId,
 			label: 'label',
 			protocol: 'protocol',
 		});
-		spyNotify = jest.spyOn(dataConsumer.connection, 'notify');
 	});
 
 	afterEach(() => {
@@ -47,7 +41,7 @@ describe('Consumer', () => {
 			const newConsumer = new DataConsumer({
 				id: dataConsumerId,
 				router: fakeRouter,
-				connection: fakeConnection,
+				mediaNode,
 				sctpStreamParameters: fakeSctpStreamParameters,
 				dataProducerId: dataProducerId
 			}); 
@@ -67,14 +61,5 @@ describe('Consumer', () => {
 
 		dataConsumer.close(false);
 		expect(spyNotify).toHaveBeenCalledWith(expected);
-	});
-
-	it('Should be closed after close event from connection', () => {
-		expect(dataConsumer.closed).toBe(false);
-		
-		fakeConnection.emit('close');
-
-		expect(dataConsumer.closed).toBe(true);
-		expect(spyNotify).not.toHaveBeenCalled();
 	});
 });

@@ -1,15 +1,14 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { PipeConsumer, PipeConsumerOptions } from './PipeConsumer';
 import { PipeProducer, PipeProducerOptions } from './PipeProducer';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../common/types';
-import { Logger, skipIfClosed } from 'edumeet-common';
+import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
 import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
 import { PipeDataProducer, PipeDataProducerOptions } from './PipeDataProducer';
 import { PipeDataConsumer, PipeDataConsumerOptions } from './PipeDataConsumer';
-import { MediaKind } from 'edumeet-common';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('PipeTransport');
 
@@ -48,7 +47,7 @@ export interface PipeTransportOptions {
 
 interface InternalPipeTransportOptions extends PipeTransportOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 	appData?: Record<string, unknown>;
 }
 
@@ -60,7 +59,7 @@ export declare interface PipeTransport {
 export class PipeTransport extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public ip: string;
 	public port: number;
@@ -75,7 +74,7 @@ export class PipeTransport extends EventEmitter {
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		ip,
 		port,
@@ -87,7 +86,7 @@ export class PipeTransport extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.ip = ip;
 		this.port = port;
@@ -104,7 +103,7 @@ export class PipeTransport extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closePipeTransport',
 				data: {
 					routerId: this.router.id,
@@ -123,7 +122,7 @@ export class PipeTransport extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed
@@ -134,7 +133,7 @@ export class PipeTransport extends EventEmitter {
 	}: { ip: string; port: number; srtpParameters: SrtpParameters }): Promise<void> {
 		logger.debug('connect()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'connectPipeTransport',
 			data: {
 				routerId: this.router.id,
@@ -156,7 +155,7 @@ export class PipeTransport extends EventEmitter {
 	}: PipeProduceOptions): Promise<PipeProducer> {
 		logger.debug('produce()');
 
-		const { id } = await this.connection.request({
+		const { id } = await this.mediaNode.request({
 			method: 'createPipeProducer',
 			data: {
 				routerId: this.router.id,
@@ -170,7 +169,7 @@ export class PipeTransport extends EventEmitter {
 
 		const pipeProducer = new PipeProducer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			kind,
 			paused,
@@ -200,7 +199,7 @@ export class PipeTransport extends EventEmitter {
 			kind,
 			producerPaused,
 			rtpParameters,
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'createPipeConsumer',
 			data: {
 				routerId: this.router.id,
@@ -211,7 +210,7 @@ export class PipeTransport extends EventEmitter {
 
 		const pipeConsumer = new PipeConsumer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			producerId,
 			kind,
@@ -240,7 +239,7 @@ export class PipeTransport extends EventEmitter {
 	}: PipeDataProduceOptions): Promise<PipeDataProducer> {
 		logger.debug('produceData()');
 
-		const { id } = await this.connection.request({
+		const { id } = await this.mediaNode.request({
 			method: 'createPipeDataProducer',
 			data: {
 				routerId: this.router.id,
@@ -254,7 +253,7 @@ export class PipeTransport extends EventEmitter {
 
 		const pipeDataProducer = new PipeDataProducer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			sctpStreamParameters,
 			label,
@@ -284,7 +283,7 @@ export class PipeTransport extends EventEmitter {
 			sctpStreamParameters,
 			label,
 			protocol,
-		} = await this.connection.request({
+		} = await this.mediaNode.request({
 			method: 'createPipeDataConsumer',
 			data: {
 				routerId: this.router.id,
@@ -295,7 +294,7 @@ export class PipeTransport extends EventEmitter {
 
 		const pipeDataConsumer = new PipeDataConsumer({
 			router: this.router,
-			connection: this.connection,
+			mediaNode: this.mediaNode,
 			id,
 			dataProducerId,
 			sctpStreamParameters,

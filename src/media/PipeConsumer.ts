@@ -1,9 +1,8 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
-import { Logger, skipIfClosed } from 'edumeet-common';
-import { MediaKind } from 'edumeet-common';
+import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('PipeConsumer');
 
@@ -16,7 +15,7 @@ export interface PipeConsumerOptions {
 
 interface InternalPipeConsumerOptions extends PipeConsumerOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 	producerId: string;
 	appData?: Record<string, unknown>;
 }
@@ -33,7 +32,7 @@ export declare interface PipeConsumer {
 export class PipeConsumer extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public producerId: string;
 	public kind: MediaKind;
@@ -43,7 +42,7 @@ export class PipeConsumer extends EventEmitter {
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		producerId,
 		kind,
@@ -56,7 +55,7 @@ export class PipeConsumer extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.producerId = producerId;
 		this.kind = kind;
@@ -74,7 +73,7 @@ export class PipeConsumer extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closePipeConsumer',
 				data: {
 					routerId: this.router.id,
@@ -90,7 +89,7 @@ export class PipeConsumer extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed

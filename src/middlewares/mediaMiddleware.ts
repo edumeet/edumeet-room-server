@@ -77,7 +77,7 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 						if (!consumerPeer.sameSession(peer))
 							continue;
 
-						await createConsumer(consumerPeer, peer, producer);
+						await createConsumer(consumerPeer, peer, producer).catch((e) => logger.error(e));
 					}
 				})();
 

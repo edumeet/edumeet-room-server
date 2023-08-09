@@ -28,7 +28,6 @@ export default class ManagementService {
 	#managedPeers: Map<string, Peer>;
 	#mediaService: MediaService;
 
-	// eslint-disable-next-line no-unused-vars
 	public resolveReady!: () => void;
 	// eslint-disable-next-line no-unused-vars
 	public rejectReady!: (error: unknown) => void;
