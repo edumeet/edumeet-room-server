@@ -1,8 +1,9 @@
 import { KDPoint, KDTree, Logger } from 'edumeet-common';
-import MediaNode, { ConnectionStatus } from './media/MediaNode';
+import MediaNode from './media/MediaNode';
 import { Peer } from './Peer';
 import Room from './Room';
 import * as geoip from 'geoip-lite';
+import { ConnectionStatus } from './media/MediaNodeHealth';
 
 const logger = new Logger('LoadBalancer');
 

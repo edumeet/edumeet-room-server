@@ -14,8 +14,8 @@ import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransport
 import { createActiveSpeakerMiddleware } from '../middlewares/activeSpeakerMiddleware';
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
-import https from 'https';
 import EventEmitter from 'events';
+import MediaNodeHealth, { ConnectionStatus } from './MediaNodeHealth';
 
 const logger = new Logger('MediaNode');
 
@@ -31,17 +31,6 @@ interface MediaNodeOptions {
 	secret: string;
 	kdPoint: KDPoint
 }
-
-export const ConnectionStatus = Object.freeze({
-	ERROR: 'error',
-	RETRYING: 'retrying',
-	OK: 'ok'
-});
-export type ConnectionStatus = typeof ConnectionStatus[keyof typeof ConnectionStatus]
-	
-type MediaNodeHealth = {
-		connection: ConnectionStatus,
-		load: number };
 
 export default class MediaNode extends EventEmitter {
 	public id: string;
@@ -96,10 +85,7 @@ export default class MediaNode extends EventEmitter {
 		this.port = port;
 		this.#secret = secret;
 		this.kdPoint = kdPoint;
-		this.#health = {
-			connection: ConnectionStatus.OK,
-			load: 0
-		};
+		this.#health = new MediaNodeHealth({ hostname, port });
 	}
 
 	@skipIfClosed
@@ -112,59 +98,7 @@ export default class MediaNode extends EventEmitter {
 		this.routers.clear();
 
 		this.#connection?.close();
-	}
-
-	@skipIfClosed
-	private async retryConnection(): Promise<void> {
-		logger.debug('retryConnection()');
-		if (this.connectionStatus === ConnectionStatus.RETRYING) return;
-		this.#health.connection = ConnectionStatus.RETRYING;
-		const backoffIntervals = [
-			5000, 5000, 5000,
-			30000, 30000, 30000,
-			300000, 300000, 300000,
-			900000, 900000, 900000
-		];
-		let retryCount = 0;
-
-		do {
-			logger.debug('retryConnection() [retryCount: %s, timeout: %s seconds]', retryCount, backoffIntervals[retryCount]/1000);
-			try {
-				await new Promise<void>((resolve, reject) => {
-					const req = https.get({
-						hostname: this.hostname,
-						port: this.port,
-						path: '/health',
-						timeout: backoffIntervals[retryCount] },
-					(resp) => {
-						logger.debug('retryConnection() Got response from MediaNode [statuscode: %s]', resp.statusCode);
-						if (resp.statusCode === 200) {
-							this.#health.connection = ConnectionStatus.OK; 
-							resolve();
-						}
-						reject(new Error('retryConnection() Status code was not 200.'));
-					});
-
-					req.on('error', () => {
-						reject(new Error('retryConnection() Error'));
-						req.destroy();
-					});
-					req.on('timeout', () => {
-						reject(new Error('retryConnection() Timeout'));
-						req.destroy();
-					});
-				});
-			} catch (error) {
-				logger.error(error);
-				retryCount++;
-			} 
-		} while (retryCount < backoffIntervals.length 
-				&& this.connectionStatus !== ConnectionStatus.OK);
-		
-		if (retryCount === backoffIntervals.length) {
-			// We ran out of backoff intervals. MediaNode will be left in error state.
-			this.#health.connection = ConnectionStatus.ERROR;
-		}
+		this.#health.close();
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -182,7 +116,7 @@ export default class MediaNode extends EventEmitter {
 		} catch (error) {
 			this.#connection.close();
 			this.pendingRequests.delete(requestUUID);
-			this.retryConnection();
+			this.#health.retryConnection();
 
 			throw error;
 		}
@@ -224,7 +158,7 @@ export default class MediaNode extends EventEmitter {
 
 		} catch (error) {
 			logger.error(error);
-			this.retryConnection();
+			this.#health.retryConnection();
 			throw error;
 		} finally {
 			this.pendingRequests.delete(requestUUID); 
@@ -295,7 +229,7 @@ export default class MediaNode extends EventEmitter {
 			
 		} catch (error) {
 			if (error instanceof SocketTimeoutError) {
-				this.retryConnection();
+				this.#health.retryConnection();
 			}
 			throw error;
 		}
@@ -306,6 +240,6 @@ export default class MediaNode extends EventEmitter {
 	}
 
 	public get connectionStatus(): ConnectionStatus {
-		return this.#health.connection;
+		return this.#health.getConnectionStatus();
 	}
 }
