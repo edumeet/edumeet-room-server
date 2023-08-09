@@ -4,7 +4,14 @@ import { Server as IOServer } from 'socket.io';
 import https from 'node:https';
 import { readFileSync } from 'fs';
 import path from 'path';
-import { MediaNodeConnection } from '../../src/media/MediaNodeConnection';
+import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
+
+/**
+ * No external depdenencies.
+ * Launches its own socket.io server on random port.
+ */
+
+jest.setTimeout(30000);
 
 const createServer = async (): Promise<{
 	httpServer: https.Server,
@@ -74,7 +81,7 @@ it('mediaNodeReady', async () => {
 		timeout: 3000
 	});
 
-	await expect(sut.ready).resolves.toBe(undefined);
+	await expect(sut.ready).resolves.not.toThrow();
 	ioServer.close();
 	httpServer.close();
 	sut.close();

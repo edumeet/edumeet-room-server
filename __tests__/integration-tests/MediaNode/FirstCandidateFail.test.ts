@@ -1,36 +1,22 @@
-import { IOServerConnection, KDPoint, Logger } from 'edumeet-common';
+import { IOServerConnection, KDPoint } from 'edumeet-common';
 import https from 'https';
 import { Server as IOServer } from 'socket.io';
-import MediaNode, { ConnectionStatus } from '../../src/media/MediaNode';
+import MediaNode, { ConnectionStatus } from '../../../src/media/MediaNode';
 import { AddressInfo, ListenOptions } from 'net';
 import { readFileSync } from 'fs';
 import path from 'path';
-import MediaService from '../../src/MediaService';
-import LoadBalancer from '../../src/LoadBalancer';
-import Room from '../../src/Room';
-import { Peer } from '../../src/Peer';
-import axios from 'axios';
+import MediaService from '../../../src/MediaService';
+import LoadBalancer from '../../../src/LoadBalancer';
+import Room from '../../../src/Room';
+import { Peer } from '../../../src/Peer';
 
-jest.mock('axios', () => {
-	const module = jest.requireActual('axios');
-	
-	return {
-		...module,
-		get: async (url: string) => {
-			const agent = new https.Agent({  
-				rejectUnauthorized: false
-			});
+/**
+ * Either:
+ * 1.) Run this test with valid tls certs in createServer().
+ * 2.) Run the tests with NODE_TLS_REJECT_UNAUTHORIZED=0.
+ */
 
-			return axios.request(
-				{ url: url, httpsAgent: agent }
-			);
-		}
-	};
-});
-
-const logger = new Logger('jest');
-
-jest.setTimeout(90000);
+jest.setTimeout(30000);
 
 const init = async (): Promise<{
 	httpsServer: https.Server,
@@ -41,12 +27,13 @@ const init = async (): Promise<{
 		host: 'localhost',
 		port: Math.floor((Math.random() * (60000)) + 3000)
 	};
-	let count = 0;
+	let count = 0; // Used to simulate network error.
 
 	const httpsServer = https.createServer({
 		cert: readFileSync(path.join(process.cwd(), './certs/edumeet-demo-cert.pem')),
 		key: readFileSync(path.join(process.cwd(), './certs/edumeet-demo-key.pem'))
 	}, (req, res) => {
+		// This will make the first candidate retry its connection while we accept the second candidate.
 		res.writeHead(count === 1 ? 200 : 400, { 'Content-Type': 'text/plain' });
 		count++;
 		res.end();
@@ -67,12 +54,11 @@ const init = async (): Promise<{
 
 };
 
-test('MediaService getRouter() should stop trying on successful candidate', async () => {
+test('MediaService.getRouter() should stop trying on successful candidate', async () => {
 	const { httpsServer: httpServer, ioServer, addressInfo } = await init();
 
-	let tries = 0;
+	let tries = 0; // Used to simulate network error
 
-	logger.debug(addressInfo);
 	ioServer.on('connection', (socket) => {
 		const serverSocket = new IOServerConnection(socket);
 
@@ -85,6 +71,7 @@ test('MediaService getRouter() should stop trying on successful candidate', asyn
 		});
 
 		serverSocket.on('request', (_, respond) => {
+			// We let the first request timeout to simulate network error.
 			if (tries === 1) respond({ load: 0.2 });
 			tries++;
 		});
@@ -125,6 +112,8 @@ test('MediaService getRouter() should stop trying on successful candidate', asyn
 		id: 'id',
 		sessionId: 'id'
 	});
+	
+	const spyGet = jest.spyOn(https, 'get'); // used when MediaNode is retrying the connection.
 
 	await expect(sut.getRouter(room, peer)).resolves.not.toThrow();
 	expect(mediaNode1.connectionStatus).toBe(ConnectionStatus.RETRYING);
@@ -133,67 +122,24 @@ test('MediaService getRouter() should stop trying on successful candidate', asyn
 	expect(spyGetRouterMediaNode2).toHaveBeenCalled();
 	expect(spyGetRouterMediaNode3).not.toHaveBeenCalled();
 
-	mediaNode1.close();
-	mediaNode2.close();
-	ioServer.close();
-	httpServer.close();
-	sut.close();
-});
-
-test('MediaNode should retry connection', async () => {
-	const { httpsServer, ioServer, addressInfo } = await init();
-
-	let tries = 0;
-
-	logger.debug(addressInfo);
-	ioServer.on('connection', (socket) => {
-		const serverSocket = new IOServerConnection(socket);
-
-		serverSocket.notify({
-			method: 'mediaNodeReady',
-			data: {
-				workers: 2,
-				load: 0.1
-			}
-		});
-
-		serverSocket.on('request', (_, respond) => {
-			if (tries === 1) respond({});
-			tries++;
-		});
-	});
-
-	const sut = new MediaNode({
-		id: 'mediaNodeId',
-		hostname: addressInfo.address,
-		port: addressInfo.port,
-		secret: 'secret',
-		kdPoint: new KDPoint([ 50, 10 ])
-	});
-
-	expect(sut.connectionStatus).toBe(ConnectionStatus.OK);
-	
-	await expect(sut.getRouter(
-		{ roomId: 'id',
-			appData: {} }
-	)).rejects.toThrow();
-	
-	expect(sut.connectionStatus).toBe(ConnectionStatus.RETRYING);
-
-	const getHealthy = async () => {
+	// Wait for our MediaNode to get a healthy connection.
+	await (async () => {
 		return new Promise((resolve) => {
 			const interval = setInterval(() => {
-				if (sut.connectionStatus === ConnectionStatus.OK) {
+				if (mediaNode1.connectionStatus === ConnectionStatus.OK) {
 					clearInterval(interval);
 					resolve({});
 				} 
 			}, 25);
 		});
-	};
+	})();
 
-	await getHealthy(); // Wait until sut.retryConnection() is successful
-	expect(sut.connectionStatus).toBe(ConnectionStatus.OK);
+	expect(mediaNode1.connectionStatus).toBe(ConnectionStatus.OK);
+	expect(spyGet).toHaveBeenCalledTimes(2);
+
+	mediaNode1.close();
+	mediaNode2.close();
 	ioServer.close();
-	httpsServer.close();
+	httpServer.close();
 	sut.close();
 });

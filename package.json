@@ -13,7 +13,7 @@
 		"lint:fix": "eslint . --ext .ts --fix",
 		"connect": "node connect.js",
 		"test:unit": "jest __tests__/unit-tests",
-		"test:integration": "jest __tests__/integration-tests",
+		"test:integration": "NODE_TLS_REJECT_UNAUTHORIZED=0 jest __tests__/integration-tests",
 		"test:coverage": "jest __tests__/unit-tests --coverage --coverageDirectory coverage",
 		"test:watch": "jest --watch",
 		"prepare": "husky install"
