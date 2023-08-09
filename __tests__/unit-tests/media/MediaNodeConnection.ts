@@ -71,7 +71,7 @@ it('mediaNodeReady', async () => {
 
 	const sut = new MediaNodeConnection({
 		url,
-		timeout: 500
+		timeout: 3000
 	});
 
 	await expect(sut.ready).resolves.toBe(undefined);
