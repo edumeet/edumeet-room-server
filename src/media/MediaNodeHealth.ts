@@ -60,9 +60,8 @@ export default class MediaNodeHealth {
 		do {
 			try {
 				const timeout = this.#backoffIntervals[this.#retryCount];
-				const attemptId = this.#retryCount;
 
-				await this.#makeConnectionAttempt(timeout, attemptId);
+				await this.#retryConnection(timeout, this.#retryCount);
 			} catch (error) {
 				logger.error(error);
 				this.#retryCount++;
@@ -76,11 +75,11 @@ export default class MediaNodeHealth {
 		}
 	}
 
-	async #makeConnectionAttempt(timeout: number, attemptId: number) {
-		logger.debug('#makeConnectionAttempt() [timeout: %s]', timeout);
+	async #retryConnection(timeout: number, retryCount: number) {
+		logger.debug('#retryConnection() [timeout: %s, retryCount: %s]', timeout, retryCount);
 		
 		return new Promise<void>((resolve, reject) => {
-			this.#timeoutHandle = setTimeout(() => reject(new Error('retryConnection() Timeout'))
+			this.#timeoutHandle = setTimeout(() => reject(new Error('Timeout'))
 				, timeout
 			);
 			const req = https.get({
@@ -89,26 +88,26 @@ export default class MediaNodeHealth {
 				path: '/health',
 				timeout: timeout },
 			(resp) => {
-				logger.debug('retryConnection() Got response from MediaNode [statuscode: %s]', resp.statusCode);
+				logger.debug('#retryConnection() Got response from MediaNode [statuscode: %s]', resp.statusCode);
 				if (resp.statusCode === 200) {
 					this.#connectionStatus = ConnectionStatus.OK; 
 					resolve();
 				}
-				reject(new Error('retryConnection() Status code was not 200.'));
+				reject(new Error('Status code was not 200.'));
 			});
 
 			req.on('error', (error) => {
 				logger.error(error);
 				req.destroy(); 
-				this.#retryRequests.delete(attemptId);
+				this.#retryRequests.delete(retryCount);
 			});
 			req.on('timeout', () => {
-				reject(new Error('retryConnection() Timeout'));
+				reject(new Error('Timeout'));
 				req.destroy();
-				this.#retryRequests.delete(attemptId);
+				this.#retryRequests.delete(retryCount);
 			});
 
-			this.#retryRequests.set(attemptId, req);
+			this.#retryRequests.set(retryCount, req);
 		});
 
 	}
