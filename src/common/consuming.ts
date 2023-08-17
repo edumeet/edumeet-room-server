@@ -164,6 +164,10 @@ export const createConsumer = async (
 			}
 		}));
 
+		producer.on('close', () => {
+			consumer.close();
+		});
+
 		if (consumer.producerPaused)
 			consumer.appData.suspended = true;
 		else {
