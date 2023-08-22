@@ -24,8 +24,7 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 
 		switch (message.method) {
 			case 'retryConnection': {
-				if (!peer.router)
-					await room.retryAssignRouter(peer);
+				await room.retryAssignRouter(peer);
 				context.handled = true;
 				break;	
 			}
