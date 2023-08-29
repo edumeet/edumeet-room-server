@@ -147,7 +147,7 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public async close() {
+	public close() {
 		logger.debug('close() [id: %s]', this.id);
 
 		this.closed = true;
@@ -157,20 +157,18 @@ export default class Room extends EventEmitter {
 		this.lobbyPeers.items.forEach((p) => p.close());
 
 		this.breakoutRooms.forEach((r) => r.close());
-		try {
-			const observer = await timeoutPromise(this.activeSpeakerObserverReady, 1000);
-
-			observer.close();
-		} catch (error) {
-			logger.error('close() [error: %o]', error);
-		}
-		this.routers.items.forEach((r) => r.close());
-
+		timeoutPromise(this.activeSpeakerObserverReady, 1000).then((o) => o.close())
+			.catch((error) => {
+				logger.error('close() [error: %o]', error);
+			})
+			.finally(() => {
+				this.routers.items.forEach((r) => r.close());
+				this.routers.clear();
+			});
 		this.pendingPeers.clear();
 		this.peers.clear();
 		this.lobbyPeers.clear();
 		this.breakoutRooms.clear();
-		this.routers.clear();
 
 		this.emit('close');
 	}
