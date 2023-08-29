@@ -116,6 +116,7 @@ export default class MediaNode extends EventEmitter {
 		} catch (error) {
 			this.#connection.close();
 			this.pendingRequests.delete(requestUUID);
+			logger.error('getRouter() [%o]', error);
 			this.#health.retryConnection();
 
 			throw error;
@@ -157,7 +158,7 @@ export default class MediaNode extends EventEmitter {
 			return router;
 
 		} catch (error) {
-			logger.error(error);
+			logger.error('getRouter() [%o]', error);
 			this.#health.retryConnection();
 			throw error;
 		} finally {
@@ -229,6 +230,7 @@ export default class MediaNode extends EventEmitter {
 			
 		} catch (error) {
 			if (error instanceof SocketTimeoutError) {
+				logger.error('request() [method: %s, %o]', request.method, error);
 				this.#health.retryConnection();
 			}
 			throw error;

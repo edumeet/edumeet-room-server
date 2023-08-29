@@ -90,9 +90,11 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 								await room.activeSpeakerObserverReady : 
 								await breakoutRoom?.activeSpeakerObserverReady;
 
-							await observer?.addProducer(producer);
+							if (!observer) throw new Error('No ActiveSpeakerObserver');
+
+							await observer.addProducer(producer);
 							producer.on('close', () => {
-								observer?.removeProducer(producer).catch((error) => logger.error(error));
+								observer.removeProducer(producer).catch((error) => logger.error('createMediaMiddleware() [%o]', error));
 							});
 						} catch (error) {
 							logger.error('createMediaMiddleware() [%o]', error);

@@ -15,7 +15,7 @@ import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddlewa
 import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
-import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { List, Logger, Middleware, skipIfClosed, timeoutPromise } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
 import { ActiveSpeakerObserver } from './media/ActiveSpeakerObserver';
@@ -157,14 +157,18 @@ export default class Room extends EventEmitter {
 		this.lobbyPeers.items.forEach((p) => p.close());
 
 		this.breakoutRooms.forEach((r) => r.close());
-		this.routers.items.forEach((r) => r.close());
-
+		timeoutPromise(this.activeSpeakerObserverReady, 1000).then((o) => o.close())
+			.catch((error) => {
+				logger.error('close() [error: %o]', error);
+			})
+			.finally(() => {
+				this.routers.items.forEach((r) => r.close());
+				this.routers.clear();
+			});
 		this.pendingPeers.clear();
 		this.peers.clear();
 		this.lobbyPeers.clear();
 		this.breakoutRooms.clear();
-		this.routers.clear();
-		this.activeSpeakerObserverReady.then((o) => o.close()).catch((e) => logger.error(e));
 
 		this.emit('close');
 	}
