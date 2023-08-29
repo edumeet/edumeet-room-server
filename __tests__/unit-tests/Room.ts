@@ -7,6 +7,7 @@ import { Config } from '../../src/Config';
 import { KDTree } from 'edumeet-common';
 import { ActiveSpeakerObserver } from '../../src/media/ActiveSpeakerObserver';
 import MediaNode from '../../src/media/MediaNode';
+import { setTimeout } from 'timers/promises';
 
 describe('Room', () => {
 	let room1: Room;
@@ -80,9 +81,11 @@ describe('Room', () => {
 			spyAdd = jest.spyOn(room1.routers, 'add');
 		});
 
-		it('close() - should close router', () => {
+		it('close() - should close router', async () => {
 			room1.addRouter(router);
 			room1.close();
+			expect(spyClose).not.toHaveBeenCalled();
+			await setTimeout(50);
 			expect(spyClose).toHaveBeenCalled();
 		});
 
