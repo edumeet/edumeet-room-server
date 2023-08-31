@@ -107,7 +107,7 @@ export class MediaNodeConnection extends EventEmitter {
 				await this.pipeline.execute(context);
 
 				if (!context.handled)
-					throw new Error('no middleware handled the notification');
+					throw new Error(`no middleware handled the notification [method: ${notification.method}]`);
 			} catch (error) {
 				logger.error('notification() [error: %o]', error);
 			}
@@ -161,7 +161,7 @@ export class MediaNodeConnection extends EventEmitter {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const response: any = await this.#sendRequestOnWire(request);
 
-		this.emit('load', response?.load);
+		response.load && this.emit('load', response.load);
 			
 		return response;
 	}
