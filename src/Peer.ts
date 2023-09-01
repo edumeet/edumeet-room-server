@@ -79,13 +79,6 @@ export class Peer extends EventEmitter {
 	public routerId?: string;
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
-
-	// eslint-disable-next-line no-unused-vars
-	public resolveRouterReady!: (router: Router) => void;
-	public routerReady: Promise<Router> = new Promise<Router>((resolve) => {
-		this.resolveRouterReady = resolve;
-	});
-
 	public transports = new Map<string, WebRtcTransport>();
 	public consumers = new Map<string, Consumer>();
 	public producers = new Map<string, Producer>();
@@ -93,6 +86,7 @@ export class Peer extends EventEmitter {
 	public dataProducers = new Map<string, DataProducer>();
 	#sessionId: string;
 	public pipeline = Pipeline<PeerContext>();
+	public router?: Router;
 
 	constructor({
 		id,

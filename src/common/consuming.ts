@@ -44,23 +44,17 @@ export const createConsumer = async (
 	producerPeer: Peer,
 	producer: Producer,
 ): Promise<void> => {
-	const [ consumerRouter, producerRouter ] = await Promise.all([
-		consumerPeer.routerReady,
-		producerPeer.routerReady,
-	]);
+	if (!consumerPeer.router) return logger.warn('Peer %s has no router assigned', consumerPeer.id);
+	if (!producerPeer.router) return logger.warn('Peer %s has no router assigned', producerPeer.id);
 
-	if (
-		!producerRouter ||
-		!consumerRouter ||
-		!consumerPeer.rtpCapabilities
-	)
+	if (!consumerPeer.rtpCapabilities)
 		return logger.warn(
 			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
 			producerPeer.id,
 			producer.id
 		);
 
-	const canConsume = await producerRouter.canConsume({
+	const canConsume = await producerPeer.router.canConsume({
 		producerId: producer.id,
 		rtpCapabilities: consumerPeer.rtpCapabilities
 	});
@@ -80,7 +74,7 @@ export const createConsumer = async (
 
 	try {
 		// This will wait for the pipe to be ready if it's not already
-		await checkPipe(producer, consumerRouter, producerRouter);
+		await checkPipe(producer, consumerPeer.router, producerPeer.router);
 
 		const consumer = await consumingTransport.consume({
 			producerId: producer.id,
@@ -194,17 +188,8 @@ export const createDataConsumer = async (
 	producerPeer: Peer,
 	dataProducer: DataProducer,
 ): Promise<void> => {
-	const [ consumerRouter, producerRouter ] = await Promise.all([
-		consumerPeer.routerReady,
-		producerPeer.routerReady,
-	]);
-
-	if (!producerRouter || !consumerRouter)
-		return logger.warn(
-			'createDataConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
-			producerPeer.id,
-			dataProducer.id
-		);
+	if (!consumerPeer.router) return logger.warn('createDataConsumer() Peer %s has no router assigned', consumerPeer.id);
+	if (!producerPeer.router) return logger.warn('createDataConsumer() Peer %s has no router assigned', producerPeer.id);
 
 	const consumingTransport = Array.from(consumerPeer.transports.values())
 		.find((t) => t.appData.consuming);
@@ -214,7 +199,7 @@ export const createDataConsumer = async (
 
 	try {
 		// This will wait for the pipe to be ready if it's not already
-		await checkDataPipe(dataProducer, consumerRouter, producerRouter);
+		await checkDataPipe(dataProducer, consumerPeer.router, producerPeer.router);
 
 		const dataConsumer = await consumingTransport.consumeData({
 			dataProducerId: dataProducer.id,

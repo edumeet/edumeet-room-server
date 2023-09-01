@@ -255,12 +255,6 @@ export default class Room extends EventEmitter {
 	@skipIfClosed
 	private allowPeer(peer: Peer): void {
 		logger.debug('allowPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
-
-		this.assignRouter(peer);
-
-		this.pendingPeers.add(peer);
-		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
-
 		peer.notify({
 			method: 'roomReady',
 			data: {
@@ -277,6 +271,12 @@ export default class Room extends EventEmitter {
 				settings: this.settings,
 			}
 		});
+
+		this.assignRouter(peer);
+
+		this.pendingPeers.add(peer);
+		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
+
 	}
 
 	@skipIfClosed
@@ -391,13 +391,17 @@ export default class Room extends EventEmitter {
 				throw router.close();
 
 			this.addRouter(router);
-			peer.resolveRouterReady(router);
+			peer.router = router;
+			peer.notify({ method: 'mediaReady' });
 		} catch (error) {
 			logger.error('assignRouter() [%o]', error);
 
 			peer.notify({ method: 'noMediaAvailable', data: { error } });
-			peer.close();
 		}
+	}
+
+	public async retryAssignRouter(peer: Peer): Promise<void> {
+		await this.assignRouter(peer);
 	}
 
 	public getPeers(excludePeer?: Peer): Peer[] {

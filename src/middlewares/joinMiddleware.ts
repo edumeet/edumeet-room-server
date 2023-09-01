@@ -1,7 +1,6 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { createConsumers } from '../common/consuming';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 
@@ -28,15 +27,10 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				const {
 					displayName,
 					picture,
-					rtpCapabilities,
 				} = message.data;
-
-				if (!rtpCapabilities)
-					throw new Error('missing rtpCapabilities');
 
 				peer.displayName = displayName;
 				peer.picture = picture;
-				peer.rtpCapabilities = rtpCapabilities;
 
 				const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER) ?
 					room.lobbyPeers.items.map((p) => (p.peerInfo)) : [];
@@ -50,8 +44,6 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				room.joinPeer(peer);
 				context.handled = true;
-
-				createConsumers(room, peer);
 
 				break;
 			}
