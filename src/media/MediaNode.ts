@@ -215,7 +215,7 @@ export default class MediaNode extends EventEmitter {
 	public async notify(notification: SocketMessage): Promise<void> {
 		logger.debug('notify() [method: %s]', notification.method);
 		await this.#connection?.ready;
-		this.#connection?.emit('notification', notification);
+		this.#connection?.notify(notification);
 	}
 	
 	@skipIfClosed
