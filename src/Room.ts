@@ -311,21 +311,6 @@ export default class Room extends EventEmitter {
 
 		this.peers.add(peer);
 
-		// Notify newly joined peer about the active speaker.
-		(async () => {
-			const observer = await this.activeSpeakerObserverReady;
-
-			if (!observer) return;
-			const activePeer = this.peers.items.find((p) => p.producers.has(observer.activeSpeakerId ?? ''));
-
-			if (!activePeer) return;
-
-			peer.notify({ method: 'activeSpeaker',
-				data: {
-					peerId: activePeer.id,
-					sessionId: this.sessionId
-				} });
-		})();
 		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
 	}
 
