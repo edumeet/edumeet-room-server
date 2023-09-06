@@ -174,6 +174,7 @@ export const createConsumer = async (
 					kind: consumer.kind,
 					rtpParameters: consumer.rtpParameters,
 					producerPaused: consumer.producerPaused,
+					paused: consumer.paused,
 					appData: producer.appData,
 				}
 			});
