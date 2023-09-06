@@ -89,6 +89,7 @@ export class MediaNodeConnection extends EventEmitter {
 		this.#resolveReadyTimeoutHandle = setTimeout(() => { this.rejectReady('Timeout waiting for media-node connection'); }, this.#timeout);
 		
 		this.#socket.on('notification', async (notification) => {
+			logger.debug('"notification" recieved [notification: %o]', notification);
 			this.emit('load', notification.data?.load);
 
 			if (notification.method === 'mediaNodeReady') {
