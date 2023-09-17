@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('DataProducer');
 
@@ -12,7 +12,7 @@ export interface DataProducerOptions {
 
 interface InternalDataProducerOptions extends DataProducerOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 	sctpStreamParameters: SctpStreamParameters;
 	label?: string;
 	protocol?: string;
@@ -27,7 +27,7 @@ export declare interface DataProducer {
 export class DataProducer extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public sctpStreamParameters: SctpStreamParameters;
 	public label?: string;
@@ -36,7 +36,7 @@ export class DataProducer extends EventEmitter {
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		sctpStreamParameters,
 		label,
@@ -48,7 +48,7 @@ export class DataProducer extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.sctpStreamParameters = sctpStreamParameters;
 		this.label = label;
@@ -65,7 +65,7 @@ export class DataProducer extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closeDataProducer',
 				data: {
 					routerId: this.router.id,
@@ -81,6 +81,6 @@ export class DataProducer extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close());
+		this.mediaNode.once('close', () => this.close());
 	}
 }

@@ -28,7 +28,6 @@ export default class ManagementService {
 	#managedPeers: Map<string, Peer>;
 	#mediaService: MediaService;
 
-	// eslint-disable-next-line no-unused-vars
 	public resolveReady!: () => void;
 	// eslint-disable-next-line no-unused-vars
 	public rejectReady!: (error: unknown) => void;
@@ -39,6 +38,7 @@ export default class ManagementService {
 	});
 
 	#client: Application;
+	#reAuthTimer: NodeJS.Timer;
 
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
@@ -78,7 +78,8 @@ export default class ManagementService {
 		this.#rolesService = this.#client.service('roles');
 		this.#rolePermissionsService = this.#client.service('rolePermissions');
 
-		this.initialize();
+		this.authenticate();
+		this.#reAuthTimer = setInterval(() => this.authenticate(), 3600000);
 		this.setupListeners();
 	}
 
@@ -87,7 +88,7 @@ export default class ManagementService {
 		logger.debug('close()');
 
 		this.closed = true;
-
+		clearInterval(this.#reAuthTimer);
 		this.#client.logout();
 	}
 
@@ -105,19 +106,28 @@ export default class ManagementService {
 	}
 
 	@skipIfClosed
-	private async initialize(): Promise<void> {
-		logger.debug('initialize()');
+	private authenticate(): void {
+		logger.debug('authenticate()');
 
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
+		
+		this.ready = new Promise<void>((resolve, reject) => {
+			this.resolveReady = resolve;
+			this.rejectReady = reject;
+		});
 
-		await this.#client.authenticate({
+		this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
 		})
 			.then(this.resolveReady)
 			.catch(this.rejectReady);
+		this.#client.io.on('disconnect', () => {
+			logger.debug('Socket connection disconnected');
+			// TODO: handle explicit disconnect
+		});
 	}
 
 	@skipIfClosed

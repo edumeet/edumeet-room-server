@@ -1,10 +1,9 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { ProducerScore } from '../common/types';
-import { Logger, skipIfClosed } from 'edumeet-common';
-import { MediaKind } from 'edumeet-common';
+import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('Producer');
 
@@ -14,7 +13,7 @@ export interface ProducerOptions {
 
 interface InternalProducerOptions extends ProducerOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 	kind: MediaKind;
 	paused?: boolean;
 	rtpParameters: RtpParameters;
@@ -31,7 +30,7 @@ export declare interface Producer {
 export class Producer extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public kind: MediaKind;
 	public paused: boolean;
@@ -42,7 +41,7 @@ export class Producer extends EventEmitter {
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		kind,
 		paused = false,
@@ -54,7 +53,7 @@ export class Producer extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.kind = kind;
 		this.paused = paused;
@@ -71,7 +70,7 @@ export class Producer extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closeProducer',
 				data: {
 					routerId: this.router.id,
@@ -87,7 +86,7 @@ export class Producer extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed
@@ -103,7 +102,7 @@ export class Producer extends EventEmitter {
 	public async pause(): Promise<void> {
 		logger.debug('pause()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'pauseProducer',
 			data: {
 				routerId: this.router.id,
@@ -118,7 +117,7 @@ export class Producer extends EventEmitter {
 	public async resume(): Promise<void> {
 		logger.debug('resume()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'resumeProducer',
 			data: {
 				routerId: this.router.id,

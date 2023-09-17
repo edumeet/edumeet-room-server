@@ -3,12 +3,13 @@ import LoadBalancer from '../../src/LoadBalancer';
 import MediaNode from '../../src/media/MediaNode';
 import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
+import { ConnectionStatus } from '../../src/media/MediaNodeHealth';
 
 const kdPoint1 = new KDPoint([ 50, 10 ]);
 const kdPoint2= new KDPoint([ 50, 10 ]);
-const mediaNode1 = { id: 'id1', load: 0.2, health: true, kdPoint: kdPoint1 } as unknown as MediaNode;
-const mediaNode2 = { id: 'id2', load: 0.3, health: true, kdPoint: kdPoint2 } as unknown as MediaNode;
-const mediaNode3 = { id: 'id2', load: 0.9, health: true, kdPoint: kdPoint2 } as unknown as MediaNode;
+const mediaNode1 = { id: 'id1', load: 0.2, health: true, kdPoint: kdPoint1, connectionStatus: ConnectionStatus.OK } as unknown as MediaNode;
+const mediaNode2 = { id: 'id2', load: 0.3, health: true, kdPoint: kdPoint2, connectionStatus: ConnectionStatus.OK } as unknown as MediaNode;
+const mediaNode3 = { id: 'id2', load: 0.9, health: true, kdPoint: kdPoint2, connectionStatus: ConnectionStatus.OK } as unknown as MediaNode;
 const defaultClientPosition = new KDPoint([ 50, 10 ]);
 const clientAddress = '5.44.192.0';
 
@@ -172,4 +173,31 @@ test('Should fallback to default client geoposition', () => {
 	const candidates = sut.getCandidates(room, peer);
 
 	expect(candidates.length).toBe(0);
+});
+
+test('Should filter out candidate with erroneous connection status', () => {
+	const spyGetActiveMediaNodes = jest.fn().mockReturnValue([
+		{ ...mediaNode2, connectionStatus: ConnectionStatus.ERROR },
+		mediaNode1
+	]);
+	const room = {
+		getActiveMediaNodes: spyGetActiveMediaNodes
+	} as unknown as Room;
+	const peer = { getAddress: jest.fn().mockReturnValue({
+		address: clientAddress,
+		forwardedFor: undefined
+	})
+	} as unknown as Peer;
+	const spyNearestNeighbors = jest.fn().mockReturnValue(
+		[ ]
+	);
+	const kdTree = {
+		nearestNeighbors: spyNearestNeighbors
+	} as unknown as KDTree;
+
+	const sut = new LoadBalancer({ kdTree, defaultClientPosition });
+	const candidates = sut.getCandidates(room, peer);
+
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]).toBe(mediaNode1);
 });

@@ -5,6 +5,9 @@ import { Router } from '../../src/media/Router';
 import LoadBalancer from '../../src/LoadBalancer';
 import { Config } from '../../src/Config';
 import { KDTree } from 'edumeet-common';
+import { ActiveSpeakerObserver } from '../../src/media/ActiveSpeakerObserver';
+import MediaNode from '../../src/media/MediaNode';
+import { setTimeout } from 'timers/promises';
 
 describe('Room', () => {
 	let room1: Room;
@@ -13,7 +16,11 @@ describe('Room', () => {
 	const roomName1 = 'testRoomName1';
 	const config = { mediaNodes: [] } as unknown as Config;
 	const loadBalancer = {} as unknown as LoadBalancer;	
-	const mediaNodeId = 'mediaNodeId';
+	const mediaNode = {
+		id: 'mediaNodeId',
+		close: jest.fn(),
+		once: jest.fn()
+	} as unknown as MediaNode;
 
 	beforeEach(() => {
 		const kdTree = { rebalance: jest.fn() } as unknown as KDTree;
@@ -58,21 +65,27 @@ describe('Room', () => {
 		beforeEach(() => {
 			router = {
 				mediaNode: {
-					id: mediaNodeId 
-				},
-				connection: jest.fn(),
+					id: mediaNode.id 
+				} as unknown as MediaNode,
 				id: 'routerId',
 				rtpCapabilities: jest.fn(),
 				appData: {},
-				close: jest.fn()
+				close: jest.fn(),
+				createActiveSpeakerObserver: jest.fn().mockResolvedValue(
+					new ActiveSpeakerObserver(
+						{ id: 'id',
+							router,
+							mediaNode }))
 			} as unknown as Router;
 			spyClose = jest.spyOn(router, 'close');
 			spyAdd = jest.spyOn(room1.routers, 'add');
 		});
 
-		it('close() - should close router', () => {
+		it('close() - should close router', async () => {
 			room1.addRouter(router);
 			room1.close();
+			expect(spyClose).not.toHaveBeenCalled();
+			await setTimeout(50);
 			expect(spyClose).toHaveBeenCalled();
 		});
 
@@ -88,7 +101,7 @@ describe('Room', () => {
 			const result = room1.getActiveMediaNodes();
 
 			expect(result.length).toBe(1);
-			expect(result[0].id).toBe(mediaNodeId);
+			expect(result[0].id).toBe(mediaNode.id);
 		});
 	});
 });

@@ -3,6 +3,7 @@ import MediaNode from './media/MediaNode';
 import { Peer } from './Peer';
 import Room from './Room';
 import * as geoip from 'geoip-lite';
+import { ConnectionStatus } from './media/MediaNodeHealth';
 
 const logger = new Logger('LoadBalancer');
 
@@ -41,7 +42,7 @@ export default class LoadBalancer {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
 			// Get sticky candidates
 			let candidates = room.getActiveMediaNodes()
-				.filter((m) => m.health && m.load < this.cpuLoadThreshold)
+				.filter((m) => m.connectionStatus === ConnectionStatus.OK && m.load < this.cpuLoadThreshold)
 				.sort((a, b) => a.load - b.load);
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 
@@ -52,9 +53,9 @@ export default class LoadBalancer {
 				peerGeoPosition,
 				5,
 				(point) => {
-					const node = point.appData.mediaNode as unknown as MediaNode;
+					const m = point.appData.mediaNode as MediaNode;
 					
-					return node.health && node.load < this.cpuLoadThreshold;
+					return m.connectionStatus === ConnectionStatus.OK && m.load < this.cpuLoadThreshold;
 				}
 			);
 

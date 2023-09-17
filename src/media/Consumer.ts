@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
-import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router } from './Router';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { ConsumerLayers, ConsumerScore } from '../common/types';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
+import MediaNode from './MediaNode';
 
 const logger = new Logger('Consumer');
 
@@ -17,7 +17,7 @@ export interface ConsumerOptions {
 
 interface InternalConsumerOptions extends ConsumerOptions {
 	router: Router;
-	connection: MediaNodeConnection;
+	mediaNode: MediaNode;
 	producerId: string;
 	appData?: Record<string, unknown>;
 }
@@ -38,7 +38,7 @@ export declare interface Consumer {
 export class Consumer extends EventEmitter {
 	public closed = false;
 	public router: Router;
-	public connection: MediaNodeConnection;
+	public mediaNode: MediaNode;
 	public id: string;
 	public producerId: string;
 	public kind: MediaKind;
@@ -50,7 +50,7 @@ export class Consumer extends EventEmitter {
 
 	constructor({
 		router,
-		connection,
+		mediaNode,
 		id,
 		producerId,
 		kind,
@@ -64,7 +64,7 @@ export class Consumer extends EventEmitter {
 		super();
 
 		this.router = router;
-		this.connection = connection;
+		this.mediaNode = mediaNode;
 		this.id = id;
 		this.producerId = producerId;
 		this.kind = kind;
@@ -83,7 +83,7 @@ export class Consumer extends EventEmitter {
 		this.closed = true;
 
 		if (!remoteClose) {
-			this.connection.notify({
+			this.mediaNode.notify({
 				method: 'closeConsumer',
 				data: {
 					routerId: this.router.id,
@@ -99,7 +99,7 @@ export class Consumer extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.connection.once('close', () => this.close(true));
+		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed
@@ -138,7 +138,7 @@ export class Consumer extends EventEmitter {
 	public async pause(): Promise<void> {
 		logger.debug('pause()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'pauseConsumer',
 			data: {
 				routerId: this.router.id,
@@ -153,7 +153,7 @@ export class Consumer extends EventEmitter {
 	public async resume(): Promise<void> {
 		logger.debug('resume()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'resumeConsumer',
 			data: {
 				routerId: this.router.id,
@@ -174,7 +174,7 @@ export class Consumer extends EventEmitter {
 	}): Promise<void> {
 		logger.debug('setPreferredLayers()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'setConsumerPreferredLayers',
 			data: {
 				routerId: this.router.id,
@@ -194,7 +194,7 @@ export class Consumer extends EventEmitter {
 	public async setPriority(priority: number): Promise<void> {
 		logger.debug('setPriority()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'setConsumerPriority',
 			data: {
 				routerId: this.router.id,
@@ -208,7 +208,7 @@ export class Consumer extends EventEmitter {
 	public async requestKeyFrame(): Promise<void> {
 		logger.debug('requestKeyFrame()');
 
-		await this.connection.request({
+		await this.mediaNode.request({
 			method: 'requestConsumerKeyFrame',
 			data: {
 				routerId: this.router.id,

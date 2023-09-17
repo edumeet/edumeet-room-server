@@ -16,7 +16,8 @@ import {
 	MediaSourceType,
 	Pipeline,
 	skipIfClosed,
-	SocketMessage
+	SocketMessage,
+	SocketTimeoutError
 } from 'edumeet-common';
 import { DataProducer } from './media/DataProducer';
 import { DataConsumer } from './media/DataConsumer';
@@ -64,7 +65,6 @@ export declare interface Peer {
 
 export class Peer extends EventEmitter {
 	public id: string;
-	// TODO: set this value when the user is authenticated
 	public managedId?: string;
 	public groupIds: string[] = [];
 	#permissions: string[] = [];
@@ -79,13 +79,6 @@ export class Peer extends EventEmitter {
 	public routerId?: string;
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
-
-	// eslint-disable-next-line no-unused-vars
-	public resolveRouterReady!: (router: Router) => void;
-	public routerReady: Promise<Router> = new Promise<Router>((resolve) => {
-		this.resolveRouterReady = resolve;
-	});
-
 	public transports = new Map<string, WebRtcTransport>();
 	public consumers = new Map<string, Consumer>();
 	public producers = new Map<string, Producer>();
@@ -93,6 +86,7 @@ export class Peer extends EventEmitter {
 	public dataProducers = new Map<string, DataProducer>();
 	#sessionId: string;
 	public pipeline = Pipeline<PeerContext>();
+	public router?: Router;
 
 	constructor({
 		id,
@@ -266,6 +260,7 @@ export class Peer extends EventEmitter {
 				}
 			} catch (error) {
 				logger.error('request() [error: %o]', error);
+				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
 				reject('Server error');
 			}

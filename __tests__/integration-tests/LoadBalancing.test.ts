@@ -5,33 +5,36 @@ import { Router } from '../../src/media/Router';
 import MediaService from '../../src/MediaService';
 import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
+import { ConnectionStatus } from '../../src/media/MediaNodeHealth';
 
 const mockMediaService = {} as unknown as MediaService;
+const mockObserver = { on: jest.fn() };
+const mockCreateObserver = jest.fn().mockReturnValue(mockObserver);
 const nodeClose1 = {
 	load: 0.2,
 	id: 'id1',
-	health: true,
+	connectionStatus: ConnectionStatus.OK,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose1 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose1 });
 const nodeClose2 = {
 	load: 0.4,
 	id: 'id2',
-	health: true,
+	connectionStatus: ConnectionStatus.OK,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose2 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose2 });
 const nodeClose3 = {
 	load: 0.1,
 	id: 'id3',
-	health: true,
+	connectionStatus: ConnectionStatus.OK,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose3 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose3 });
 const nodeClose4 = {
 	load: 0.1,
 	id: 'id3',
-	health: true,
+	connectionStatus: ConnectionStatus.OK,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 
 } as unknown as MediaNode;
@@ -39,20 +42,20 @@ const kdPointClose4 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose4 
 const nodeClose5 = {
 	load: 0.1,
 	id: 'id3',
-	health: true,
+	connectionStatus: ConnectionStatus.OK,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointClose5 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose5 });
 const nodeFarAway = {
 	load: 0.1,
 	id: 'id3',
-	health: true,
+	connectionStatus: ConnectionStatus.OK,
 	kdPoint: new KDPoint([ 16.8833,	 101.8833 ])
 } as unknown as MediaNode;
 const nodeHighLoad = {
 	load: 0.9,
 	id: 'id4',
-	health: true,
+	connectionStatus: ConnectionStatus.OK,
 	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
 } as unknown as MediaNode;
 const kdPointHighLoad = new KDPoint([ 48.8543, 2.3527 ], { mediaNode: nodeHighLoad });
@@ -72,6 +75,7 @@ test('Should use sticky strategy', () => {
 	const room = new Room({
 		id: 'id',
 		name: 'name',
+		tenantId: '1',
 		mediaService: mockMediaService
 	});
 
@@ -82,9 +86,10 @@ test('Should use sticky strategy', () => {
 	const activeRoom = new Room({
 		id: 'id',
 		name: 'name',
+		tenantId: '1',
 		mediaService: mockMediaService
 	});
-	const router = { mediaNode: nodeClose3 } as unknown as Router;
+	const router = { mediaNode: nodeClose3, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
 
 	activeRoom.addRouter(router);
 	candidates = sut.getCandidates(activeRoom, peerReverseProxy);
@@ -107,11 +112,12 @@ test('Geo strategy should reject active room outside threshold', () => {
 	const activeRoom = new Room({
 		id: 'id',
 		name: 'name',
+		tenantId: '1',
 		mediaService: mockMediaService,
 	});
 	const spyGetActiveMediaNodes = jest.spyOn(activeRoom, 'getActiveMediaNodes');
 
-	const router = { mediaNode: nodeFarAway } as unknown as Router;
+	const router = { mediaNode: nodeFarAway, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
 
 	activeRoom.addRouter(router);
 	const candidates = sut.getCandidates(activeRoom, peerDirect);
@@ -129,10 +135,11 @@ test('Should use load strategy', () => {
 	const activeRoom = new Room({
 		id: 'id',
 		name: 'name',
+		tenantId: '1',
 		mediaService: mockMediaService
 	});
 
-	const router = { mediaNode: nodeHighLoad } as unknown as Router;
+	const router = { mediaNode: nodeHighLoad, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
 
 	activeRoom.addRouter(router);
 
@@ -159,10 +166,11 @@ test('Should filter on media-node health', () => {
 	const activeRoom = new Room({
 		id: 'id',
 		name: 'name',
+		tenantId: '1',
 		mediaService: mockMediaService
 	});
 
-	const router = { mediaNode: unhealthyMediaNode } as unknown as Router;
+	const router = { mediaNode: unhealthyMediaNode, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
 
 	// This will make the MediaNode sticky candidate, which should be filtered out.
 	activeRoom.addRouter(router);

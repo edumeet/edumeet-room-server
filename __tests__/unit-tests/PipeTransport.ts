@@ -1,6 +1,5 @@
 import 'jest';
 import { Router } from '../../src/media/Router';
-import { MediaNodeConnection } from '../../src/media/MediaNodeConnection';
 import MediaNode from '../../src/media/MediaNode';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../../src/common/types';
@@ -14,21 +13,6 @@ describe('PipeTransport', () => {
 	const ip = '1.1.1.1';
 	const port = 1234;
 	const srtpParameters = {} as SrtpParameters;
-
-	const connection = {
-		ready: Promise.resolve(),
-		close: jest.fn(),
-		notify: jest.fn(),
-		request: jest.fn(),
-		on: jest.fn(),
-		once: jest.fn(),
-		pipeline: {
-			use: jest.fn(),
-			remove: jest.fn(),
-			execute: jest.fn(),
-		},
-	} as unknown as MediaNodeConnection;
-
 	const fakePoint = {} as unknown as KDPoint;
 
 	const mediaNode = new MediaNode({
@@ -41,7 +25,6 @@ describe('PipeTransport', () => {
 
 	const router = new Router({
 		mediaNode,
-		connection,
 		id: 'testId1',
 		rtpCapabilities: {},
 	});
@@ -49,7 +32,7 @@ describe('PipeTransport', () => {
 	beforeEach(() => {
 		pipeTransport = new PipeTransport({
 			router,
-			connection,
+			mediaNode,
 			id: pipeTransportId,
 			ip,
 			port,
@@ -66,7 +49,7 @@ describe('PipeTransport', () => {
 	});
 
 	it('close()', () => {
-		pipeTransport.connection.notify = jest.fn(({ method, data }) => {
+		jest.spyOn(mediaNode, 'notify').mockImplementation(async ({ method, data }) => {
 			return ({
 				'closePipeTransport': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
@@ -76,12 +59,12 @@ describe('PipeTransport', () => {
 		});
 
 		pipeTransport.close();
-		expect(pipeTransport.connection.notify).toBeCalledTimes(1);
+		expect(pipeTransport.mediaNode.notify).toBeCalledTimes(1);
 		expect(pipeTransport.closed).toBe(true);
 	});
 
 	it('connect()', async () => {
-		pipeTransport.connection.request = jest.fn(async ({ method, data }) => {
+		jest.spyOn(mediaNode, 'request').mockImplementation(async ({ method, data }) => {
 			return ({
 				'connectPipeTransport': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
@@ -94,14 +77,14 @@ describe('PipeTransport', () => {
 		});
 
 		await pipeTransport.connect({ ip, port, srtpParameters });
-		expect(pipeTransport.connection.request).toBeCalledTimes(1);
+		expect(mediaNode.request).toBeCalledTimes(1);
 	});
 
 	it('produce()', async () => {
 		const producerId = 'testProducerId';
 		const rtpParameters = {} as RtpParameters;
 
-		pipeTransport.connection.request = jest.fn(async ({ method, data }) => {
+		jest.spyOn(mediaNode, 'request').mockImplementation(async ({ method, data }) => {
 			return ({
 				'createPipeProducer': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
@@ -133,7 +116,7 @@ describe('PipeTransport', () => {
 		const consumerId = 'testConsumerId';
 		const rtpParameters = {} as RtpParameters;
 
-		pipeTransport.connection.request = jest.fn(async ({ method, data }) => {
+		jest.spyOn(mediaNode, 'request').mockImplementation(async ({ method, data }) => {
 			return ({
 				'createPipeConsumer': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);

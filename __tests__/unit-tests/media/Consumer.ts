@@ -3,8 +3,8 @@ import 'jest';
 import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { ConsumerLayers, ConsumerScore } from '../../../src/common/types';
 import { Consumer } from '../../../src/media/Consumer';
-import { MediaNodeConnection } from '../../../src/media/MediaNodeConnection';
 import { Router } from '../../../src/media/Router';
+import MediaNode from '../../../src/media/MediaNode';
 
 describe('Consumer', () => {
 	const consumerId = 'id'; 
@@ -12,7 +12,6 @@ describe('Consumer', () => {
 	let paused: boolean;
 	let producerPaused: boolean;
 	let fakeRouter: Router;
-	let fakeConnection: MediaNodeConnection;
 	let fakeAppData: Record<string, unknown>;
 	let fakeRtpParameters: RtpParameters;
 	let consumer: Consumer;
@@ -24,17 +23,19 @@ describe('Consumer', () => {
 	const TEMPORAL_LAYER = 1;
 	const SPATIAL_LAYER = 1;
 	const PRIORITY = 1;
+	let mediaNode: MediaNode;
 
 	beforeEach(() => {
 		fakeRouter = { id: 'id' } as unknown as Router;
-		fakeConnection = { 
+		spyRequest = jest.fn();
+		mediaNode = { 
 			once: jest.fn(),
 			notify: jest.fn(),
-			request: jest.fn(),
+			request: spyRequest,
 			pipeline: {
 				use: jest.fn(),
 				remove: jest.fn()
-			} } as unknown as MediaNodeConnection;
+			} } as unknown as MediaNode;
 		fakeRtpParameters = {} as unknown as RtpParameters;
 		fakeAppData = { 'fake': 'fake' };
 		paused = false;
@@ -46,12 +47,11 @@ describe('Consumer', () => {
 			producerPaused: producerPaused,
 			rtpParameters: fakeRtpParameters,
 			router: fakeRouter,
-			connection: fakeConnection,
+			mediaNode,
 			appData: fakeAppData,
 			producerId: producerId
 		});
 		spyEmit = jest.spyOn(consumer, 'emit');
-		spyRequest = jest.spyOn(consumer.connection, 'request');
 	});
 
 	afterAll(() => {
@@ -66,7 +66,7 @@ describe('Consumer', () => {
 			producerPaused: producerPaused,
 			rtpParameters: fakeRtpParameters,
 			router: fakeRouter,
-			connection: fakeConnection,
+			mediaNode,
 			producerId: producerId,
 		});
 
@@ -75,7 +75,7 @@ describe('Consumer', () => {
 	});
 
 	it('close() - Should notify when remote has not closed', () => {
-		const spyNotify = jest.spyOn(consumer.connection, 'notify');
+		const spyNotify = jest.spyOn(mediaNode, 'notify');
 
 		consumer.close();
 		expect(spyNotify).toHaveBeenCalled();
