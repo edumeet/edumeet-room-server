@@ -5,6 +5,7 @@ import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
 import { RoomSettings } from './common/types';
+import { actualConfig } from './server';
 
 const logger = new Logger('ServerManager');
 
@@ -14,7 +15,7 @@ interface ServerManagerOptions {
 	rooms: Map<string, Room>;
 	managedPeers: Map<string, Peer>;
 	managedRooms: Map<string, Room>;
-	managementService: ManagementService;
+	managementService?: ManagementService;
 }
 
 export default class ServerManager {
@@ -24,7 +25,7 @@ export default class ServerManager {
 	public managedRooms: Map<string, Room>; // Mapped by ID from management service
 	public managedPeers: Map<string, Peer>; // Mapped by ID from management service
 	public mediaService: MediaService;
-	public managementService: ManagementService;
+	public managementService?: ManagementService;
 
 	constructor({ mediaService, peers, rooms, managedPeers, managedRooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
@@ -57,7 +58,7 @@ export default class ServerManager {
 		connection: BaseConnection,
 		peerId: string,
 		roomId: string,
-		tenantId: string,
+		tenantId = 'default',
 		displayName?: string,
 		token?: string,
 	): void {
@@ -114,9 +115,31 @@ export default class ServerManager {
 					this.managedRooms.delete(room.managedId);
 			});
 
+			if (actualConfig.defaultRoomSettings) {
+				const {
+					defaultRole,
+					maxActiveVideos = 12,
+					locked = false,
+					breakoutsEnabled = true,
+					chatEnabled = true,
+					raiseHandEnabled = true,
+					filesharingEnabled = true,
+					localRecordingEnabled = true
+				} = actualConfig.defaultRoomSettings;
+
+				room.defaultRole = defaultRole;
+				room.maxActiveVideos = maxActiveVideos;
+				room.locked = locked;
+				room.breakoutsEnabled = breakoutsEnabled;
+				room.chatEnabled = chatEnabled;
+				room.raiseHandEnabled = raiseHandEnabled;
+				room.filesharingEnabled = filesharingEnabled;
+				room.localRecordingEnabled = localRecordingEnabled;
+			}
+
 			(async () => {
 				try {
-					const managedRoom = await this.managementService.getRoom(roomId, tenantId);
+					const managedRoom = await this.managementService?.getRoom(roomId, tenantId);
 
 					if (room.closed) return;
 

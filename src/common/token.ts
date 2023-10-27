@@ -1,8 +1,5 @@
-import config from '../../config/config.json';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { Config } from '../Config';
-
-export const actualConfig = config as Config;
+import { actualConfig } from '../server';
 
 const signingKeys = actualConfig.managementService?.jwtPublicKeys || [];
 
