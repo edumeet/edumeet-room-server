@@ -1,6 +1,8 @@
 process.title = 'edumeet-room-server';
 
 import config from '../config/config.json';
+export const actualConfig = config as Config;
+
 import fs from 'fs';
 import https from 'https';
 import http from 'http';
@@ -16,7 +18,6 @@ import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
 
-export const actualConfig = config as Config;
 
 const logger = new Logger('Server');
 
