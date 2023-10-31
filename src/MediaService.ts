@@ -35,6 +35,9 @@ export default class MediaService {
 		config: Config
 	) {
 		logger.debug('create() [loadBalancer: %s, kdtree: %s, config: %s]', loadBalancer, kdTree, config);
+
+		if (!config.mediaNodes) throw new Error('No media nodes configured');
+
 		const mediaService = new MediaService({ loadBalancer });
 
 		for (const { hostname, port, secret, longitude, latitude } of config.mediaNodes) {
@@ -49,6 +52,7 @@ export default class MediaService {
 			mediaService.mediaNodes.add(mediaNode);
 			kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
 		}
+
 		kdTree.rebalance();
 		
 		return mediaService; 

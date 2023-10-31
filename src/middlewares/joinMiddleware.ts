@@ -3,6 +3,7 @@ import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
+import { createConsumers } from '../common/consuming';
 
 const logger = new Logger('JoinMiddleware');
 
@@ -19,18 +20,22 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 			response
 		} = context;
 
-		if (!thisSession(room, message))
-			return next();
+		if (!thisSession(room, message)) return next();
 
 		switch (message.method) {
 			case 'join': {
 				const {
 					displayName,
 					picture,
+					rtpCapabilities,
 				} = message.data;
+
+				if (!rtpCapabilities)
+					throw new Error('missing rtpCapabilities');
 
 				peer.displayName = displayName;
 				peer.picture = picture;
+				peer.rtpCapabilities = rtpCapabilities;
 
 				const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER) ?
 					room.lobbyPeers.items.map((p) => (p.peerInfo)) : [];
@@ -44,6 +49,8 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				room.joinPeer(peer);
 				context.handled = true;
+
+				createConsumers(room, peer);
 
 				break;
 			}

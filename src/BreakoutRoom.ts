@@ -6,7 +6,6 @@ import Room from './Room';
 import { ChatMessage, FileMessage } from './common/types';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
-import { ActiveSpeakerObserver } from './media/ActiveSpeakerObserver';
 
 const logger = new Logger('BreakoutRoom');
 
@@ -28,16 +27,6 @@ export default class BreakoutRoom extends EventEmitter {
 	public fileHistory: FileMessage[] = [];
 
 	private peerMiddlewares: Middleware<PeerContext>[] = [];
-	
-	// eslint-disable-next-line no-unused-vars
-	public resolveActiveSpeakerObserverReady!: (observer: ActiveSpeakerObserver) => void;
-	// eslint-disable-next-line no-unused-vars
-	public rejectActiveAudioObserverReady!: (error: unknown) => void;
-
-	public activeSpeakerObserverReady: Promise<ActiveSpeakerObserver> = new Promise<ActiveSpeakerObserver>((resolve, reject) => {
-		this.resolveActiveSpeakerObserverReady = resolve;
-		this.rejectActiveAudioObserverReady = reject;
-	});
 
 	constructor({ name, parent }: BreakoutRoomOptions) {
 		logger.debug('constructor() [parent: %s]', parent.id);

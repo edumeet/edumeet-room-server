@@ -33,7 +33,7 @@ export const socketHandler = (socket: Socket) => {
 			socketConnection,
 			peerId as string,
 			roomId as string,
-			tenantId as string,
+			tenantId as string | undefined,
 			displayName as string,
 			token as string,
 		);

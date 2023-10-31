@@ -60,10 +60,10 @@ export default class ManagementService {
 		this.#mediaService = mediaService;
 
 		if (!actualConfig.managementService)
-			throw new Error('Management service not configured');
+			logger.debug('Management service not configured');
 
 		this.#client = feathers()
-			.configure(socketio(io(actualConfig.managementService.host)))
+			.configure(socketio(io(actualConfig.managementService?.host ?? '')))
 			.configure(authentication());
 
 		this.#roomsService = this.#client.service('rooms');

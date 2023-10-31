@@ -1,7 +1,6 @@
 import { Peer } from '../Peer';
 import Room from '../Room';
-import { MediaSourceType } from 'edumeet-common';
-import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './types';
+import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, MediaSourceType, RoomSettings } from './types';
 
 /* eslint-disable no-unused-vars, no-shadow */
 export enum Permission {
@@ -62,6 +61,9 @@ export const permittedProducer = (source: MediaSourceType, room: Room, peer: Pee
 		throw new Error('peer not authorized');
 
 	if (source === MediaSourceType.EXTRAVIDEO && !peer.hasPermission(Permission.SHARE_EXTRA_VIDEO))
+		throw new Error('peer not authorized');
+
+	if (source === MediaSourceType.EXTRAAUDIO && !peer.hasPermission(Permission.SHARE_EXTRA_VIDEO))
 		throw new Error('peer not authorized');
 };
 
