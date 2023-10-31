@@ -18,6 +18,7 @@ import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
 
+if (!actualConfig.mediaNodes) throw new Error('No media nodes configured');
 
 const logger = new Logger('Server');
 

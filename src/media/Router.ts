@@ -3,8 +3,6 @@ import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
-import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
-import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 import MediaNode from './MediaNode';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { PipeDataProducer } from './PipeDataProducer';
@@ -15,6 +13,9 @@ import { Consumer } from './Consumer';
 import { DataConsumer } from './DataConsumer';
 import { ActiveSpeakerObserver, ActiveSpeakerObserverOptions } from './ActiveSpeakerObserver';
 import { AudioLevelObserver, AudioLevelObserverOptions } from './AudioLevelObserver';
+import { canConsume } from '../common/ortc';
+import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
+import { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
 
 const logger = new Logger('Router');
 
@@ -124,22 +125,27 @@ export class Router extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public async canConsume({
+	public canConsume({
 		producerId,
 		rtpCapabilities
-	}: { producerId: string, rtpCapabilities: RtpCapabilities }): Promise<boolean> {
+	}: { producerId: string, rtpCapabilities: RtpCapabilities }): boolean {
 		logger.debug('canConsume()');
 
-		const { canConsume } = await this.mediaNode.request({
-			method: 'canConsume',
-			data: {
-				routerId: this.id,
-				producerId,
-				rtpCapabilities,
-			}
-		}) as { canConsume: boolean };
+		const producer = this.producers.get(producerId);
 
-		return canConsume;
+		if (!producer) {
+			logger.error('canConsume() | Producer with id "%s" not found', producerId);
+
+			return false;
+		}
+
+		try {
+			return canConsume(producer.rtpParameters, rtpCapabilities);
+		} catch (error) {
+			logger.error('canConsume() | unexpected error: %s', String(error));
+
+			return false;
+		}
 	}
 
 	@skipIfClosed

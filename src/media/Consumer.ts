@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
 import { Router } from './Router';
-import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { ConsumerLayers, ConsumerScore } from '../common/types';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
 import MediaNode from './MediaNode';
+import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 
 const logger = new Logger('Consumer');
 

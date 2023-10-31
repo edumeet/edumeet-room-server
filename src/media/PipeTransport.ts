@@ -2,13 +2,13 @@ import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { PipeConsumer, PipeConsumerOptions } from './PipeConsumer';
 import { PipeProducer, PipeProducerOptions } from './PipeProducer';
-import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
 import { SrtpParameters } from '../common/types';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
-import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
 import { PipeDataProducer, PipeDataProducerOptions } from './PipeDataProducer';
 import { PipeDataConsumer, PipeDataConsumerOptions } from './PipeDataConsumer';
 import MediaNode from './MediaNode';
+import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
+import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
 
 const logger = new Logger('PipeTransport');
 

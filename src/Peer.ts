@@ -1,11 +1,10 @@
 import { EventEmitter } from 'events';
-import { Role } from './common/types';
+import { MediaSourceType, Role } from './common/types';
 import { Router } from './media/Router';
+import { RtpCapabilities, SctpCapabilities } from 'mediasoup/node/lib/types';
 import { WebRtcTransport } from './media/WebRtcTransport';
 import { Consumer } from './media/Consumer';
 import { Producer } from './media/Producer';
-import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
-import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
 import {
 	BaseConnection,
 	InboundNotification,
@@ -13,7 +12,6 @@ import {
 	IOServerConnection,
 	List,
 	Logger,
-	MediaSourceType,
 	Pipeline,
 	skipIfClosed,
 	SocketMessage,
@@ -86,7 +84,11 @@ export class Peer extends EventEmitter {
 	public dataProducers = new Map<string, DataProducer>();
 	#sessionId: string;
 	public pipeline = Pipeline<PeerContext>();
-	public router?: Router;
+	// eslint-disable-next-line no-unused-vars
+	public resolveRouterReady!: (router: Router) => void;
+	public routerReady: Promise<Router> = new Promise<Router>((resolve) => {
+		this.resolveRouterReady = resolve;
+	});
 
 	constructor({
 		id,

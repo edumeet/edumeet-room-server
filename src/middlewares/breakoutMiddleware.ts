@@ -21,8 +21,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			response,
 		} = context;
 
-		if (!thisSession(room, message))
-			return next();
+		if (!thisSession(room, message)) return next();
 		
 		switch (message.method) {
 			case 'createBreakoutRoom': {
@@ -31,12 +30,11 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				const { name } = message.data;
 
-				if (!name)
-					throw new Error('name not provided');
+				if (!name) throw new Error('name not provided');
 
 				const newBreakoutRoom = new BreakoutRoom({ parent: room, name });
 
-				room.addBreakoutRoom(newBreakoutRoom);
+				room.breakoutRooms.set(newBreakoutRoom.sessionId, newBreakoutRoom);
 				newBreakoutRoom.once('close', () => room.breakoutRooms.delete(newBreakoutRoom.sessionId));
 				room.notifyPeers('newBreakoutRoom', { name, roomSessionId: newBreakoutRoom.sessionId, creationTimestamp: newBreakoutRoom.creationTimestamp }, peer);
 
@@ -146,7 +144,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			peer.notify({ method: 'sessionIdChanged', data: { sessionId: roomToJoin.sessionId } });
 
 		// Create consumers for the peer in the new room
-		peer.router && createConsumers(room, peer);
+		createConsumers(room, peer);
 	};
 
 	return middleware;

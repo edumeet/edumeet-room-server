@@ -2,7 +2,6 @@ import { Logger, Middleware } from 'edumeet-common';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
-import { createConsumers } from '../common/consuming';
 
 const logger = new Logger('InitialMediaMiddleware');
 
@@ -19,29 +18,13 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 			response
 		} = context;
 
-		if (!thisSession(room, message))
-			return next();
+		if (!thisSession(room, message)) return next();
 
 		switch (message.method) {
-			case 'retryConnection': {
-				await room.retryAssignRouter(peer);
-				context.handled = true;
-				break;	
-			}
-			case 'rtpCapabilities': {
-				const { rtpCapabilities } = message.data;
-
-				if (!rtpCapabilities) throw new Error('missing rtpCapabilities');
-
-				peer.rtpCapabilities = rtpCapabilities;
-				context.handled = true;
-				createConsumers(room, peer);
-				break;
-			}
 			case 'getRouterRtpCapabilities': {
-				if (!peer.router) return logger.warn('Peer %s has no router assigned', peer.id);
+				const router = await peer.routerReady;
 
-				response.routerRtpCapabilities = peer.router.rtpCapabilities;
+				response.routerRtpCapabilities = router.rtpCapabilities;
 				context.handled = true;
 
 				break;
@@ -55,9 +38,9 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 					sctpCapabilities,
 				} = message.data;
 
-				if (!peer.router) return logger.warn('Peer %s has no router assigned', peer.id);
+				const router = await peer.routerReady;
 
-				const transport = await peer.router.createWebRtcTransport({
+				const transport = await router.createWebRtcTransport({
 					forceTcp,
 					sctpCapabilities,
 					appData: {

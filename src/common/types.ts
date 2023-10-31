@@ -1,6 +1,22 @@
 import BreakoutRoom from '../BreakoutRoom';
 import Room from '../Room';
 
+// eslint-disable-next-line no-shadow
+export enum MediaSourceType {
+	// eslint-disable-next-line no-unused-vars
+	MIC = 'mic',
+	// eslint-disable-next-line no-unused-vars
+	WEBCAM = 'webcam',
+	// eslint-disable-next-line no-unused-vars
+	SCREEN = 'screen',
+	// eslint-disable-next-line no-unused-vars
+	SCREENAUDIO = 'screenaudio',
+	// eslint-disable-next-line no-unused-vars
+	EXTRAVIDEO = 'extravideo',
+	// eslint-disable-next-line no-unused-vars
+	EXTRAAUDIO = 'extraaudio',
+}
+
 export interface ChatMessage {
 	text: string;
 	peerId: string;
