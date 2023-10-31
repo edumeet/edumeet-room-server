@@ -2,7 +2,7 @@ import config from '../../config/config.json';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Config } from '../Config';
 
-export const actualConfig = config as Config;
+const actualConfig = config as Config;
 
 const signingKeys = actualConfig.managementService?.jwtPublicKeys || [];
 

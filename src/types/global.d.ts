@@ -11,7 +11,7 @@ import ManagementService from '../ManagementService';
 /* eslint-disable no-var */
 declare global {
 	var serverManager: ServerManager;
-	var managementService: ManagementService;
+	var managementService: ManagementService | undefined;
 	var workers: Map<number, Worker>;
 	var routers: Map<string, Router>;
 	var transports: Map<string, Transport>;

@@ -15,10 +15,9 @@ import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddlewa
 import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { Router } from './media/Router';
-import { List, Logger, Middleware, skipIfClosed, timeoutPromise } from 'edumeet-common';
+import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import MediaNode from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
-import { ActiveSpeakerObserver } from './media/ActiveSpeakerObserver';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 
 const logger = new Logger('Room');
@@ -84,16 +83,6 @@ export default class Room extends EventEmitter {
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
 
-	/* eslint-disable no-unused-vars */
-	#resolveActiveSpeakerObserverReady!: (observer: ActiveSpeakerObserver) => void;
-	#rejectActiveSpeakerObserverReady!: (error: unknown) => void;
-	/* eslint-enable no-unused-vars */
-
-	public activeSpeakerObserverReady = new Promise<ActiveSpeakerObserver>((resolve, reject) => {
-		this.#resolveActiveSpeakerObserverReady = resolve;
-		this.#rejectActiveSpeakerObserverReady = reject;
-	});
-
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
 	#initialMediaMiddleware: Middleware<PeerContext>;
 	#joinMiddleware: Middleware<PeerContext>;
@@ -157,14 +146,10 @@ export default class Room extends EventEmitter {
 		this.lobbyPeers.items.forEach((p) => p.close());
 
 		this.breakoutRooms.forEach((r) => r.close());
-		timeoutPromise(this.activeSpeakerObserverReady, 1000).then((o) => o.close())
-			.catch((error) => {
-				logger.error('close() [error: %o]', error);
-			})
-			.finally(() => {
-				this.routers.items.forEach((r) => r.close());
-				this.routers.clear();
-			});
+		
+		this.routers.items.forEach((r) => r.close());
+		this.routers.clear();
+
 		this.pendingPeers.clear();
 		this.peers.clear();
 		this.lobbyPeers.clear();
@@ -179,10 +164,6 @@ export default class Room extends EventEmitter {
 
 	public addRouter(router: Router): void {
 		if (this.routers.has(router)) return;
-
-		/* At this point we know our first router exists in media-node service.
-		We can safely create our ActiveSpeakerObserver. */
-		if (this.routers.length === 0) this.createActiveSpeakerObserver(router);
 		this.routers.add(router);
 	}
 
@@ -198,8 +179,7 @@ export default class Room extends EventEmitter {
 			// This will resolve/reject when we have succeeded/failed to merge the room information from the management service
 			await this.roomReady;
 
-			if (this.closed)
-				throw new RoomClosedError('room closed');
+			if (this.closed) throw new RoomClosedError('room closed');
 
 			this.waitingPeers.remove(peer);
 
@@ -232,29 +212,14 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
-	private async createActiveSpeakerObserver(router: Router) {
-		try {
-			const observer = await router.createActiveSpeakerObserver({});
-
-			observer.on('dominantspeaker', (dominantSpeakerId: string) => {
-				const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
-
-				if (activePeer) 
-					this.notifyPeers('activeSpeaker', {
-						peerId: activePeer.id,
-						sessionId: this.sessionId
-					});
-			});
-			this.#resolveActiveSpeakerObserverReady(observer);
-		} catch (error) {
-			logger.error('createActiveSpeakerObserver(): [%o]', error);
-			this.#rejectActiveSpeakerObserverReady(error);
-		} 
-	}
-
-	@skipIfClosed
 	private allowPeer(peer: Peer): void {
 		logger.debug('allowPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
+
+		this.assignRouter(peer);
+
+		this.pendingPeers.add(peer);
+		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
+
 		peer.notify({
 			method: 'roomReady',
 			data: {
@@ -271,12 +236,6 @@ export default class Room extends EventEmitter {
 				settings: this.settings,
 			}
 		});
-
-		this.assignRouter(peer);
-
-		this.pendingPeers.add(peer);
-		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
-
 	}
 
 	@skipIfClosed
@@ -345,48 +304,18 @@ export default class Room extends EventEmitter {
 		return [ ...new Set(this.routers.items.map((r) => r.mediaNode)) ];
 	}
 
-	public async addBreakoutRoom(breakoutRoom: BreakoutRoom) {
-		this.breakoutRooms.set(breakoutRoom.sessionId, breakoutRoom);
-		if (this.routers.items.length === 0) return;
-		try {
-			const observer = await this.routers.items[0].createActiveSpeakerObserver({});
-
-			observer.on('dominantspeaker', (dominantSpeakerId) => {
-				const activePeer = this.peers.items.find((p) => p.producers.has(dominantSpeakerId));
-
-				if (activePeer) 
-					breakoutRoom.notifyPeers('activeSpeaker', {
-						peerId: activePeer.id,
-						sessionId: breakoutRoom.sessionId
-					});
-			});
-
-			breakoutRoom.resolveActiveSpeakerObserverReady(observer);
-		} catch (error) {
-			logger.error('addBreakoutRoom() [%o]', error);
-			breakoutRoom.rejectActiveAudioObserverReady(error);
-		}
-	}
-
 	private async assignRouter(peer: Peer): Promise<void> {
 		try {
 			const router = await this.mediaService.getRouter(this, peer);
 
-			if (this.closed)
-				throw router.close();
+			if (this.closed) throw router.close();
 
 			this.addRouter(router);
-			peer.router = router;
-			peer.notify({ method: 'mediaReady' });
+			peer.resolveRouterReady(router);
 		} catch (error) {
 			logger.error('assignRouter() [%o]', error);
-
-			peer.notify({ method: 'noMediaAvailable', data: { error } });
+			peer.close();
 		}
-	}
-
-	public async retryAssignRouter(peer: Peer): Promise<void> {
-		await this.assignRouter(peer);
 	}
 
 	public getPeers(excludePeer?: Peer): Peer[] {

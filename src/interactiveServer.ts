@@ -123,7 +123,7 @@ class InteractiveServer {
 	}
 }
 
-export const interactiveServer = (serverManager: ServerManager, managementService: ManagementService) => {
+export const interactiveServer = (serverManager: ServerManager, managementService?: ManagementService) => {
 	global.serverManager = serverManager;
 	global.managementService = managementService;
 

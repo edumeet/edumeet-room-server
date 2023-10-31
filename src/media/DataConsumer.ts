@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { Logger, skipIfClosed } from 'edumeet-common';
-import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
 import MediaNode from './MediaNode';
+import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
 
 const logger = new Logger('DataConsumer');
 

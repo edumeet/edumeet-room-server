@@ -1,6 +1,8 @@
 process.title = 'edumeet-room-server';
 
 import config from '../config/config.json';
+export const actualConfig = config as Config;
+
 import fs from 'fs';
 import https from 'https';
 import http from 'http';
@@ -16,7 +18,7 @@ import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
 
-const actualConfig = config as Config;
+if (!actualConfig.mediaNodes) throw new Error('No media nodes configured');
 
 const logger = new Logger('Server');
 
@@ -27,14 +29,16 @@ const managedRooms = new Map<string, Room>();
 
 logger.debug('Starting...');
 
-const defaultClientPosition = new KDPoint(
-	[ actualConfig.mediaNodes[0].latitude,
-		actualConfig.mediaNodes[0].longitude ]
-);
+const defaultClientPosition = new KDPoint([ actualConfig.mediaNodes[0].latitude, actualConfig.mediaNodes[0].longitude ]);
 const kdTree = new KDTree([]);
 const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
 const mediaService = MediaService.create(loadBalancer, kdTree, actualConfig);
-const managementService = new ManagementService({ managedPeers, managedRooms, mediaService });
+
+let managementService: ManagementService | undefined;
+
+if (actualConfig.managementService)
+	managementService = new ManagementService({ managedPeers, managedRooms, mediaService });
+
 const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
 
 interactiveServer(serverManager, managementService);
