@@ -17,22 +17,22 @@
 			"name": "Default",
 			"description": "Default role",
 			"permissions": [
-				{ "name": "CHANGE_ROOM_LOCK" },
-				{ "name": "PROMOTE_PEER" },
-				{ "name": "SEND_CHAT" },
-				{ "name": "MODERATE_CHAT" },
-				{ "name": "SHARE_AUDIO" },
-				{ "name": "SHARE_VIDEO" },
-				{ "name": "SHARE_SCREEN" },
-				{ "name": "SHARE_EXTRA_VIDEO" },
-				{ "name": "SHARE_FILE" },
-				{ "name": "MODERATE_FILES" },
-				{ "name": "MODERATE_ROOM" },
-				{ "name": "LOCAL_RECORD_ROOM" },
-				{ "name": "CREATE_ROOM" },
-				{ "name": "CHANGE_ROOM" }
+				{ "roleId":0,"id":1,"name": "CHANGE_ROOM_LOCK" },
+				{ "roleId":0,"id":2,"name": "PROMOTE_PEER" },
+				{ "roleId":0,"id":3,"name": "SEND_CHAT" },
+				{ "roleId":0,"id":4,"name": "MODERATE_CHAT" },
+				{ "roleId":0,"id":5,"name": "SHARE_AUDIO" },
+				{ "roleId":0,"id":6,"name": "SHARE_VIDEO" },
+				{ "roleId":0,"id":7,"name": "SHARE_SCREEN" },
+				{ "roleId":0,"id":8,"name": "SHARE_EXTRA_VIDEO" },
+				{ "roleId":0,"id":9,"name": "SHARE_FILE" },
+				{ "roleId":0,"id":10,"name": "MODERATE_FILES" },
+				{ "roleId":0,"id":11,"name": "MODERATE_ROOM" },
+				{ "roleId":0,"id":12,"name": "LOCAL_RECORD_ROOM" },
+				{ "roleId":0,"id":13,"name": "CREATE_ROOM" },
+				{ "roleId":0,"id":14,"name": "CHANGE_ROOM" }
 			],
-			"tenantId": 0
+			"tenantId": "0"
 		},
 		"maxActiveVideos": 12,
 		"locked": false,
@@ -50,3 +50,4 @@
 		"longitude": 10.394964
 	}]
 }
+
