@@ -2,7 +2,7 @@ import 'jest';
 import { Router } from '../../../src/media/Router';
 import MediaNode from '../../../src/media/MediaNode';
 import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
-import { SctpCapabilities } from 'mediasoup-client/lib/SctpParameters';
+import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
 import { Producer } from '../../../src/media/Producer';
 import { WebRtcTransport } from '../../../src/media/WebRtcTransport';
 import { PipeTransport } from '../../../src/media/PipeTransport';
@@ -177,9 +177,22 @@ describe('Router', () => {
 			}[method] ?? (() => expect(true).toBe(false)))();
 		});
 
+		const fakeProducer1 = { 
+			id: producerId, 
+			paused: false,
+			router: router1,
+			kind: MediaKind.AUDIO,
+			rtpParameters: rtpCapabilities,
+		} as unknown as Producer;
+
+		router1.producers.set(
+			producerId,
+			fakeProducer1
+		);
+
 		const canConsume = await router1.canConsume({
 			producerId,
-			rtpCapabilities,
+			rtpCapabilities
 		});
 
 		expect(canConsume).toBe(true);
