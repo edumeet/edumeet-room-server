@@ -42,32 +42,20 @@ export default class MediaNode extends EventEmitter {
 	public routers: Map<string, Router> = new Map();
 	#connection?: MediaNodeConnection;
 	#health: MediaNodeHealth;
-	#secret: string;
+	public secret: string;
 
-	#routersMiddleware =
-		createRoutersMiddleware({ routers: this.routers });
-	#webRtcTransportsMiddleware =
-		createWebRtcTransportsMiddleware({ routers: this.routers });
-	#pipeTransportsMiddleware =
-		createPipeTransportsMiddleware({ routers: this.routers });
-	#producersMiddleware =
-		createProducersMiddleware({ routers: this.routers });
-	#pipeProducersMiddleware =
-		createPipeProducersMiddleware({ routers: this.routers });
-	#dataProducersMiddleware =
-		createDataProducersMiddleware({ routers: this.routers });
-	#pipeDataProducersMiddleware =
-		createPipeDataProducersMiddleware({ routers: this.routers });
-	#consumersMiddleware =
-		createConsumersMiddleware({ routers: this.routers });
-	#pipeConsumersMiddleware =
-		createPipeConsumersMiddleware({ routers: this.routers });
-	#dataConsumersMiddleware =
-		createDataConsumersMiddleware({ routers: this.routers });
-	#pipeDataConsumersMiddleware =
-		createPipeDataConsumersMiddleware({ routers: this.routers });
-	#activeSpeakerMiddleware = 
-		createActiveSpeakerMiddleware({ routers: this.routers });
+	#routersMiddleware = createRoutersMiddleware({ routers: this.routers });
+	#webRtcTransportsMiddleware = createWebRtcTransportsMiddleware({ routers: this.routers });
+	#pipeTransportsMiddleware = createPipeTransportsMiddleware({ routers: this.routers });
+	#producersMiddleware = createProducersMiddleware({ routers: this.routers });
+	#pipeProducersMiddleware = createPipeProducersMiddleware({ routers: this.routers });
+	#dataProducersMiddleware = createDataProducersMiddleware({ routers: this.routers });
+	#pipeDataProducersMiddleware = createPipeDataProducersMiddleware({ routers: this.routers });
+	#consumersMiddleware = createConsumersMiddleware({ routers: this.routers });
+	#pipeConsumersMiddleware = createPipeConsumersMiddleware({ routers: this.routers });
+	#dataConsumersMiddleware = createDataConsumersMiddleware({ routers: this.routers });
+	#pipeDataConsumersMiddleware = createPipeDataConsumersMiddleware({ routers: this.routers });
+	#activeSpeakerMiddleware = createActiveSpeakerMiddleware({ routers: this.routers });
 
 	constructor({
 		id,
@@ -83,7 +71,7 @@ export default class MediaNode extends EventEmitter {
 		this.id = id;
 		this.hostname = hostname;
 		this.port = port;
-		this.#secret = secret;
+		this.secret = secret;
 		this.kdPoint = kdPoint;
 		this.#health = new MediaNodeHealth({ hostname, port });
 	}
@@ -103,20 +91,20 @@ export default class MediaNode extends EventEmitter {
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
+
 		const requestUUID = randomUUID();
 
 		this.pendingRequests.set(requestUUID, roomId);
 
-		if (!this.#connection) {
-			this.#connection = this.#setupConnection();
-		}
+		if (!this.#connection) this.#connection = this.#setupConnection();
 
 		try {
 			await this.#connection.ready;
 		} catch (error) {
+			logger.error('getRouter() [%o]', error);
+
 			this.#connection.close();
 			this.pendingRequests.delete(requestUUID);
-			logger.error('getRouter() [%o]', error);
 			this.#health.retryConnection();
 
 			throw error;
@@ -142,24 +130,23 @@ export default class MediaNode extends EventEmitter {
 				});
 
 				this.routers.set(id, router);
+
 				router.once('close', () => {
 					this.routers.delete(id);
 
-					if (
-						this.routers.size === 0 &&
-								this.pendingRequests.size === 0
-					) {
+					if (this.routers.size === 0 && this.pendingRequests.size === 0) {
 						this.#connection?.close();
 						this.#connection = undefined;
 					}
 				});
-			} 
-			
-			return router;
+			}
 
+			return router;
 		} catch (error) {
 			logger.error('getRouter() [%o]', error);
+
 			this.#health.retryConnection();
+
 			throw error;
 		} finally {
 			this.pendingRequests.delete(requestUUID); 
@@ -167,10 +154,11 @@ export default class MediaNode extends EventEmitter {
 	}
 
 	#setupConnection(): MediaNodeConnection {
-		const secret = this.#secret ? `?secret=${this.#secret}` : '';
+		const secret = this.secret ? `?secret=${this.secret}` : '';
 		const connection = new MediaNodeConnection({
 			url: `wss://${this.hostname}:${this.port}${secret}`,
-			timeout: 3000 });
+			timeout: 3000
+		});
 
 		connection.pipeline.use(
 			this.#routersMiddleware,
@@ -205,6 +193,7 @@ export default class MediaNode extends EventEmitter {
 			connection.pipeline.remove(this.#dataConsumersMiddleware);
 			connection.pipeline.remove(this.#pipeDataConsumersMiddleware);
 			connection.pipeline.remove(this.#activeSpeakerMiddleware);
+
 			this.#connection = undefined;
 		});
 
@@ -214,25 +203,27 @@ export default class MediaNode extends EventEmitter {
 	@skipIfClosed
 	public async notify(notification: SocketMessage): Promise<void> {
 		logger.debug('notify() [method: %s]', notification.method);
+
 		await this.#connection?.ready;
+
 		this.#connection?.notify(notification);
 	}
 	
 	@skipIfClosed
 	public async request(request: SocketMessage): Promise<unknown> {
 		logger.debug('request() [method: %s]', request.method);
+
 		try {
 			await this.#connection?.ready;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const response: any = await this.#connection?.request(request);
-			
-			return response;
-			
+
+			return await this.#connection?.request(request);
 		} catch (error) {
 			if (error instanceof SocketTimeoutError) {
 				logger.error('request() [method: %s, %o]', request.method, error);
+
 				this.#health.retryConnection();
 			}
+
 			throw error;
 		}
 	}

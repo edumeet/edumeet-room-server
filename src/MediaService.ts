@@ -1,9 +1,9 @@
-import Room, { RoomClosedError } from './Room';
+import Room from './Room';
 import { Peer } from './Peer';
 import MediaNode from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
-import { KDTree, KDPoint, List, Logger, skipIfClosed } from 'edumeet-common';
+import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import LoadBalancer from './LoadBalancer';
 import { Config } from './Config';
 
@@ -16,46 +16,46 @@ export interface RouterData {
 
 export interface MediaServiceOptions {
 	loadBalancer: LoadBalancer;
+	kdTree: KDTree;
 }
 
 export default class MediaService {
 	public closed = false;
-	public mediaNodes = List<MediaNode>();
+	public kdTree: KDTree;
 	private loadBalancer: LoadBalancer;
 
-	constructor({ loadBalancer } : MediaServiceOptions) {
+	constructor({ loadBalancer, kdTree } : MediaServiceOptions) {
 		logger.debug('constructor() [loadBalancer: %s]', loadBalancer);
 
 		this.loadBalancer = loadBalancer;
+		this.kdTree = kdTree;
 	}
 
 	public static create(
 		loadBalancer: LoadBalancer,
-		kdTree: KDTree,
 		config: Config
 	) {
-		logger.debug('create() [loadBalancer: %s, kdtree: %s, config: %s]', loadBalancer, kdTree, config);
+		logger.debug('create() [loadBalancer: %s, config: %s]', loadBalancer, config);
 
 		if (!config.mediaNodes) throw new Error('No media nodes configured');
 
-		const mediaService = new MediaService({ loadBalancer });
+		const kdTree = new KDTree([]);
 
 		for (const { hostname, port, secret, longitude, latitude } of config.mediaNodes) {
 			const mediaNode = new MediaNode({
-				id: randomUUID(), 
+				id: randomUUID(),
 				hostname,
 				port,
 				secret,
 				kdPoint: new KDPoint([ latitude, longitude ])
 			});
 
-			mediaService.mediaNodes.add(mediaNode);
 			kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
 		}
 
 		kdTree.rebalance();
-		
-		return mediaService; 
+
+		return new MediaService({ loadBalancer, kdTree });
 	}
 
 	@skipIfClosed
@@ -64,8 +64,9 @@ export default class MediaService {
 
 		this.closed = true;
 
-		this.mediaNodes.items.forEach((mediaNode) => mediaNode.close());
-		this.mediaNodes.clear();
+		const mediaNodes = this.kdTree.getAllPoints().map((kdPoint) => kdPoint.appData.mediaNode) as MediaNode[];
+
+		mediaNodes.forEach((mediaNode) => mediaNode.close());
 	}
 
 	@skipIfClosed
@@ -74,22 +75,17 @@ export default class MediaService {
 
 		let candidates: MediaNode[] = [];
 
-		do { 
-			candidates = this.loadBalancer.getCandidates(room, peer);
+		do {
+			candidates = this.loadBalancer.getCandidates(this.kdTree, room, peer);
 
-			for (const c of candidates) {
+			for (const mediaNode of candidates) {
 				try {
-					const router = await c.getRouter({
+					return await mediaNode.getRouter({
 						roomId: room.sessionId,
-						appData: {
-							pipePromises: new Map<string, Promise<void>>(),
-						}
+						appData: { pipePromises: new Map<string, Promise<void>>() }
 					});
-
-					return router;
 				} catch (error) {
 					logger.error('getRouter() [error %o]', error);
-					if (error instanceof RoomClosedError) throw error;
 				}
 			}
 		} while (candidates.length > 0);

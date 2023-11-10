@@ -4,19 +4,22 @@ import https from 'https';
 
 const logger = new Logger('MediaNodeHealth');
 
-export const ConnectionStatus = Object.freeze({
-	ERROR: 'error',
-	RETRYING: 'retrying',
-	OK: 'ok',
-	CLOSED: 'closed'
-});
-
-export type ConnectionStatus = typeof ConnectionStatus[keyof typeof ConnectionStatus]
+// eslint-disable-next-line no-shadow
+export enum ConnectionStatus {
+	// eslint-disable-next-line no-unused-vars
+	ERROR = 'error',
+	// eslint-disable-next-line no-unused-vars
+	RETRYING = 'retrying',
+	// eslint-disable-next-line no-unused-vars
+	OK = 'ok',
+	// eslint-disable-next-line no-unused-vars
+	CLOSED = 'closed'
+}
 
 export interface MediaNodeHealthOptions {
-        hostname: string,
-        port: number
-        }
+	hostname: string,
+	port: number
+}
 
 export default class MediaNodeHealth {
 	load: number;
@@ -50,25 +53,25 @@ export default class MediaNodeHealth {
 	public getConnectionStatus() {
 		return this.#connectionStatus;
 	}
-    
+
 	public async retryConnection(): Promise<void> {
 		logger.debug('retryConnection()');
+
 		if (this.#connectionStatus === ConnectionStatus.RETRYING) return;
+
 		this.#connectionStatus = ConnectionStatus.RETRYING;
 		this.#retryCount = 0;
 
 		do {
 			try {
-				const timeout = this.#backoffIntervals[this.#retryCount];
-
-				await this.#retryConnection(timeout, this.#retryCount);
+				await this.#retryConnection(this.#backoffIntervals[this.#retryCount], this.#retryCount);
 			} catch (error) {
 				logger.error(error);
+
 				this.#retryCount++;
-			} 
-		} while (this.#retryCount < this.#backoffIntervals.length 
-				&& this.#connectionStatus === ConnectionStatus.RETRYING);
-		
+			}
+		} while (this.#retryCount < this.#backoffIntervals.length && this.#connectionStatus === ConnectionStatus.RETRYING);
+
 		if (this.#retryCount === this.#backoffIntervals.length) {
 			// We ran out of backoff intervals. MediaNode will be left in error state.
 			this.#connectionStatus = ConnectionStatus.ERROR;
@@ -77,39 +80,46 @@ export default class MediaNodeHealth {
 
 	async #retryConnection(timeout: number, retryCount: number) {
 		logger.debug('#retryConnection() [timeout: %s, retryCount: %s]', timeout, retryCount);
-		
+
 		return new Promise<void>((resolve, reject) => {
-			this.#timeoutHandle = setTimeout(() => reject(new Error('Timeout'))
-				, timeout
-			);
+			this.#timeoutHandle = setTimeout(() => reject(new Error('Timeout')), timeout);
+
 			const req = https.get({
 				hostname: this.hostname,
 				port: this.port,
 				path: '/health',
-				timeout: timeout },
-			(resp) => {
+				timeout
+			}, (resp) => {
 				logger.debug('#retryConnection() Got response from MediaNode [statuscode: %s]', resp.statusCode);
+
 				if (resp.statusCode === 200) {
-					this.#connectionStatus = ConnectionStatus.OK; 
+					this.#connectionStatus = ConnectionStatus.OK;
+
+					clearTimeout(this.#timeoutHandle);
+
 					resolve();
 				}
+
 				reject(new Error('Status code was not 200.'));
 			});
 
 			req.on('error', (error) => {
 				logger.error(error);
-				req.destroy(); 
+
+				req.destroy();
+
 				this.#retryRequests.delete(retryCount);
 			});
+
 			req.on('timeout', () => {
 				reject(new Error('Timeout'));
+
 				req.destroy();
+
 				this.#retryRequests.delete(retryCount);
 			});
 
 			this.#retryRequests.set(retryCount, req);
 		});
-
 	}
-
 }

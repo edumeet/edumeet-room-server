@@ -2,6 +2,7 @@ import { Logger, Middleware } from 'edumeet-common';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
+import { getCredentials } from '../common/turnCredentials';
 
 const logger = new Logger('InitialMediaMiddleware');
 
@@ -24,7 +25,19 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 			case 'getRouterRtpCapabilities': {
 				const router = await peer.routerReady;
 
+				// Provide TURN credentials here
+				const { mediaNode } = router;
+				const { username, credential } = getCredentials(peer.id, mediaNode.secret, 3600);
+				const iceServers = [
+					{
+						urls: [ `turns:${mediaNode.hostname}:443?transport=tcp` ],
+						username,
+						credential
+					},
+				];
+
 				response.routerRtpCapabilities = router.rtpCapabilities;
+				response.iceServers = iceServers;
 				context.handled = true;
 
 				break;

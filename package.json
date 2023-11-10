@@ -37,7 +37,7 @@
 		"@feathersjs/feathers": "^5.0.5",
 		"@feathersjs/socketio-client": "^5.0.5",
 		"debug": "^4.3.4",
-		"edumeet-common": "edumeet/edumeet-common#0.6.0",
+		"edumeet-common": "edumeet/edumeet-common#0.6.1",
 		"geoip-lite": "^1.4.7",
 		"h264-profile-level-id": "^1.0.1",
 		"jsonwebtoken": "^9.0.0",

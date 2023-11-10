@@ -75,10 +75,7 @@ export default class ServerManager {
 		let peer = this.peers.get(peerId);
 
 		if (peer) {
-			logger.debug(
-				'handleConnection() there is already a Peer with same peerId [peerId: %s]',
-				peerId
-			);
+			logger.debug('handleConnection() there is already a Peer with same peerId [peerId: %s]', peerId);
 
 			// If we already have a Peer and the new connection does not have a token
 			// then we must close the new connection.
@@ -93,26 +90,18 @@ export default class ServerManager {
 		let room = this.rooms.get(`${tenantId}/${roomId}`);
 
 		if (!room) {
-			logger.debug(
-				'handleConnection() new room [roomId: %s, tenantId: %s]',
-				roomId,
-				tenantId
-			);
+			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
 
-			room = new Room({
-				id: roomId,
-				tenantId,
-				mediaService: this.mediaService
-			});
+			room = new Room({ id: roomId, tenantId, mediaService: this.mediaService });
 
 			this.rooms.set(`${tenantId}/${roomId}`, room);
 
 			room.once('close', () => {
 				logger.debug('handleConnection() room closed [roomId: %s]', roomId);
+
 				this.rooms.delete(`${tenantId}/${roomId}`);
 
-				if (room?.managedId)
-					this.managedRooms.delete(room.managedId);
+				if (room?.managedId) this.managedRooms.delete(room.managedId);
 			});
 
 			if (actualConfig.defaultRoomSettings) {
@@ -215,13 +204,7 @@ export default class ServerManager {
 			})();
 		}
 
-		peer = new Peer({
-			id: peerId,
-			managedId,
-			sessionId: room.sessionId,
-			displayName,
-			connection
-		});
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection });
 
 		this.peers.set(peerId, peer);
 
