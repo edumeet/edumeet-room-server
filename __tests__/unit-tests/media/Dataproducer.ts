@@ -1,8 +1,9 @@
 import 'jest';
-import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
+
 import { DataProducer } from '../../../src/media/DataProducer';
 import { Router } from '../../../src/media/Router';
 import MediaNode from '../../../src/media/MediaNode';
+import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
 
 describe('DataProducer', () => {
 	const DATA_PRODUCER_ID = 'id';
@@ -14,7 +15,7 @@ describe('DataProducer', () => {
 	let mediaNode: MediaNode;
 
 	beforeEach(() => {
-		fakeSctpStreamParameters = {};
+		fakeSctpStreamParameters = { streamId: 0 };
 		fakeAppData = {};		
 		fakeRouter = {} as unknown as Router;
 		spyNotify = jest.fn();
