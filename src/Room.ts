@@ -52,14 +52,14 @@ export default class Room extends EventEmitter {
 	public defaultRole?: ManagedRole; // Possibly updated by the management service
 	public locked = true; // Possibly updated by the management service
 	public promoteOnHostJoin = false; // Possibly updated by the management service
-
+	
 	public maxActiveVideos = 12; // Possibly updated by the management service
 	public breakoutsEnabled = true; // Possibly updated by the management service
 	public chatEnabled = true; // Possibly updated by the management service
 	public filesharingEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
-
+	public turnServers?: string;
 	public settings: RoomSettings = {};
 
 	// eslint-disable-next-line no-unused-vars
@@ -225,7 +225,7 @@ export default class Room extends EventEmitter {
 			data: {
 				sessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
-
+				turnServers: this.turnServers,
 				maxActiveVideos: this.maxActiveVideos,
 				breakoutsEnabled: this.breakoutsEnabled,
 				chatEnabled: this.chatEnabled,

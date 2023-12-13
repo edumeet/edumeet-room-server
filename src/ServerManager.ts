@@ -118,6 +118,7 @@ export default class ServerManager {
 			if (actualConfig.defaultRoomSettings) {
 				const {
 					defaultRole,
+					turnServers = undefined,
 					maxActiveVideos = 12,
 					locked = false,
 					breakoutsEnabled = true,
@@ -128,6 +129,7 @@ export default class ServerManager {
 				} = actualConfig.defaultRoomSettings;
 
 				room.defaultRole = defaultRole;
+				room.turnServers = turnServers;
 				room.maxActiveVideos = maxActiveVideos;
 				room.locked = locked;
 				room.breakoutsEnabled = breakoutsEnabled;
