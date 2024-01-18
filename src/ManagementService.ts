@@ -38,7 +38,7 @@ export default class ManagementService {
 	});
 
 	#client: Application;
-	#reAuthTimer: NodeJS.Timer;
+	#reAuthTimer: NodeJS.Timeout;
 
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
