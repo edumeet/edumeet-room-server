@@ -10,6 +10,7 @@ import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedR
 import MediaService from './MediaService';
 import { Config } from './Config';
 import { addGroupUser, addRolePermission, addRoomGroupRole, addRoomOwner, addRoomUserRole, removeGroup, removeGroupUser, removeRole, removeRolePermission, removeRoomGroupRole, removeRoomOwner, removeRoomUserRole, updateRoom } from './common/authorization';
+import { safePromise } from './common/safePromise';
 
 const actualConfig = config as Config;
 
@@ -32,10 +33,10 @@ export default class ManagementService {
 	// eslint-disable-next-line no-unused-vars
 	public rejectReady!: (error: unknown) => void;
 
-	public ready = new Promise<void>((resolve, reject) => {
+	public ready = safePromise(new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
 		this.rejectReady = reject;
-	});
+	}));
 
 	#client: Application;
 	#reAuthTimer: NodeJS.Timer;
@@ -96,7 +97,9 @@ export default class ManagementService {
 	public async getRoom(name: string, tenantId: string): Promise<ManagedRoom | undefined> {
 		logger.debug('getRoom() [name: %s]', name);
 
-		await this.ready;
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
 
 		const { total, data } = await this.#roomsService.find({ query: { name, tenantId } });
 
@@ -112,11 +115,6 @@ export default class ManagementService {
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
 		
-		this.ready = new Promise<void>((resolve, reject) => {
-			this.resolveReady = resolve;
-			this.rejectReady = reject;
-		});
-
 		this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
@@ -124,6 +122,7 @@ export default class ManagementService {
 		})
 			.then(this.resolveReady)
 			.catch(this.rejectReady);
+
 		this.#client.io.on('disconnect', () => {
 			logger.debug('Socket connection disconnected');
 			// TODO: handle explicit disconnect

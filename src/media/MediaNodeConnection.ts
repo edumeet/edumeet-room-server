@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { InboundNotification, InboundRequest, Logger, Pipeline, skipIfClosed, SocketMessage, SocketTimeoutError } from 'edumeet-common';
 import { io, Socket } from 'socket.io-client';
+import { safePromise } from '../common/safePromise';
 
 const logger = new Logger('MediaNodeConnection');
 
@@ -37,7 +38,7 @@ export interface MediaNodeConnectionContext {
 
 /* eslint-disable no-unused-vars */
 export declare interface MediaNodeConnection {
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 	on(event: 'notification', listener: InboundNotification): this;
 	on(event: 'request', listener: InboundRequest): this;
 	on(event: 'load', listener: (load: number) => void): this;
@@ -47,16 +48,17 @@ export declare interface MediaNodeConnection {
 export class MediaNodeConnection extends EventEmitter {
 	public closed = false;
 	public pipeline = Pipeline<MediaNodeConnectionContext>();
-	
+
+	#resolveReadyTimeoutHandle: NodeJS.Timeout | undefined;
+
 	public resolveReady!: () => void;
 	// eslint-disable-next-line no-unused-vars
 	public rejectReady!: (error: unknown) => void;
-	#resolveReadyTimeoutHandle: NodeJS.Timeout | undefined;
-	public ready = new Promise<void>((resolve, reject) => {
+	public ready = safePromise(new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
 		this.rejectReady = reject;
-	});
-	
+	}));
+
 	#socket: Socket<ClientServerEvents, ServerClientEvents>;
 	#timeout;
 
@@ -75,27 +77,33 @@ export class MediaNodeConnection extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public close(): void {
+	public close(remoteClose = false): void {
 		logger.debug('close()');
+
 		this.closed = true;
+
 		if (this.#socket.connected) this.#socket.disconnect();
+
 		this.#socket.removeAllListeners();
-		this.emit('close');
 		this.#socket.disconnect();
+
 		clearTimeout(this.#resolveReadyTimeoutHandle);
+		this.#resolveReadyTimeoutHandle = undefined;
+
+		this.emit('close', remoteClose);
 	}
 
 	#handleSocket(): void {
-		this.#resolveReadyTimeoutHandle = setTimeout(() => { this.rejectReady('Timeout waiting for media-node connection'); }, this.#timeout);
-		
+		this.#resolveReadyTimeoutHandle = setTimeout(() => this.rejectReady('Timeout waiting for media-node connection'), this.#timeout);
+
 		this.#socket.on('notification', async (notification) => {
 			logger.debug('"notification" recieved [notification: %o]', notification);
 			this.emit('load', notification.data?.load);
 
 			if (notification.method === 'mediaNodeReady') {
 				clearTimeout(this.#resolveReadyTimeoutHandle);
-				
-				return this.resolveReady(); 
+
+				return this.resolveReady();
 			}
 
 			try {
@@ -141,11 +149,10 @@ export class MediaNodeConnection extends EventEmitter {
 
 		this.#socket.once('disconnect', () => {
 			logger.debug('socket disconnected');
-			this.close(); 
+			this.close(true);
 		});
-		this.#socket.on('connect', () => {
-			logger.debug('handleSocket() connected');
-		});
+
+		this.#socket.on('connect', () => logger.debug('handleSocket() connected'));
 	}
 
 	@skipIfClosed
@@ -162,11 +169,13 @@ export class MediaNodeConnection extends EventEmitter {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const response: any = await this.#sendRequestOnWire(request);
 
-		response.load && this.emit('load', response.load);
-			
+		const { load } = response;
+
+		if (load) this.emit('load', load);
+
 		return response;
 	}
-	
+
 	#sendRequestOnWire(socketMessage: SocketMessage): Promise<unknown> {
 		return new Promise((resolve, reject) => {
 			if (!this.#socket) {

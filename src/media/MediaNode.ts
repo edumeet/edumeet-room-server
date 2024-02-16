@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { KDPoint, Logger, SocketMessage, SocketTimeoutError, skipIfClosed } from 'edumeet-common';
+import { KDPoint, Logger, SocketMessage, skipIfClosed } from 'edumeet-common';
 import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
 import { createDataConsumersMiddleware } from '../middlewares/dataConsumersMiddleware';
 import { createDataProducersMiddleware } from '../middlewares/dataProducersMiddleware';
@@ -15,7 +15,7 @@ import { createActiveSpeakerMiddleware } from '../middlewares/activeSpeakerMiddl
 import { MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 import EventEmitter from 'events';
-import MediaNodeHealth, { ConnectionStatus } from './MediaNodeHealth';
+import { createRecordersMiddleware } from '../middlewares/recordersMiddleware';
 
 const logger = new Logger('MediaNode');
 
@@ -32,7 +32,14 @@ interface MediaNodeOptions {
 	kdPoint: KDPoint
 }
 
-export default class MediaNode extends EventEmitter {
+export declare interface MediaNode {
+	// eslint-disable-next-line no-unused-vars
+	on(event: 'connectionClosed', listener: () => void): this;
+	// eslint-disable-next-line no-unused-vars
+	once(event: 'connectionClosed', listener: () => void): this;
+}
+
+export class MediaNode extends EventEmitter {
 	public id: string;
 	public closed = false;
 	public hostname: string;
@@ -40,8 +47,10 @@ export default class MediaNode extends EventEmitter {
 	public readonly kdPoint: KDPoint;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
-	#connection?: MediaNodeConnection;
-	#health: MediaNodeHealth;
+	private connection?: MediaNodeConnection;
+	private healthCheckTimeout?: NodeJS.Timeout;
+	public healthy = true;
+	public load = 0;
 	public secret: string;
 
 	#routersMiddleware = createRoutersMiddleware({ routers: this.routers });
@@ -56,24 +65,21 @@ export default class MediaNode extends EventEmitter {
 	#dataConsumersMiddleware = createDataConsumersMiddleware({ routers: this.routers });
 	#pipeDataConsumersMiddleware = createPipeDataConsumersMiddleware({ routers: this.routers });
 	#activeSpeakerMiddleware = createActiveSpeakerMiddleware({ routers: this.routers });
+	#recordersMiddleware = createRecordersMiddleware({ routers: this.routers });
 
-	constructor({
-		id,
-		hostname,
-		port,
-		secret,
-		kdPoint
-	}: MediaNodeOptions) {
+	constructor({ id, hostname, port, secret, kdPoint }: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
+		this.setMaxListeners(Infinity);
 
 		this.id = id;
 		this.hostname = hostname;
 		this.port = port;
 		this.secret = secret;
 		this.kdPoint = kdPoint;
-		this.#health = new MediaNodeHealth({ hostname, port });
+
+		this.startHealthCheck();
 	}
 
 	@skipIfClosed
@@ -85,8 +91,10 @@ export default class MediaNode extends EventEmitter {
 		this.routers.forEach((router) => router.close(true));
 		this.routers.clear();
 
-		this.#connection?.close();
-		this.#health.close();
+		clearTimeout(this.healthCheckTimeout);
+		this.healthCheckTimeout = undefined;
+
+		this.connection?.close();
 	}
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
@@ -94,27 +102,10 @@ export default class MediaNode extends EventEmitter {
 
 		const requestUUID = randomUUID();
 
-		this.pendingRequests.set(requestUUID, roomId);
-
-		if (!this.#connection) this.#connection = this.#setupConnection();
-
 		try {
-			await this.#connection.ready;
-		} catch (error) {
-			logger.error('getRouter() [%o]', error);
+			this.pendingRequests.set(requestUUID, roomId);
 
-			this.#connection.close();
-			this.pendingRequests.delete(requestUUID);
-			this.#health.retryConnection();
-
-			throw error;
-		}
-
-		try {
-			const {
-				id,
-				rtpCapabilities
-			} = await this.#connection?.request({
+			const { id, rtpCapabilities } = await this.request({
 				method: 'getRouter',
 				data: { roomId }
 			}) as RouterOptions;
@@ -122,22 +113,17 @@ export default class MediaNode extends EventEmitter {
 			let router = this.routers.get(id);
 
 			if (!router) {
-				router = new Router({
-					mediaNode: this,
-					id,
-					rtpCapabilities,
-					appData
-				});
+				router = new Router({ mediaNode: this, id, rtpCapabilities, appData });
 
 				this.routers.set(id, router);
 
 				router.once('close', () => {
 					this.routers.delete(id);
 
-					if (this.routers.size === 0 && this.pendingRequests.size === 0) {
-						this.#connection?.close();
-						this.#connection = undefined;
-					}
+					if (this.isUnused) this.connection?.close();
+
+					logger.debug('router "close" event [routerId: %s]', id);
+					logger.debug('connection: %o', this.connection);
 				});
 			}
 
@@ -145,16 +131,41 @@ export default class MediaNode extends EventEmitter {
 		} catch (error) {
 			logger.error('getRouter() [%o]', error);
 
-			this.#health.retryConnection();
-
 			throw error;
 		} finally {
 			this.pendingRequests.delete(requestUUID); 
 		}
 	}
 
-	#setupConnection(): MediaNodeConnection {
+	get isUnused(): boolean {
+		return this.routers.size === 0 && this.pendingRequests.size === 0;
+	}
+
+	private async getOrCreateConnection(): Promise<MediaNodeConnection> {
+		logger.debug('getOrCreateConnection()');
+
+		if (!this.connection || this.connection.closed) {
+			logger.debug('No connection found, creating a new one');
+
+			this.connection = this.setupConnection();
+		}
+
+		const [ error ] = await this.connection.ready;
+
+		if (error) {
+			logger.error('getOrCreateConnection() [error:%o]', error);
+
+			this.startHealthCheck();
+
+			throw error;
+		}
+
+		return this.connection;
+	}
+
+	private setupConnection(): MediaNodeConnection {
 		const secret = this.secret ? `?secret=${this.secret}` : '';
+	
 		const connection = new MediaNodeConnection({
 			url: `wss://${this.hostname}:${this.port}${secret}`,
 			timeout: 3000
@@ -172,15 +183,15 @@ export default class MediaNode extends EventEmitter {
 			this.#pipeConsumersMiddleware,
 			this.#dataConsumersMiddleware,
 			this.#pipeDataConsumersMiddleware,
-			this.#activeSpeakerMiddleware
+			this.#activeSpeakerMiddleware,
+			this.#recordersMiddleware,
 		);
 
 		connection.on('load', (load) => {
-			if (load && typeof load === 'number') this.#health.load = load;
-			else logger.error('Got erroneous load from media-node');
+			this.load = load;
 		});
 
-		connection.once('close', () => {
+		connection.once('close', (remoteClose) => {
 			connection.pipeline.remove(this.#routersMiddleware);
 			connection.pipeline.remove(this.#webRtcTransportsMiddleware);
 			connection.pipeline.remove(this.#pipeTransportsMiddleware);
@@ -193,8 +204,13 @@ export default class MediaNode extends EventEmitter {
 			connection.pipeline.remove(this.#dataConsumersMiddleware);
 			connection.pipeline.remove(this.#pipeDataConsumersMiddleware);
 			connection.pipeline.remove(this.#activeSpeakerMiddleware);
+			connection.pipeline.remove(this.#recordersMiddleware);
 
-			this.#connection = undefined;
+			if (remoteClose) {
+				this.emit('connectionClosed');
+
+				this.startHealthCheck();
+			}
 		});
 
 		return connection;
@@ -204,35 +220,64 @@ export default class MediaNode extends EventEmitter {
 	public async notify(notification: SocketMessage): Promise<void> {
 		logger.debug('notify() [method: %s]', notification.method);
 
-		await this.#connection?.ready;
+		const connection = await this.getOrCreateConnection();
 
-		this.#connection?.notify(notification);
+		connection.notify(notification);
 	}
 	
 	@skipIfClosed
 	public async request(request: SocketMessage): Promise<unknown> {
 		logger.debug('request() [method: %s]', request.method);
 
-		try {
-			await this.#connection?.ready;
+		const connection = await this.getOrCreateConnection();
 
-			return await this.#connection?.request(request);
-		} catch (error) {
-			if (error instanceof SocketTimeoutError) {
-				logger.error('request() [method: %s, %o]', request.method, error);
+		return connection.request(request);
+	}
 
-				this.#health.retryConnection();
+	@skipIfClosed
+	private startHealthCheck(): void {
+		if (this.healthCheckTimeout) return;
+
+		logger.debug('startHealthCheck()');
+
+		const interval = 5000;
+
+		const check = async () => {
+			await this.healthCheck();
+
+			if (this.healthy) {
+				clearTimeout(this.healthCheckTimeout);
+				this.healthCheckTimeout = undefined;
+
+				return;
 			}
 
-			throw error;
+			this.healthCheckTimeout = setTimeout(check, interval);
+		};
+
+		this.healthCheckTimeout = setTimeout(check, interval);
+	}
+
+	@skipIfClosed
+	public async healthCheck(): Promise<void> {
+		logger.debug('healthCheck()');
+
+		const shouldClose = Boolean(!this.connection || this.connection?.closed);
+
+		logger.debug('healthCheck() [shouldClose: %s]', shouldClose);
+
+		let connection;
+
+		try {
+			connection = await this.getOrCreateConnection();
+
+			this.healthy = true;
+		} catch (error) {
+			logger.error('healthCheck() [error:%o]', error);
+
+			this.healthy = false;
+		} finally {
+			if (shouldClose) connection?.close();
 		}
-	}
-
-	public get load(): number {
-		return this.#health.load;
-	}
-
-	public get connectionStatus(): ConnectionStatus {
-		return this.#health.getConnectionStatus();
 	}
 }

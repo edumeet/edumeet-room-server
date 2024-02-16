@@ -21,6 +21,7 @@ import { DataProducer } from './media/DataProducer';
 import { DataConsumer } from './media/DataConsumer';
 import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
 import { Permission } from './common/authorization';
+import { safePromise } from './common/safePromise';
 
 const logger = new Logger('Peer');
 
@@ -58,37 +59,50 @@ export declare interface Peer {
 	on(event: 'gotRole', listener: (newRole: Role) => void): this;
 	on(event: 'lostRole', listener: (oldRole: Role) => void): this;
 	on(event: 'sessionIdChanged', listener: (sessionId: string) => void): this;
+
+	on(event: 'lostRouter', listener: () => void): this;
 }
 /* eslint-enable no-unused-vars */
 
 export class Peer extends EventEmitter {
+	public closed = false;
+
 	public id: string;
 	public managedId?: string;
 	public groupIds: string[] = [];
 	#permissions: string[] = [];
-	public closed = false;
+
 	public connections = List<BaseConnection>();
+
 	public displayName: string;
 	public picture?: string;
+
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
 	#escapeMeeting = false;
 	public escapeMeetingTimestamp?: number;
-	public routerId?: string;
+
+	public initialConsume = false;
+
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
-	public transports = new Map<string, WebRtcTransport>();
+	
+	public consumingTransport?: WebRtcTransport;
+	public producingTransport?: WebRtcTransport;
 	public consumers = new Map<string, Consumer>();
 	public producers = new Map<string, Producer>();
 	public dataConsumers = new Map<string, DataConsumer>();
 	public dataProducers = new Map<string, DataProducer>();
+
 	#sessionId: string;
+
 	public pipeline = Pipeline<PeerContext>();
+
 	// eslint-disable-next-line no-unused-vars
 	public resolveRouterReady!: (router: Router) => void;
-	public routerReady: Promise<Router> = new Promise<Router>((resolve) => {
-		this.resolveRouterReady = resolve;
-	});
+	// eslint-disable-next-line no-unused-vars
+	public rejectRouterReady!: (error: Error) => void;
+	public routerReady!: ReturnType<typeof safePromise<Router>>;
 
 	constructor({
 		id,
@@ -108,8 +122,27 @@ export class Peer extends EventEmitter {
 		this.picture = picture;
 		this.managedId = managedId;
 
+		this.routerReset(true);
+
 		if (connection)
 			this.addConnection(connection);
+	}
+
+	public routerReset(initial = false): void {
+		this.rtpCapabilities = undefined;
+		this.sctpCapabilities = undefined;
+
+		this.initialConsume = false;
+
+		if (!initial) {
+			this.notify({ method: 'lostMediaServer' });
+			this.rejectRouterReady?.(new Error('Router reset'));
+		}
+
+		this.routerReady = safePromise(new Promise<Router>((resolve, reject) => {
+			this.resolveRouterReady = resolve;
+			this.rejectRouterReady = reject;
+		}));
 	}
 
 	@skipIfClosed
@@ -121,12 +154,14 @@ export class Peer extends EventEmitter {
 		this.connections.items.forEach((c) => c.close());
 		this.producers.forEach((p) => p.close());
 		this.consumers.forEach((c) => c.close());
-		this.transports.forEach((t) => t.close());
+		this.consumingTransport?.close();
+		this.producingTransport?.close();
 
 		this.connections.clear();
 		this.producers.clear();
 		this.consumers.clear();
-		this.transports.clear();
+		this.consumingTransport = undefined;
+		this.producingTransport = undefined;
 
 		this.emit('close');
 	}
@@ -308,7 +343,7 @@ export class Peer extends EventEmitter {
 
 	public getAddress(): clientAddress {
 		const connection = this.connections.items[0] as unknown as IOServerConnection;
-		
+
 		return connection.address;
 	}
 

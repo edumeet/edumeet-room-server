@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 
 const logger = new Logger('PipeConsumer');
@@ -62,8 +62,6 @@ export class PipeConsumer extends EventEmitter {
 		this.producerPaused = producerPaused;
 		this.rtpParameters = rtpParameters;
 		this.appData = appData;
-
-		this.handleConnection();
 	}
 
 	@skipIfClosed
@@ -83,13 +81,6 @@ export class PipeConsumer extends EventEmitter {
 		}
 
 		this.emit('close');
-	}
-
-	@skipIfClosed
-	private handleConnection() {
-		logger.debug('handleConnection()');
-
-		this.mediaNode.once('close', () => this.close(true));
 	}
 
 	@skipIfClosed

@@ -3,7 +3,7 @@ import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { PipeDataProducer } from './PipeDataProducer';
 import { PipeDataConsumer } from './PipeDataConsumer';
@@ -121,7 +121,7 @@ export class Router extends EventEmitter {
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.mediaNode.once('close', () => this.close(true));
+		this.mediaNode.once('connectionClosed', () => this.close(true));
 	}
 
 	@skipIfClosed

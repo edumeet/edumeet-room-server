@@ -1,6 +1,6 @@
 import Room from './Room';
 import { Peer } from './Peer';
-import MediaNode from './media/MediaNode';
+import { MediaNode } from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
@@ -18,6 +18,14 @@ export interface MediaServiceOptions {
 	loadBalancer: LoadBalancer;
 	kdTree: KDTree;
 }
+
+export type MediaNodeConfig = {
+	hostname: string;
+	port: number;
+	secret: string;
+	longitude: number;
+	latitude: number;
+};
 
 export default class MediaService {
 	public closed = false;
@@ -59,6 +67,16 @@ export default class MediaService {
 	}
 
 	@skipIfClosed
+	public addMediaNode({ hostname, port, secret, longitude, latitude }: MediaNodeConfig) {
+		logger.debug('addMediaNode() [hostname: %s, port: %s, secret: %s, longitude: %s, latitude: %s]', hostname, port, secret, longitude, latitude);
+
+		const mediaNode = new MediaNode({ id: randomUUID(), hostname, port, secret, kdPoint: new KDPoint([ latitude, longitude ]) });
+
+		this.kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
+		this.kdTree.rebalance();
+	}
+
+	@skipIfClosed
 	public close() {
 		logger.debug('close()');
 
@@ -70,7 +88,7 @@ export default class MediaService {
 	}
 
 	@skipIfClosed
-	public async getRouter(room: Room, peer: Peer): Promise<Router> {
+	public async getRouter(room: Room, peer: Peer): Promise<[ Router, MediaNode ]> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
 		let candidates: MediaNode[] = [];
@@ -80,10 +98,12 @@ export default class MediaService {
 
 			for (const mediaNode of candidates) {
 				try {
-					return await mediaNode.getRouter({
+					const router = await mediaNode.getRouter({
 						roomId: room.sessionId,
 						appData: { pipePromises: new Map<string, Promise<void>>() }
 					});
+
+					return [ router, mediaNode ];
 				} catch (error) {
 					logger.error('getRouter() [error %o]', error);
 				}

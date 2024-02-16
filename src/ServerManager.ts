@@ -92,7 +92,7 @@ export default class ServerManager {
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
 
-			room = new Room({ id: roomId, tenantId, mediaService: this.mediaService });
+			room = new Room({ id: roomId, mediaService: this.mediaService });
 
 			this.rooms.set(`${tenantId}/${roomId}`, room);
 
@@ -191,6 +191,8 @@ export default class ServerManager {
 
 						this.managedRooms.set(String(managedRoom.id), room);
 					}
+
+					room.resolveRoomReady();
 				} catch (error) {
 					logger.error(
 						'handleConnection() error while getting room [roomId: %s, tenantId: %s, error: %o]',
@@ -198,8 +200,8 @@ export default class ServerManager {
 						tenantId,
 						error
 					);
-				} finally {
-					room.resolveRoomReady();
+
+					room.rejectRoomReady(error as Error);
 				}
 			})();
 		}

@@ -44,16 +44,10 @@ export const createConsumer = async (
 	producerPeer: Peer,
 	producer: Producer,
 ): Promise<void> => {
-	const [ consumerRouter, producerRouter ] = await Promise.all([
-		consumerPeer.routerReady,
-		producerPeer.routerReady,
-	]);
+	const [ consumerError, consumerRouter ] = await consumerPeer.routerReady;
+	const [ producerError, producerRouter ] = await producerPeer.routerReady;
 
-	if (
-		!producerRouter ||
-		!consumerRouter ||
-		!consumerPeer.rtpCapabilities
-	)
+	if (producerError || consumerError || !consumerPeer.rtpCapabilities)
 		return logger.warn(
 			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
 			producerPeer.id,
@@ -72,8 +66,7 @@ export const createConsumer = async (
 			producer.id
 		);
 
-	const consumingTransport = Array.from(consumerPeer.transports.values())
-		.find((t) => t.appData.consuming);
+	const consumingTransport = consumerPeer.consumingTransport;
 
 	if (!consumingTransport)
 		return logger.warn('createConsumer() transport for consuming not found');
@@ -82,33 +75,26 @@ export const createConsumer = async (
 		// This will wait for the pipe to be ready if it's not already
 		await checkPipe(producer, consumerRouter, producerRouter);
 
-		const consumer = await consumingTransport.consume({
-			producerId: producer.id,
-			rtpCapabilities: consumerPeer.rtpCapabilities,
-		});
+		const consumer = await consumingTransport.consume({ producerId: producer.id, rtpCapabilities: consumerPeer.rtpCapabilities });
 
 		if (consumer.kind === 'video')
 			consumer.appData.layerReporter = (producer.appData.layerWatcher as LayerWatcher).createLayerReporter();
 
-		if (consumerPeer.closed)
-			return consumer.close();
+		if (consumerPeer.closed) return consumer.close();
 
 		// If the consuming peer went to a different session, maybe close the consumer
-		if (!consumerPeer.sameSession(producerPeer))
-			return consumer.close();
+		if (!consumerPeer.sameSession(producerPeer)) return consumer.close();
 
 		consumerPeer.consumers.set(consumer.id, consumer);
 
 		// The consuming peer went to a different session, maybe close the consumer
 		consumerPeer.on('sessionIdChanged', () => {
-			if (!consumerPeer.sameSession(producerPeer))
-				consumer.close();
+			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
 		});
 
 		// The producing peer went to a different session, maybe close the consumer
 		producerPeer.on('sessionIdChanged', () => {
-			if (!consumerPeer.sameSession(producerPeer))
-				consumer.close();
+			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
 		});
 
 		consumer.once('close', () => {
@@ -190,20 +176,17 @@ export const createDataConsumer = async (
 	producerPeer: Peer,
 	dataProducer: DataProducer,
 ): Promise<void> => {
-	const [ consumerRouter, producerRouter ] = await Promise.all([
-		consumerPeer.routerReady,
-		producerPeer.routerReady,
-	]);
+	const [ consumerError, consumerRouter ] = await consumerPeer.routerReady;
+	const [ producerError, producerRouter ] = await producerPeer.routerReady;
 
-	if (!producerRouter || !consumerRouter)
+	if (producerError || consumerError)
 		return logger.warn(
 			'createDataConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
 			producerPeer.id,
 			dataProducer.id
 		);
 
-	const consumingTransport = Array.from(consumerPeer.transports.values())
-		.find((t) => t.appData.consuming);
+	const consumingTransport = consumerPeer.consumingTransport;
 
 	if (!consumingTransport)
 		return logger.warn('createDataConsumer() transport for consuming not found');

@@ -11,3 +11,9 @@ export const getCredentials = (peerId: string, secret: string, validTimeInS: num
 
 	return { username, credential: hmac.read() };
 };
+
+export const getIceServers = ({ hostname, username, credential }: { hostname:string, username: string, credential: string }) => ([ {
+	urls: [ `turns:${hostname}:443?transport=tcp` ],
+	username,
+	credential
+} ]);

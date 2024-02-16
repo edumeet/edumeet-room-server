@@ -2,7 +2,7 @@ import { Logger, Middleware } from 'edumeet-common';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
-import { getCredentials } from '../common/turnCredentials';
+import { createConsumers } from '../common/consuming';
 
 const logger = new Logger('InitialMediaMiddleware');
 
@@ -22,27 +22,6 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 		if (!thisSession(room, message)) return next();
 
 		switch (message.method) {
-			case 'getRouterRtpCapabilities': {
-				const router = await peer.routerReady;
-
-				// Provide TURN credentials here
-				const { mediaNode } = router;
-				const { username, credential } = getCredentials(peer.id, mediaNode.secret, 3600);
-				const iceServers = [
-					{
-						urls: [ `turns:${mediaNode.hostname}:443?transport=tcp` ],
-						username,
-						credential
-					},
-				];
-
-				response.routerRtpCapabilities = router.rtpCapabilities;
-				response.iceServers = iceServers;
-				context.handled = true;
-
-				break;
-			}
-
 			case 'createWebRtcTransport': {
 				const {
 					forceTcp,
@@ -51,7 +30,14 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 					sctpCapabilities,
 				} = message.data;
 
-				const router = await peer.routerReady;
+				if (producing && consuming) throw new Error('cannot create WebRtcTransport with both producing and consuming');
+				if (!producing && !consuming) throw new Error('cannot create WebRtcTransport with neither producing nor consuming');
+				if (consuming && peer.consumingTransport) throw new Error('cannot create more than one consuming WebRtcTransport');
+				if (producing && peer.producingTransport) throw new Error('cannot create more than one producing WebRtcTransport');
+
+				const [ error, router ] = await peer.routerReady;
+
+				if (error) throw error;
 
 				const transport = await router.createWebRtcTransport({
 					forceTcp,
@@ -62,12 +48,25 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 					}
 				});
 
-				if (!transport)
-					throw new Error('transport not found');
+				if (producing) peer.producingTransport = transport;
 
-				peer.transports.set(transport.id, transport);
+				if (consuming) {
+					peer.consumingTransport = transport;
+
+					if (room.peers.has(peer) && !peer.initialConsume) {
+						peer.initialConsume = true;
+
+						createConsumers(room, peer);
+					}
+				}
+
 				transport.once('close', () => {
-					peer.transports.delete(transport.id);
+					if (producing) peer.producingTransport = undefined;
+
+					if (consuming) {
+						peer.consumingTransport = undefined;
+						peer.initialConsume = false;
+					}
 
 					peer.notify({
 						method: 'transportClosed',
@@ -87,7 +86,13 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 
 			case 'connectWebRtcTransport': {
 				const { transportId, dtlsParameters } = message.data;
-				const transport = peer.transports.get(transportId);
+
+				let transport;
+
+				if (transportId === peer.producingTransport?.id)
+					transport = peer.producingTransport;
+				else if (transportId === peer.consumingTransport?.id)
+					transport = peer.consumingTransport;
 
 				if (!transport)
 					throw new Error(`transport with id "${transportId}" not found`);
@@ -100,7 +105,13 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 
 			case 'restartIce': {
 				const { transportId } = message.data;
-				const transport = peer.transports.get(transportId);
+
+				let transport;
+
+				if (transportId === peer.producingTransport?.id)
+					transport = peer.producingTransport;
+				else if (transportId === peer.consumingTransport?.id)
+					transport = peer.consumingTransport;
 
 				if (!transport)
 					throw new Error(`transport with id "${transportId}" not found`);

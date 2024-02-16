@@ -1,9 +1,8 @@
 import { KDPoint, KDTree, Logger } from 'edumeet-common';
-import MediaNode from './media/MediaNode';
+import { MediaNode } from './media/MediaNode';
 import { Peer } from './Peer';
 import Room from './Room';
 import * as geoip from 'geoip-lite';
-import { ConnectionStatus } from './media/MediaNodeHealth';
 
 const logger = new Logger('LoadBalancer');
 
@@ -33,12 +32,11 @@ export default class LoadBalancer {
 	public getCandidates(kdTree: KDTree, room: Room, peer: Peer): MediaNode[] {
 		try {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
-
-			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 			// Get sticky candidates
-			const candidates = room.getActiveMediaNodes()
+			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
+			const candidates = room.mediaNodes.items
 				.filter((m) =>
-					m.connectionStatus === ConnectionStatus.OK &&
+					m.healthy &&
 					m.load < this.cpuLoadThreshold &&
 					KDTree.getDistance(peerGeoPosition, m.kdPoint) < this.geoDistanceThreshold
 				)
@@ -53,7 +51,7 @@ export default class LoadBalancer {
 
 					if (candidates.includes(m)) return false;
 
-					return m.connectionStatus === ConnectionStatus.OK && m.load < this.cpuLoadThreshold;
+					return m.healthy && m.load < this.cpuLoadThreshold;
 				}
 			);
 
