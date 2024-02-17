@@ -2,6 +2,7 @@ import { Logger, Middleware } from 'edumeet-common';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
+import { createConsumers } from '../common/consuming';
 
 const logger = new Logger('InitialMediaMiddleware');
 
