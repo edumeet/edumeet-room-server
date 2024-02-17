@@ -22,6 +22,7 @@ import { safePromise } from './common/safePromise';
 import type { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
 import { getCredentials, getIceServers } from './common/turnCredentials';
 import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
+import { Router } from './media/Router';
 
 const logger = new Logger('Room');
 
@@ -82,6 +83,7 @@ export default class Room extends EventEmitter {
 
 	public mediaService: MediaService;
 	public mediaNodes = List<MediaNode>();
+	public routers = List<Router>();
 	public breakoutRooms = new Map<string, BreakoutRoom>();
 	public waitingPeers = List<Peer>();
 	public pendingPeers = List<Peer>();
@@ -151,11 +153,11 @@ export default class Room extends EventEmitter {
 		this.pendingPeers.items.forEach((p) => p.close());
 		this.peers.items.forEach((p) => p.close());
 		this.lobbyPeers.items.forEach((p) => p.close());
-
 		this.breakoutRooms.forEach((r) => r.close());
-		
-		this.mediaNodes.clear();
+		this.routers.items.forEach((r) => r.close());
 
+		this.routers.clear();
+		this.mediaNodes.clear();
 		this.pendingPeers.clear();
 		this.peers.clear();
 		this.lobbyPeers.clear();
@@ -171,6 +173,11 @@ export default class Room extends EventEmitter {
 	public addMediaNode(mediaNode: MediaNode): void {
 		if (this.mediaNodes.has(mediaNode)) return;
 		this.mediaNodes.add(mediaNode);
+	}
+
+	public addRouter(router: Router): void {
+		if (this.routers.has(router)) return;
+		this.routers.add(router);
 	}
 
 	@skipIfClosed
@@ -325,8 +332,13 @@ export default class Room extends EventEmitter {
 				}
 			}) as { rtpCapabilities: RtpCapabilities, sctpCapabilities: SctpCapabilities };
 
-			router.once('close', () => peer.routerReset());
+			router.once('close', () => {
+				peer.routerReset();
 
+				this.assignRouter(peer);
+			});
+
+			this.addRouter(router);
 			this.addMediaNode(mediaNode);
 			peer.resolveRouterReady(router);
 			

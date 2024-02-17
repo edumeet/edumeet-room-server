@@ -42,6 +42,7 @@ export declare interface MediaNodeConnection {
 	on(event: 'notification', listener: InboundNotification): this;
 	on(event: 'request', listener: InboundRequest): this;
 	on(event: 'load', listener: (load: number) => void): this;
+	on(event: 'draining', listener: () => void): this;
 }
 /* eslint-enable no-unused-vars */
 
@@ -53,13 +54,13 @@ export class MediaNodeConnection extends EventEmitter {
 
 	public resolveReady!: () => void;
 	// eslint-disable-next-line no-unused-vars
-	public rejectReady!: (error: unknown) => void;
-	public ready = safePromise(new Promise<void>((resolve, reject) => {
+	public rejectReady!: (error: MediaNodeError) => void;
+	public ready = safePromise<void, MediaNodeError>(new Promise<void>((resolve, reject) => {
 		this.resolveReady = resolve;
 		this.rejectReady = reject;
 	}));
 
-	#socket: Socket<ClientServerEvents, ServerClientEvents>;
+	#socket!: Socket<ClientServerEvents, ServerClientEvents>;
 	#timeout;
 
 	constructor({ url, timeout = 3000 }: MediaNodeConnectionOptions) {
@@ -67,13 +68,21 @@ export class MediaNodeConnection extends EventEmitter {
 		super();
 
 		this.#timeout = timeout;
-		this.#socket = io(url, {
-			transports: [ 'websocket', 'polling' ],
-			rejectUnauthorized: false,
-			closeOnBeforeunload: false,
-		});
 
-		this.#handleSocket();
+		try {
+			this.#socket = io(url, {
+				transports: [ 'websocket', 'polling' ],
+				rejectUnauthorized: false,
+				closeOnBeforeunload: false,
+			});
+
+			this.#handleSocket();
+		} catch (error) {
+			logger.error('constructor() [error: %o]', error);
+			
+			this.rejectReady(new ConnectionError('Failed to connect to media node'));
+			this.close();
+		}
 	}
 
 	@skipIfClosed
@@ -94,7 +103,7 @@ export class MediaNodeConnection extends EventEmitter {
 	}
 
 	#handleSocket(): void {
-		this.#resolveReadyTimeoutHandle = setTimeout(() => this.rejectReady('Timeout waiting for media-node connection'), this.#timeout);
+		this.#resolveReadyTimeoutHandle = setTimeout(() => this.rejectReady(new TimeoutError('connection timed out')), this.#timeout);
 
 		this.#socket.on('notification', async (notification) => {
 			logger.debug('"notification" recieved [notification: %o]', notification);
@@ -104,6 +113,12 @@ export class MediaNodeConnection extends EventEmitter {
 				clearTimeout(this.#resolveReadyTimeoutHandle);
 
 				return this.resolveReady();
+			}
+
+			if (notification.method === 'mediaNodeDrain') {
+				this.rejectReady(new DrainingError('Media node is draining'));
+
+				return this.emit('draining');
 			}
 
 			try {
@@ -190,3 +205,26 @@ export class MediaNodeConnection extends EventEmitter {
 		});
 	}
 }
+
+export class ConnectionError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'ConnectionError';
+	}
+}
+
+export class TimeoutError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'TimeoutError';
+	}
+}
+
+export class DrainingError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'DrainingError';
+	}
+}
+
+export type MediaNodeError = ConnectionError | TimeoutError | DrainingError;

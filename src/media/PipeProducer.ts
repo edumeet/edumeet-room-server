@@ -21,7 +21,7 @@ interface InternalPipeProducerOptions extends PipeProducerOptions {
 
 export declare interface PipeProducer {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class PipeProducer extends EventEmitter {
@@ -72,7 +72,7 @@ export class PipeProducer extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

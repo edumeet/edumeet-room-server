@@ -56,6 +56,7 @@ type PipeTransportPair = {
 export declare interface Router {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class Router extends EventEmitter {
@@ -114,7 +115,7 @@ export class Router extends EventEmitter {
 		this.webRtcTransports.forEach((transport) => transport.close(true));
 		this.pipeTransports.forEach((transport) => transport.close(true));
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

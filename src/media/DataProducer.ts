@@ -21,7 +21,7 @@ interface InternalDataProducerOptions extends DataProducerOptions {
 
 export declare interface DataProducer {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class DataProducer extends EventEmitter {
@@ -72,6 +72,6 @@ export class DataProducer extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 }

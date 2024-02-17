@@ -139,7 +139,7 @@ export class Peer extends EventEmitter {
 			this.rejectRouterReady?.(new Error('Router reset'));
 		}
 
-		this.routerReady = safePromise(new Promise<Router>((resolve, reject) => {
+		this.routerReady = safePromise<Router>(new Promise<Router>((resolve, reject) => {
 			this.resolveRouterReady = resolve;
 			this.rejectRouterReady = reject;
 		}));

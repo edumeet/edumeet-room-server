@@ -22,7 +22,7 @@ interface InternalProducerOptions extends ProducerOptions {
 
 export declare interface Producer {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'score', listener: (score: ProducerScore[]) => void): this;
 }
@@ -77,7 +77,7 @@ export class Producer extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

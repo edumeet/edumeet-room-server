@@ -54,7 +54,7 @@ interface InternalWebRtcTransportOptions extends WebRtcTransportOptions {
 
 export declare interface WebRtcTransport {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class WebRtcTransport extends EventEmitter {
@@ -117,7 +117,7 @@ export class WebRtcTransport extends EventEmitter {
 		this.consumers.forEach((consumer) => consumer.close(true));
 		this.producers.forEach((producer) => producer.close(true));
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

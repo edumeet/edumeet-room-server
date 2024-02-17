@@ -22,7 +22,7 @@ interface InternalPipeDataConsumerOptions extends PipeDataConsumerOptions {
 
 export declare interface PipeDataConsumer {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class PipeDataConsumer extends EventEmitter {
@@ -76,6 +76,6 @@ export class PipeDataConsumer extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 }

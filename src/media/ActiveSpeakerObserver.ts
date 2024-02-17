@@ -19,7 +19,7 @@ interface InternalActiveSpeakerObserverOptions extends ActiveSpeakerObserverOpti
 
 export declare interface ActiveSpeakerObserver {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'dominantspeaker', listener: (dominantSpeakerId: string) => void): this;
 }
@@ -64,7 +64,7 @@ export class ActiveSpeakerObserver extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

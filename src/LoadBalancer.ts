@@ -36,6 +36,7 @@ export default class LoadBalancer {
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 			const candidates = room.mediaNodes.items
 				.filter((m) =>
+					!m.draining &&
 					m.healthy &&
 					m.load < this.cpuLoadThreshold &&
 					KDTree.getDistance(peerGeoPosition, m.kdPoint) < this.geoDistanceThreshold
@@ -51,7 +52,7 @@ export default class LoadBalancer {
 
 					if (candidates.includes(m)) return false;
 
-					return m.healthy && m.load < this.cpuLoadThreshold;
+					return !m.draining && m.healthy && m.load < this.cpuLoadThreshold;
 				}
 			);
 

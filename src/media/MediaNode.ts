@@ -12,7 +12,7 @@ import { createProducersMiddleware } from '../middlewares/producersMiddleware';
 import { createRoutersMiddleware } from '../middlewares/routersMiddleware';
 import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
 import { createActiveSpeakerMiddleware } from '../middlewares/activeSpeakerMiddleware';
-import { MediaNodeConnection } from './MediaNodeConnection';
+import { DrainingError, MediaNodeConnection } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 import EventEmitter from 'events';
 import { createRecordersMiddleware } from '../middlewares/recordersMiddleware';
@@ -34,9 +34,9 @@ interface MediaNodeOptions {
 
 export declare interface MediaNode {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'connectionClosed', listener: () => void): this;
-	// eslint-disable-next-line no-unused-vars
 	once(event: 'connectionClosed', listener: () => void): this;
+	// eslint-disable-next-line no-unused-vars
+	once(event: 'draining', listener: () => void): this;
 }
 
 export class MediaNode extends EventEmitter {
@@ -47,9 +47,11 @@ export class MediaNode extends EventEmitter {
 	public readonly kdPoint: KDPoint;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
+	private roomIdRouters = new Map<string, Router>();
 	private connection?: MediaNodeConnection;
 	private healthCheckTimeout?: NodeJS.Timeout;
 	public healthy = true;
+	public draining = false;
 	public load = 0;
 	public secret: string;
 
@@ -79,7 +81,7 @@ export class MediaNode extends EventEmitter {
 		this.secret = secret;
 		this.kdPoint = kdPoint;
 
-		this.startHealthCheck();
+		this.startHealthCheck(true);
 	}
 
 	@skipIfClosed
@@ -90,6 +92,7 @@ export class MediaNode extends EventEmitter {
 
 		this.routers.forEach((router) => router.close(true));
 		this.routers.clear();
+		this.roomIdRouters.clear();
 
 		clearTimeout(this.healthCheckTimeout);
 		this.healthCheckTimeout = undefined;
@@ -99,6 +102,10 @@ export class MediaNode extends EventEmitter {
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
+
+		let router = this.roomIdRouters.get(roomId);
+
+		if (router) return router;
 
 		const requestUUID = randomUUID();
 
@@ -110,20 +117,19 @@ export class MediaNode extends EventEmitter {
 				data: { roomId }
 			}) as RouterOptions;
 
-			let router = this.routers.get(id);
+			router = this.routers.get(id);
 
 			if (!router) {
 				router = new Router({ mediaNode: this, id, rtpCapabilities, appData });
 
 				this.routers.set(id, router);
+				this.roomIdRouters.set(roomId, router);
 
 				router.once('close', () => {
 					this.routers.delete(id);
+					this.roomIdRouters.delete(roomId);
 
 					if (this.isUnused) this.connection?.close();
-
-					logger.debug('router "close" event [routerId: %s]', id);
-					logger.debug('connection: %o', this.connection);
 				});
 			}
 
@@ -133,7 +139,7 @@ export class MediaNode extends EventEmitter {
 
 			throw error;
 		} finally {
-			this.pendingRequests.delete(requestUUID); 
+			this.pendingRequests.delete(requestUUID);
 		}
 	}
 
@@ -155,6 +161,9 @@ export class MediaNode extends EventEmitter {
 		if (error) {
 			logger.error('getOrCreateConnection() [error:%o]', error);
 
+			this.connection.close();
+
+			this.healthy = false;
 			this.startHealthCheck();
 
 			throw error;
@@ -163,13 +172,15 @@ export class MediaNode extends EventEmitter {
 		return this.connection;
 	}
 
-	private setupConnection(): MediaNodeConnection {
+	private setupConnection(addListeners = true): MediaNodeConnection {
 		const secret = this.secret ? `?secret=${this.secret}` : '';
 	
 		const connection = new MediaNodeConnection({
 			url: `wss://${this.hostname}:${this.port}${secret}`,
 			timeout: 3000
 		});
+
+		if (!addListeners) return connection;
 
 		connection.pipeline.use(
 			this.#routersMiddleware,
@@ -191,6 +202,14 @@ export class MediaNode extends EventEmitter {
 			this.load = load;
 		});
 
+		connection.on('draining', () => {
+			this.draining = true;
+
+			this.startHealthCheck();
+
+			this.emit('draining');
+		});
+
 		connection.once('close', (remoteClose) => {
 			connection.pipeline.remove(this.#routersMiddleware);
 			connection.pipeline.remove(this.#webRtcTransportsMiddleware);
@@ -209,6 +228,7 @@ export class MediaNode extends EventEmitter {
 			if (remoteClose) {
 				this.emit('connectionClosed');
 
+				this.healthy = false;
 				this.startHealthCheck();
 			}
 		});
@@ -235,49 +255,48 @@ export class MediaNode extends EventEmitter {
 	}
 
 	@skipIfClosed
-	private startHealthCheck(): void {
+	private startHealthCheck(initial = false): void {
 		if (this.healthCheckTimeout) return;
 
 		logger.debug('startHealthCheck()');
 
-		const interval = 5000;
+		const interval = 10_000;
 
 		const check = async () => {
 			await this.healthCheck();
 
-			if (this.healthy) {
+			if (this.healthy && !this.draining) {
 				clearTimeout(this.healthCheckTimeout);
 				this.healthCheckTimeout = undefined;
+
+				logger.debug('startHealthCheck() | healthy');
 
 				return;
 			}
 
+			logger.debug('startHealthCheck() | unhealthy, scheduling next check');
 			this.healthCheckTimeout = setTimeout(check, interval);
 		};
 
-		this.healthCheckTimeout = setTimeout(check, interval);
+		this.healthCheckTimeout = setTimeout(check, initial ? 0 : interval);
 	}
 
 	@skipIfClosed
 	public async healthCheck(): Promise<void> {
 		logger.debug('healthCheck()');
 
-		const shouldClose = Boolean(!this.connection || this.connection?.closed);
+		const connection = this.setupConnection(false);
+		const [ error ] = await connection.ready;
 
-		logger.debug('healthCheck() [shouldClose: %s]', shouldClose);
-
-		let connection;
-
-		try {
-			connection = await this.getOrCreateConnection();
-
-			this.healthy = true;
-		} catch (error) {
-			logger.error('healthCheck() [error:%o]', error);
+		connection.close();
+	
+		if (error) {
+			if (error instanceof DrainingError) this.draining = true;
 
 			this.healthy = false;
-		} finally {
-			if (shouldClose) connection?.close();
+		} else {
+			this.draining = false;
+			this.healthy = true;
 		}
 	}
 }

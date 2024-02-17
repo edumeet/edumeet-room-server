@@ -53,7 +53,7 @@ interface InternalPipeTransportOptions extends PipeTransportOptions {
 
 export declare interface PipeTransport {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class PipeTransport extends EventEmitter {
@@ -113,7 +113,7 @@ export class PipeTransport extends EventEmitter {
 		this.pipeConsumers.forEach((pipeConsumer) => pipeConsumer.close(true));
 		this.pipeProducers.forEach((pipeProducer) => pipeProducer.close(true));
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed
