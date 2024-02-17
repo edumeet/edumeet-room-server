@@ -27,15 +27,10 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				const {
 					displayName,
 					picture,
-					rtpCapabilities,
 				} = message.data;
-
-				if (!rtpCapabilities)
-					throw new Error('missing rtpCapabilities');
 
 				peer.displayName = displayName;
 				peer.picture = picture;
-				peer.rtpCapabilities = rtpCapabilities;
 
 				const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER) ?
 					room.lobbyPeers.items.map((p) => (p.peerInfo)) : [];
