@@ -16,6 +16,7 @@ import { AudioLevelObserver, AudioLevelObserverOptions } from './AudioLevelObser
 import { canConsume } from '../common/ortc';
 import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
 import { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
+import { Recorder, RecorderOptions } from './Recorder';
 
 const logger = new Logger('Router');
 
@@ -29,6 +30,12 @@ interface CreateWebRtcTransportOptions {
 
 interface CreatePipeTransportOptions {
 	internal?: boolean;
+	appData?: Record<string, unknown>;
+}
+
+interface CreateRecorderOptions {
+	audioProducerId: string;
+	videoProducerId: string;
 	appData?: Record<string, unknown>;
 }
 
@@ -55,7 +62,6 @@ type PipeTransportPair = {
 
 export declare interface Router {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
 	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
@@ -77,6 +83,7 @@ export class Router extends EventEmitter {
 	public pipeDataConsumers: Map<string, PipeDataConsumer> = new Map();
 	public activeSpeakerObservers: Map<string, ActiveSpeakerObserver> = new Map();
 	public audioLevelObservers: Map<string, AudioLevelObserver> = new Map();
+	public recorders: Map<string, Recorder> = new Map();
 
 	// Mapped by remote routerId
 	public routerPipePromises = new Map<string, Promise<PipeTransportPair>>();
@@ -280,6 +287,36 @@ export class Router extends EventEmitter {
 		transport.once('close', () => this.pipeTransports.delete(id));
 
 		return transport;
+	}
+
+	@skipIfClosed
+	public async createRecorder({
+		audioProducerId,
+		videoProducerId,
+		appData = {}
+	}: CreateRecorderOptions): Promise<Recorder> {
+		logger.debug('createRecorder()');
+
+		const { id } = await this.mediaNode.request({
+			method: 'createRecorder',
+			data: {
+				routerId: this.id,
+				audioProducerId,
+				videoProducerId,
+			}
+		}) as RecorderOptions;
+
+		const recorder = new Recorder({
+			router: this,
+			mediaNode: this.mediaNode,
+			id,
+			appData,
+		});
+
+		this.recorders.set(id, recorder);
+		recorder.once('close', () => this.recorders.delete(id));
+
+		return recorder;
 	}
 
 	@skipIfClosed
