@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 
 const logger = new Logger('PipeConsumer');
@@ -22,7 +22,7 @@ interface InternalPipeConsumerOptions extends PipeConsumerOptions {
 
 export declare interface PipeConsumer {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'producerpause', listener: () => void): this;
 	// eslint-disable-next-line no-unused-vars
@@ -62,8 +62,6 @@ export class PipeConsumer extends EventEmitter {
 		this.producerPaused = producerPaused;
 		this.rtpParameters = rtpParameters;
 		this.appData = appData;
-
-		this.handleConnection();
 	}
 
 	@skipIfClosed
@@ -82,14 +80,7 @@ export class PipeConsumer extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
-	}
-
-	@skipIfClosed
-	private handleConnection() {
-		logger.debug('handleConnection()');
-
-		this.mediaNode.once('close', () => this.close(true));
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

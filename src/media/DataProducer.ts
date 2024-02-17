@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { Logger, skipIfClosed } from 'edumeet-common';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
 
 const logger = new Logger('DataProducer');
@@ -21,7 +21,7 @@ interface InternalDataProducerOptions extends DataProducerOptions {
 
 export declare interface DataProducer {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class DataProducer extends EventEmitter {
@@ -54,8 +54,6 @@ export class DataProducer extends EventEmitter {
 		this.label = label;
 		this.protocol = protocol;
 		this.appData = appData;
-
-		this.handleConnection();
 	}
 
 	@skipIfClosed
@@ -74,13 +72,6 @@ export class DataProducer extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
-	}
-
-	@skipIfClosed
-	private handleConnection() {
-		logger.debug('handleConnection()');
-
-		this.mediaNode.once('close', () => this.close());
+		this.emit('close', remoteClose);
 	}
 }

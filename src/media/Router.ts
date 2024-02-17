@@ -3,7 +3,7 @@ import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { PipeDataProducer } from './PipeDataProducer';
 import { PipeDataConsumer } from './PipeDataConsumer';
@@ -56,6 +56,7 @@ type PipeTransportPair = {
 export declare interface Router {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class Router extends EventEmitter {
@@ -114,14 +115,14 @@ export class Router extends EventEmitter {
 		this.webRtcTransports.forEach((transport) => transport.close(true));
 		this.pipeTransports.forEach((transport) => transport.close(true));
 
-		this.emit('close');
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed
 	private handleConnection() {
 		logger.debug('handleConnection()');
 
-		this.mediaNode.once('close', () => this.close(true));
+		this.mediaNode.once('connectionClosed', () => this.close(true));
 	}
 
 	@skipIfClosed

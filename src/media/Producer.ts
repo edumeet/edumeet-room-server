@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { ProducerScore } from '../common/types';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 
 const logger = new Logger('Producer');
@@ -22,7 +22,7 @@ interface InternalProducerOptions extends ProducerOptions {
 
 export declare interface Producer {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'score', listener: (score: ProducerScore[]) => void): this;
 }
@@ -59,8 +59,6 @@ export class Producer extends EventEmitter {
 		this.paused = paused;
 		this.rtpParameters = rtpParameters;
 		this.appData = appData;
-
-		this.handleConnection();
 	}
 
 	@skipIfClosed
@@ -79,14 +77,7 @@ export class Producer extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
-	}
-
-	@skipIfClosed
-	private handleConnection() {
-		logger.debug('handleConnection()');
-
-		this.mediaNode.once('close', () => this.close(true));
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

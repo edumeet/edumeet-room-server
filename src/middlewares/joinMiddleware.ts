@@ -50,7 +50,11 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				room.joinPeer(peer);
 				context.handled = true;
 
-				createConsumers(room, peer);
+				if (!peer.initialConsume && peer.consumingTransport) {
+					peer.initialConsume = true;
+
+					createConsumers(room, peer);
+				}
 
 				break;
 			}

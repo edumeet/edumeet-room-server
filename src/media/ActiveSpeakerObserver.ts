@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { Producer } from './Producer';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 
 const logger = new Logger('ActiveSpeakerObserver');
 
@@ -19,7 +19,7 @@ interface InternalActiveSpeakerObserverOptions extends ActiveSpeakerObserverOpti
 
 export declare interface ActiveSpeakerObserver {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'dominantspeaker', listener: (dominantSpeakerId: string) => void): this;
 }
@@ -46,8 +46,6 @@ export class ActiveSpeakerObserver extends EventEmitter {
 		this.mediaNode = mediaNode;
 		this.id = id;
 		this.appData = appData;
-
-		this.handleConnection();
 	}
 
 	@skipIfClosed
@@ -66,14 +64,7 @@ export class ActiveSpeakerObserver extends EventEmitter {
 			});
 		}
 
-		this.emit('close');
-	}
-
-	@skipIfClosed
-	private handleConnection() {
-		logger.debug('handleConnection()');
-
-		this.mediaNode.once('close', () => this.close(true));
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

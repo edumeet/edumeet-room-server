@@ -31,21 +31,16 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 				permittedProducer(appData.source, room, peer);
 
-				const { transportId, kind, rtpParameters } = message.data;
-				const transport = peer.transports.get(transportId);
+				const { kind, rtpParameters } = message.data;
 
-				if (!transport)
-					throw new Error(`transport with id "${transportId}" not found`);
+				if (!peer.producingTransport)
+					throw new Error(`no producing transport for peer "${peer.id}"`);
 
 				const layerWatcher = kind === 'video' ? new LayerWatcher() : undefined;
 
-				appData = {
-					...appData,
-					peerId: peer.id,
-					layerWatcher,
-				};
+				appData = { ...appData, peerId: peer.id, layerWatcher };
 
-				const producer = await transport.produce({ kind, rtpParameters, appData });
+				const producer = await peer.producingTransport.produce({ kind, rtpParameters, appData });
 
 				peer.producers.set(producer.id, producer);
 				producer.once('close', () => {
@@ -128,22 +123,20 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				let { appData } = message.data;
 
 				const {
-					transportId,
 					sctpStreamParameters,
 					label,
 					protocol,
 				} = message.data;
-				const transport = peer.transports.get(transportId);
 
-				if (!transport)
-					throw new Error(`transport with id "${transportId}" not found`);
+				if (!peer.producingTransport)
+					throw new Error(`no producing transport for peer "${peer.id}"`);
 
 				appData = {
 					...appData,
 					peerId: peer.id,
 				};
 
-				const dataProducer = await transport.produceData({
+				const dataProducer = await peer.producingTransport.produceData({
 					sctpStreamParameters,
 					label,
 					protocol,

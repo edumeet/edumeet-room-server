@@ -9,7 +9,7 @@ import http from 'http';
 import ServerManager from './ServerManager';
 import { Server as IOServer } from 'socket.io';
 import { interactiveServer } from './interactiveServer';
-import { Logger, KDTree, KDPoint } from 'edumeet-common';
+import { Logger, KDPoint } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
 import LoadBalancer from './LoadBalancer';
@@ -30,9 +30,8 @@ const managedRooms = new Map<string, Room>();
 logger.debug('Starting...');
 
 const defaultClientPosition = new KDPoint([ actualConfig.mediaNodes[0].latitude, actualConfig.mediaNodes[0].longitude ]);
-const kdTree = new KDTree([]);
-const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
-const mediaService = MediaService.create(loadBalancer, kdTree, actualConfig);
+const loadBalancer = new LoadBalancer({ defaultClientPosition });
+const mediaService = MediaService.create(loadBalancer, actualConfig);
 
 let managementService: ManagementService | undefined;
 

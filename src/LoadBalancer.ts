@@ -1,14 +1,12 @@
 import { KDPoint, KDTree, Logger } from 'edumeet-common';
-import MediaNode from './media/MediaNode';
+import { MediaNode } from './media/MediaNode';
 import { Peer } from './Peer';
 import Room from './Room';
 import * as geoip from 'geoip-lite';
-import { ConnectionStatus } from './media/MediaNodeHealth';
 
 const logger = new Logger('LoadBalancer');
 
 export interface LoadBalancerOptions {
-	kdTree: KDTree;
 	defaultClientPosition: KDPoint;
 	cpuLoadThreshold?: number;
 	geoDistanceThreshold?: number;
@@ -17,59 +15,56 @@ export interface LoadBalancerOptions {
 export default class LoadBalancer {
 	private readonly cpuLoadThreshold: number;
 	private readonly geoDistanceThreshold: number;
-	private kdTree: KDTree;
 	private readonly defaultClientPosition: KDPoint;
 
 	constructor({
-		kdTree,
 		defaultClientPosition,
-		cpuLoadThreshold = 0.85,
+		cpuLoadThreshold = 0.60,
 		geoDistanceThreshold = 2000
 	}: LoadBalancerOptions) {
-		logger.debug('constructor() [kdTree: %s, defaultClientPosition: %S]', kdTree, defaultClientPosition);
-		this.kdTree = kdTree;
+		logger.debug('constructor() [kdTree: %s, defaultClientPosition: %S]', defaultClientPosition);
 		this.defaultClientPosition = defaultClientPosition;
 		this.cpuLoadThreshold = cpuLoadThreshold;
 		this.geoDistanceThreshold = geoDistanceThreshold;
 	}
 
 	// Split into getRoomCandidates and getGeoCandidates
-	public getCandidates(
-		room: Room,
-		peer: Peer
-	): MediaNode[] {
+	public getCandidates(kdTree: KDTree, room: Room, peer: Peer): MediaNode[] {
 		try {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
 			// Get sticky candidates
-			let candidates = room.getActiveMediaNodes()
-				.filter((m) => m.connectionStatus === ConnectionStatus.OK && m.load < this.cpuLoadThreshold)
-				.sort((a, b) => a.load - b.load);
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
+			const candidates = room.mediaNodes.items
+				.filter((m) =>
+					!m.draining &&
+					m.healthy &&
+					m.load < this.cpuLoadThreshold &&
+					KDTree.getDistance(peerGeoPosition, m.kdPoint) < this.geoDistanceThreshold
+				)
+				.sort((a, b) => a.load - b.load);
 
-			candidates = this.filterOnGeoThreshold(candidates, peerGeoPosition);
-			
 			// Get additional candidates from KDTree
-			const kdtreeCandidates = this.kdTree.nearestNeighbors(
+			const kdtreeCandidates = kdTree.nearestNeighbors(
 				peerGeoPosition,
 				5,
 				(point) => {
 					const m = point.appData.mediaNode as MediaNode;
-					
-					return m.connectionStatus === ConnectionStatus.OK && m.load < this.cpuLoadThreshold;
+
+					if (candidates.includes(m)) return false;
+
+					return !m.draining && m.healthy && m.load < this.cpuLoadThreshold;
 				}
 			);
 
 			// Merge candidates
-			kdtreeCandidates?.forEach(([ c ]) => 
-				candidates.push(c.appData.mediaNode as MediaNode));
+			kdtreeCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
 		
 			return candidates;
-
 		} catch (err) {
-			logger.error(err);	
-			
-			return [];
+			logger.error(err);
 		}
+
+		return [];
 	}
 	
 	/**
@@ -77,40 +72,20 @@ export default class LoadBalancer {
 	 * 1.) Client direct ipv4 address
 	 * 2.) Http header 'x-forwarded-for' from reverse proxy
 	 */
-	private getClientPosition(peer: Peer): KDPoint | undefined {
-		logger.debug('getClientPosition() [peer.id: %s]', peer.id);
-		const directAddress = peer.getAddress().address;
-		const forwardedForAddress = peer.getAddress().forwardedFor;
+	private getClientPosition(peer: Peer): KDPoint {
+		const { address, forwardedFor } = peer.getAddress();
 
-		let clientPosition = this.createKDPointFromAddress(directAddress);
-		
-		if (!clientPosition && forwardedForAddress) {
-			clientPosition = this.createKDPointFromAddress(forwardedForAddress);
-		}
-		
-		return clientPosition;
+		logger.debug('getClientPosition() [address: %s, forwardedFor: %s]', address, forwardedFor);
+
+		if (forwardedFor) return this.createKDPointFromAddress(forwardedFor) ?? this.defaultClientPosition;
+		else return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
 	}
 	
 	private createKDPointFromAddress(address: string): KDPoint | undefined {
 		logger.debug('createKDPointFromAddress() [address: %s]', address);
+
 		const geo = geoip.lookup(address);
 
-		if (geo) {
-			const [ latitude, longitude ] = geo.ll;
-			
-			return new KDPoint([ latitude, longitude ]);
-		}
-		
-		return undefined;
-	}
-	
-	/**
-	 * Filter out mediaNodes outside of geo threshold.
-	 */
-	public filterOnGeoThreshold(mediaNodes: MediaNode[], peerPosition: KDPoint) {
-		logger.debug('filterOnGeoThreshold() [peerPosition: %s]', peerPosition);
-		
-		return mediaNodes.filter(({ kdPoint }) => 
-			KDTree.getDistance(peerPosition, kdPoint) < this.geoDistanceThreshold);
+		if (geo) return new KDPoint([ ...geo.ll ]);
 	}
 }

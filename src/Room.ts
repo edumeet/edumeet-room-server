@@ -14,17 +14,20 @@ import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
 import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
-import { Router } from './media/Router';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
-import MediaNode from './media/MediaNode';
+import { MediaNode } from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
+import { safePromise } from './common/safePromise';
+import type { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
+import { getCredentials, getIceServers } from './common/turnCredentials';
+import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
+import { Router } from './media/Router';
 
 const logger = new Logger('Room');
 
 interface RoomOptions {
 	id: string;
-	tenantId: string;
 	name?: string;
 	mediaService: MediaService;
 }
@@ -40,7 +43,6 @@ export default class Room extends EventEmitter {
 	public sessionId = randomUUID();
 	public closed = false;
 	public id: string;
-	public tenantId: string;
 	public readonly creationTimestamp = Date.now();
 
 	public managedId?: string; // Possibly updated by the management service
@@ -62,17 +64,25 @@ export default class Room extends EventEmitter {
 
 	public settings: RoomSettings = {};
 
-	// eslint-disable-next-line no-unused-vars
 	public resolveRoomReady!: () => void;
-	public roomReady = new Promise<void>((resolve) => {
+	// eslint-disable-next-line no-unused-vars
+	public rejectRoomReady!: (error: Error) => void;
+	public roomReady = safePromise(new Promise<void>((resolve, reject) => {
 		this.resolveRoomReady = () => {
 			logger.debug('roomReady() "resolved" [id: %s, took: %d]', this.id, Date.now() - this.creationTimestamp);
 
 			resolve();
 		};
-	});
+
+		this.rejectRoomReady = (error: Error) => {
+			logger.error('roomReady() "rejected" [id: %s, error: %o]', this.id, error);
+
+			reject(error);
+		};
+	}));
 
 	public mediaService: MediaService;
+	public mediaNodes = List<MediaNode>();
 	public routers = List<Router>();
 	public breakoutRooms = new Map<string, BreakoutRoom>();
 	public waitingPeers = List<Peer>();
@@ -98,13 +108,12 @@ export default class Room extends EventEmitter {
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 
-	constructor({ id, tenantId, name, mediaService }: RoomOptions) {
+	constructor({ id, name, mediaService }: RoomOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
 
 		this.id = id;
-		this.tenantId = tenantId;
 		this.name = name;
 		this.mediaService = mediaService;
 
@@ -144,12 +153,11 @@ export default class Room extends EventEmitter {
 		this.pendingPeers.items.forEach((p) => p.close());
 		this.peers.items.forEach((p) => p.close());
 		this.lobbyPeers.items.forEach((p) => p.close());
-
 		this.breakoutRooms.forEach((r) => r.close());
-		
 		this.routers.items.forEach((r) => r.close());
-		this.routers.clear();
 
+		this.routers.clear();
+		this.mediaNodes.clear();
 		this.pendingPeers.clear();
 		this.peers.clear();
 		this.lobbyPeers.clear();
@@ -160,6 +168,11 @@ export default class Room extends EventEmitter {
 
 	public get empty(): boolean {
 		return this.waitingPeers.empty && this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
+	}
+
+	public addMediaNode(mediaNode: MediaNode): void {
+		if (this.mediaNodes.has(mediaNode)) return;
+		this.mediaNodes.add(mediaNode);
 	}
 
 	public addRouter(router: Router): void {
@@ -177,8 +190,9 @@ export default class Room extends EventEmitter {
 			this.waitingPeers.add(peer);
 
 			// This will resolve/reject when we have succeeded/failed to merge the room information from the management service
-			await this.roomReady;
+			const [ error ] = await this.roomReady;
 
+			if (error) throw error;
 			if (this.closed) throw new RoomClosedError('room closed');
 
 			this.waitingPeers.remove(peer);
@@ -300,21 +314,42 @@ export default class Room extends EventEmitter {
 			.forEach((p) => p.notify({ method, data }));
 	}
 
-	public getActiveMediaNodes(): MediaNode[] {
-		return [ ...new Set(this.routers.items.map((r) => r.mediaNode)) ];
-	}
-
 	private async assignRouter(peer: Peer): Promise<void> {
+		if (this.closed || peer.closed) return;
+
 		try {
-			const router = await this.mediaService.getRouter(this, peer);
+			const [ router, mediaNode ] = await this.mediaService.getRouter(this, peer);
 
 			if (this.closed) throw router.close();
 
+			const iceServers = getIceServers({ hostname: mediaNode.hostname, ...getCredentials(peer.id, mediaNode.secret, 3600) });
+	
+			const { rtpCapabilities, sctpCapabilities } = await peer.request({
+				method: 'mediaConfiguration',
+				data: {
+					routerRtpCapabilities: router.rtpCapabilities,
+					iceServers,
+				}
+			}) as { rtpCapabilities: RtpCapabilities, sctpCapabilities: SctpCapabilities };
+
+			router.once('close', () => {
+				peer.routerReset();
+
+				this.assignRouter(peer);
+			});
+
 			this.addRouter(router);
+			this.addMediaNode(mediaNode);
 			peer.resolveRouterReady(router);
+			
+			peer.rtpCapabilities = rtpCapabilities;
+			peer.sctpCapabilities = sctpCapabilities;
 		} catch (error) {
 			logger.error('assignRouter() [%o]', error);
-			peer.close();
+
+			peer.notify({ method: 'noMediaServer' });
+
+			setTimeout(() => this.assignRouter(peer), 10_000);
 		}
 	}
 

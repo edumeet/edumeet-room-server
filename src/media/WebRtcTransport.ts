@@ -6,7 +6,7 @@ import { Logger, skipIfClosed } from 'edumeet-common';
 import { DataProducer, DataProducerOptions } from './DataProducer';
 import { DataConsumer, DataConsumerOptions } from './DataConsumer';
 import { MediaKind } from 'edumeet-common';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { RtpCapabilities, RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 import { SctpParameters, SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
 import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup/node/lib/WebRtcTransport';
@@ -54,7 +54,7 @@ interface InternalWebRtcTransportOptions extends WebRtcTransportOptions {
 
 export declare interface WebRtcTransport {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class WebRtcTransport extends EventEmitter {
@@ -96,8 +96,6 @@ export class WebRtcTransport extends EventEmitter {
 		this.dtlsParameters = dtlsParameters;
 		this.sctpParameters = sctpParameters;
 		this.appData = appData;
-
-		this.handleConnection();
 	}
 
 	@skipIfClosed
@@ -119,14 +117,7 @@ export class WebRtcTransport extends EventEmitter {
 		this.consumers.forEach((consumer) => consumer.close(true));
 		this.producers.forEach((producer) => producer.close(true));
 
-		this.emit('close');
-	}
-
-	@skipIfClosed
-	private handleConnection() {
-		logger.debug('handleConnection()');
-
-		this.mediaNode.once('close', () => this.close(true));
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed

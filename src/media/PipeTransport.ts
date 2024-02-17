@@ -6,7 +6,7 @@ import { SrtpParameters } from '../common/types';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
 import { PipeDataProducer, PipeDataProducerOptions } from './PipeDataProducer';
 import { PipeDataConsumer, PipeDataConsumerOptions } from './PipeDataConsumer';
-import MediaNode from './MediaNode';
+import { MediaNode } from './MediaNode';
 import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
 import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
 
@@ -53,7 +53,7 @@ interface InternalPipeTransportOptions extends PipeTransportOptions {
 
 export declare interface PipeTransport {
 	// eslint-disable-next-line no-unused-vars
-	on(event: 'close', listener: () => void): this;
+	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
 export class PipeTransport extends EventEmitter {
@@ -92,8 +92,6 @@ export class PipeTransport extends EventEmitter {
 		this.port = port;
 		this.srtpParameters = srtpParameters;
 		this.appData = appData;
-
-		this.handleConnection();
 	}
 
 	@skipIfClosed
@@ -115,14 +113,7 @@ export class PipeTransport extends EventEmitter {
 		this.pipeConsumers.forEach((pipeConsumer) => pipeConsumer.close(true));
 		this.pipeProducers.forEach((pipeProducer) => pipeProducer.close(true));
 
-		this.emit('close');
-	}
-
-	@skipIfClosed
-	private handleConnection() {
-		logger.debug('handleConnection()');
-
-		this.mediaNode.once('close', () => this.close(true));
+		this.emit('close', remoteClose);
 	}
 
 	@skipIfClosed
