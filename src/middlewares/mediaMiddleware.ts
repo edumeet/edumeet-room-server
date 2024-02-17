@@ -76,23 +76,6 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 					}
 				})();
 
-				// (async () => {
-				// 	if (peer.producers.size === 2) {
-				// 		const [ error, router ] = await peer.routerReady;
-				//
-				// 		if (error) return logger.error('produce() | routerReady failed: %o', error);
-				//
-				// 		const audioProducer = Array.from(peer.producers.values()).find((p) => p.kind === 'audio');
-				// 		const videoProducer = Array.from(peer.producers.values()).find((p) => p.kind === 'video');
-				//
-				// 		await router.createRecorder({
-				// 			audioProducerId: audioProducer!.id,
-				// 			videoProducerId: videoProducer!.id,
-				// 			appData: { peerId: peer.id }
-				// 		});
-				// 	}
-				// })();
-
 				break;
 			}
 

@@ -1,9 +1,9 @@
 import { SocketMessage } from 'edumeet-common';
 import 'jest';
-import { SctpStreamParameters } from 'mediasoup-client/lib/SctpParameters';
 import { DataConsumer } from '../../../src/media/DataConsumer';
 import { Router } from '../../../src/media/Router';
 import MediaNode from '../../../src/media/MediaNode';
+import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
 
 describe('Consumer', () => {
 	const dataConsumerId = 'id'; 
