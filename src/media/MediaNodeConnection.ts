@@ -71,6 +71,8 @@ export class MediaNodeConnection extends EventEmitter {
 
 		try {
 			this.#socket = io(url, {
+				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+				// @ts-ignore
 				transports: [ 'websocket', 'polling' ],
 				rejectUnauthorized: false,
 				closeOnBeforeunload: false,

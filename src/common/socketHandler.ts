@@ -1,5 +1,6 @@
 import { Socket } from 'socket.io';
-import { IOServerConnection, Logger } from 'edumeet-common';
+import { Logger } from 'edumeet-common';
+import { IOServerConnection } from './IOServerConnection';
 
 const logger = new Logger('socketHandler');
 
