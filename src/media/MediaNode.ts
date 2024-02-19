@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { KDPoint, Logger, SocketMessage, skipIfClosed } from 'edumeet-common';
+import { KDPoint, Logger, SocketMessage, SocketTimeoutError, skipIfClosed } from 'edumeet-common';
 import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
 import { createDataConsumersMiddleware } from '../middlewares/dataConsumersMiddleware';
 import { createDataProducersMiddleware } from '../middlewares/dataProducersMiddleware';
@@ -47,7 +47,6 @@ export class MediaNode extends EventEmitter {
 	public readonly kdPoint: KDPoint;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
-	private roomIdRouters = new Map<string, Router>();
 	private connection?: MediaNodeConnection;
 	private healthCheckTimeout?: NodeJS.Timeout;
 	public healthy = true;
@@ -92,7 +91,6 @@ export class MediaNode extends EventEmitter {
 
 		this.routers.forEach((router) => router.close(true));
 		this.routers.clear();
-		this.roomIdRouters.clear();
 
 		clearTimeout(this.healthCheckTimeout);
 		this.healthCheckTimeout = undefined;
@@ -102,10 +100,6 @@ export class MediaNode extends EventEmitter {
 
 	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
-
-		let router = this.roomIdRouters.get(roomId);
-
-		if (router) return router;
 
 		const requestUUID = randomUUID();
 
@@ -117,17 +111,15 @@ export class MediaNode extends EventEmitter {
 				data: { roomId }
 			}) as RouterOptions;
 
-			router = this.routers.get(id);
+			let router = this.routers.get(id);
 
 			if (!router) {
 				router = new Router({ mediaNode: this, id, rtpCapabilities, appData });
 
 				this.routers.set(id, router);
-				this.roomIdRouters.set(roomId, router);
 
 				router.once('close', () => {
 					this.routers.delete(id);
-					this.roomIdRouters.delete(roomId);
 
 					if (this.isUnused) this.connection?.close();
 				});
@@ -251,7 +243,17 @@ export class MediaNode extends EventEmitter {
 
 		const connection = await this.getOrCreateConnection();
 
-		return connection.request(request);
+		return connection.request(request).catch((error) => {
+			if (error instanceof SocketTimeoutError) {
+				logger.error('request() | timeout');
+
+				this.connection?.close();
+				this.healthy = false;
+				this.startHealthCheck();
+			}
+
+			throw error;
+		});
 	}
 
 	@skipIfClosed

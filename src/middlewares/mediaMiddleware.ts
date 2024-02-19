@@ -258,6 +258,57 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				break;
 			}
 
+			case 'offer': {
+				const { offer, peerId } = message.data;
+				const remotePeer = room.peers.get(peerId);
+
+				if (!remotePeer)
+					throw new Error(`peer with id "${peerId}" not found`);
+
+				remotePeer.notify({
+					method: 'offer',
+					data: { offer, peerId: peer.id }
+				});
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'answer': {
+				const { answer, peerId } = message.data;
+				const remotePeer = room.peers.get(peerId);
+
+				if (!remotePeer)
+					throw new Error(`peer with id "${peerId}" not found`);
+
+				remotePeer.notify({
+					method: 'answer',
+					data: { answer, peerId: peer.id }
+				});
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'candidate': {
+				const { candidate, peerId } = message.data;
+				const remotePeer = room.peers.get(peerId);
+
+				if (!remotePeer)
+					throw new Error(`peer with id "${peerId}" not found`);
+
+				remotePeer.notify({
+					method: 'candidate',
+					data: { candidate, peerId: peer.id }
+				});
+
+				context.handled = true;
+
+				break;
+			}
+
 			default: {
 				break;
 			}
