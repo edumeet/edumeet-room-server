@@ -94,7 +94,7 @@ export default class ManagementService {
 	}
 
 	@skipIfClosed
-	public async getRoom(name: string, tenantId: string): Promise<ManagedRoom | undefined> {
+	public async getRoom(name: string, tenantId: number): Promise<ManagedRoom | undefined> {
 		logger.debug('getRoom() [name: %s]', name);
 
 		const [ error ] = await this.ready;
