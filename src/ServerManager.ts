@@ -58,7 +58,7 @@ export default class ServerManager {
 		connection: BaseConnection,
 		peerId: string,
 		roomId: string,
-		tenantId = 'default',
+		tenantId = 0,
 		displayName?: string,
 		token?: string,
 	): void {
