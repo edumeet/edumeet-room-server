@@ -32,7 +32,7 @@ $ DEBUG=edumeet:* yarn start
 ```
 
 ### Docker
-https://github.com/edumeet/edumeet-docker/tree/4.x has guidelines for running the next generation Edumeet as docker containers.
+https://github.com/edumeet/edumeet-docker/tree/main has guidelines for running eduMEET as docker containers.
 
 ## Configuration properties
 
