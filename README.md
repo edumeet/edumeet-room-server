@@ -32,7 +32,11 @@ $ DEBUG=edumeet:* yarn start
 ```
 
 ### Docker
-https://github.com/edumeet/edumeet-docker/tree/main has guidelines for running eduMEET as docker containers.
+https://github.com/edumeet/edumeet-docker/tree/main has guidelines for running all eduMEET-components as docker containers.
+To build just edumeet-room-server you can use the included `Dockerfile`
+Edit and change password/username to use with management-server
+Building: `docker build . -t edumeet-room-server`
+Running: `docker run -v $(pwd)/config:/usr/src/app/dist/config -p 8443:8443 -d edumeet-room-server`
 
 ## Configuration properties
 
