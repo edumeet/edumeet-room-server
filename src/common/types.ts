@@ -195,18 +195,25 @@ export type ManagedRoomOwner = {
 	userId: string;
 }
 
-export type ManagedRole = {
-	id: number;
+export interface RoomRole {
 	name: string;
-	description?: string;
+	description: string;
+	permissions: Permission[];
+}
+
+export interface ManagedRole extends RoomRole {
+	id: number;
 	permissions: ManagedPermission[];
 	tenantId: string;
 }
 
-export type ManagedPermission = {
-	id: number;
+export interface Permission {
 	name: string;
-	description?: string;
+}
+
+export interface ManagedPermission extends Permission {
+	id: number;
+	description: string;
 }
 
 export type ManagedRolePermission = {

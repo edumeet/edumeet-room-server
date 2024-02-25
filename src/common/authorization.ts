@@ -265,7 +265,9 @@ export const removeRole = (room: Room, role: ManagedRole): void => {
 			removeRoomGroupRole(room, gr);
 	});
 
-	if (room.defaultRole?.id === role.id) {
+	const defaultRole = room.defaultRole as ManagedRole;
+
+	if (defaultRole?.id === role.id) {
 		delete room.defaultRole;
 		
 		const peers = room.getPeers();

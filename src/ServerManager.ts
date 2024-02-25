@@ -5,9 +5,10 @@ import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
 import { RoomSettings } from './common/types';
-import { actualConfig } from './server';
+import { getConfig } from './Config';
 
 const logger = new Logger('ServerManager');
+const config = getConfig();
 
 interface ServerManagerOptions {
 	mediaService: MediaService;
@@ -104,7 +105,7 @@ export default class ServerManager {
 				if (room?.managedId) this.managedRooms.delete(room.managedId);
 			});
 
-			if (actualConfig.defaultRoomSettings) {
+			if (config.defaultRoomSettings) {
 				const {
 					defaultRole,
 					maxActiveVideos = 12,
@@ -114,7 +115,7 @@ export default class ServerManager {
 					raiseHandEnabled = true,
 					filesharingEnabled = true,
 					localRecordingEnabled = true
-				} = actualConfig.defaultRoomSettings;
+				} = config.defaultRoomSettings;
 
 				room.defaultRole = defaultRole;
 				room.maxActiveVideos = maxActiveVideos;

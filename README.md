@@ -44,7 +44,7 @@ docker build . -t edumeet-room-server
 
 Running: 
 ```bash 
-docker run -v $(pwd)/config:/usr/src/app/dist/config -p 8443:8443 -d edumeet-room-server
+docker run -v $(pwd)/config:/usr/src/app/config -p 8443:8443 -d edumeet-room-server
 ```
 ## Configuration properties
 

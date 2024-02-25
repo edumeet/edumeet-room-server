@@ -5,9 +5,10 @@ import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import LoadBalancer from './LoadBalancer';
-import { Config } from './Config';
+import { getConfig } from './Config';
 
 const logger = new Logger('MediaService');
+const config = getConfig();
 
 export interface RouterData {
 	roomId: string;
@@ -41,7 +42,6 @@ export default class MediaService {
 
 	public static create(
 		loadBalancer: LoadBalancer,
-		config: Config
 	) {
 		logger.debug('create() [loadBalancer: %s, config: %s]', loadBalancer, config);
 

@@ -9,4 +9,4 @@ RUN yarn run build
 
 EXPOSE 8443
 
-ENTRYPOINT DEBUG=edumeet:* MANAGEMENT_USERNAME=edumeet-admin@localhost MANAGEMENT_PASSWORD=supersecret yarn run prodstart $0 $@
+ENTRYPOINT [ "./entrypoint.sh" ]

@@ -1,10 +1,8 @@
-import config from '../../config/config.json';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { Config } from '../Config';
+import { getConfig } from '../Config';
 
-const actualConfig = config as Config;
-
-const signingKeys = actualConfig.managementService?.jwtPublicKeys || [];
+const config = getConfig();
+const signingKeys = config.managementService?.jwtPublicKeys || [];
 
 export const verifyPeer = (token: string): string | undefined => {
 	for (const key of signingKeys) {

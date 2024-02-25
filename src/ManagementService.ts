@@ -1,4 +1,3 @@
-import config from '../config/config.json';
 import io from 'socket.io-client';
 import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
@@ -8,12 +7,11 @@ import { Peer } from './Peer';
 import Room from './Room';
 import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUser, ManagedUserRole } from './common/types';
 import MediaService from './MediaService';
-import { Config } from './Config';
+import { getConfig } from './Config';
 import { addGroupUser, addRolePermission, addRoomGroupRole, addRoomOwner, addRoomUserRole, removeGroup, removeGroupUser, removeRole, removeRolePermission, removeRoomGroupRole, removeRoomOwner, removeRoomUserRole, updateRoom } from './common/authorization';
 import { safePromise } from './common/safePromise';
 
-const actualConfig = config as Config;
-
+const config = getConfig();
 const logger = new Logger('ManagementService');
 
 interface ManagementServiceOptions {
@@ -60,11 +58,11 @@ export default class ManagementService {
 		this.#managedPeers = managedPeers;
 		this.#mediaService = mediaService;
 
-		if (!actualConfig.managementService)
+		if (!config.managementService)
 			logger.debug('Management service not configured');
 
 		this.#client = feathers()
-			.configure(socketio(io(actualConfig.managementService?.host ?? '')))
+			.configure(socketio(io(config.managementService?.host ?? '')))
 			.configure(authentication());
 
 		this.#roomsService = this.#client.service('rooms');

@@ -1,8 +1,5 @@
 process.title = 'edumeet-room-server';
 
-import config from '../config/config.json';
-export const actualConfig = config as Config;
-
 import fs from 'fs';
 import https from 'https';
 import http from 'http';
@@ -13,14 +10,15 @@ import { Logger, KDPoint } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
 import LoadBalancer from './LoadBalancer';
-import { Config } from './Config';
 import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
-
-if (!actualConfig.mediaNodes) throw new Error('No media nodes configured');
+import { getConfig } from './Config';
 
 const logger = new Logger('Server');
+const config = getConfig();
+
+if (!config.mediaNodes) throw new Error('No media nodes configured');
 
 const peers = new Map<string, Peer>();
 const rooms = new Map<string, Room>();
@@ -29,13 +27,13 @@ const managedRooms = new Map<string, Room>();
 
 logger.debug('Starting...');
 
-const defaultClientPosition = new KDPoint([ actualConfig.mediaNodes[0].latitude, actualConfig.mediaNodes[0].longitude ]);
+const defaultClientPosition = new KDPoint([ config.mediaNodes[0].latitude, config.mediaNodes[0].longitude ]);
 const loadBalancer = new LoadBalancer({ defaultClientPosition });
-const mediaService = MediaService.create(loadBalancer, actualConfig);
+const mediaService = MediaService.create(loadBalancer);
 
 let managementService: ManagementService | undefined;
 
-if (actualConfig.managementService)
+if (config.managementService)
 	managementService = new ManagementService({ managedPeers, managedRooms, mediaService });
 
 const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
@@ -44,10 +42,10 @@ interactiveServer(serverManager, managementService);
 
 let webServer: http.Server | https.Server;
 
-if (actualConfig.tls?.cert && actualConfig.tls?.key) {
+if (config.tls?.cert && config.tls?.key) {
 	webServer = https.createServer({
-		cert: fs.readFileSync(actualConfig.tls.cert),
-		key: fs.readFileSync(actualConfig.tls.key),
+		cert: fs.readFileSync(config.tls.cert),
+		key: fs.readFileSync(config.tls.key),
 		minVersion: 'TLSv1.2',
 		ciphers: [
 			'ECDHE-ECDSA-AES128-GCM-SHA256',
@@ -67,8 +65,8 @@ if (actualConfig.tls?.cert && actualConfig.tls?.key) {
 	webServer = http.createServer();
 }
 
-webServer.listen({ port: actualConfig.listenPort, host: actualConfig.listenHost }, () =>
-	logger.debug('webServer.listen() [port: %s]', actualConfig.listenPort));
+webServer.listen({ port: config.listenPort, host: config.listenHost }, () =>
+	logger.debug('webServer.listen() [port: %s]', config.listenPort));
 
 const socketServer = new IOServer(webServer, {
 	cors: { origin: '*' },

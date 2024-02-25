@@ -12,7 +12,7 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomSettings } from './common/types';
+import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { MediaNode } from './media/MediaNode';
@@ -51,7 +51,7 @@ export default class Room extends EventEmitter {
 	public owners: ManagedRoomOwner[] = []; // Possibly updated by the management service
 	public userRoles: ManagedUserRole[] = []; // Possibly updated by the management service
 	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
-	public defaultRole?: ManagedRole; // Possibly updated by the management service
+	public defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
 	public locked = true; // Possibly updated by the management service
 	public promoteOnHostJoin = false; // Possibly updated by the management service
 
