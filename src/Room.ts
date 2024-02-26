@@ -20,7 +20,7 @@ import BreakoutRoom from './BreakoutRoom';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 import { safePromise } from './common/safePromise';
 import type { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
-import { getCredentials, getIceServers } from './common/turnCredentials';
+import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
 import { Router } from './media/Router';
 
@@ -322,7 +322,10 @@ export default class Room extends EventEmitter {
 
 			if (this.closed) throw router.close();
 
-			const iceServers = getIceServers({ hostname: mediaNode.hostname, ...getCredentials(peer.id, mediaNode.secret, 3600) });
+			let iceServers = [] as IceServer[];
+
+			if (mediaNode.turnHostname)
+				iceServers = getIceServers({ hostname: mediaNode.turnHostname, ...getCredentials(peer.id, mediaNode.secret, 3600) });
 	
 			const { rtpCapabilities, sctpCapabilities } = await peer.request({
 				method: 'mediaConfiguration',
