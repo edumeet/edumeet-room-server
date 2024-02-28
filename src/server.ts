@@ -6,10 +6,9 @@ import http from 'http';
 import ServerManager from './ServerManager';
 import { Server as IOServer } from 'socket.io';
 import { interactiveServer } from './interactiveServer';
-import { Logger, KDPoint } from 'edumeet-common';
+import { Logger } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
-import LoadBalancer from './LoadBalancer';
 import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
@@ -18,18 +17,14 @@ import { getConfig } from './Config';
 const logger = new Logger('Server');
 const config = getConfig();
 
-if (!config.mediaNodes) throw new Error('No media nodes configured');
-
 const peers = new Map<string, Peer>();
 const rooms = new Map<string, Room>();
 const managedPeers = new Map<string, Peer>();
 const managedRooms = new Map<string, Room>();
 
-logger.debug('Starting...');
+logger.debug('Starting... [config: %o]', config);
 
-const defaultClientPosition = new KDPoint([ config.mediaNodes[0].latitude, config.mediaNodes[0].longitude ]);
-const loadBalancer = new LoadBalancer({ defaultClientPosition });
-const mediaService = MediaService.create(loadBalancer);
+const mediaService = MediaService.create();
 
 let managementService: ManagementService | undefined;
 

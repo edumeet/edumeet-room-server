@@ -258,16 +258,16 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				break;
 			}
 
-			case 'offer': {
-				const { offer, peerId } = message.data;
+			case 'peerLoad': {
+				const { rtpCapabilities, peerId } = message.data;
 				const remotePeer = room.peers.get(peerId);
 
 				if (!remotePeer)
 					throw new Error(`peer with id "${peerId}" not found`);
 
 				remotePeer.notify({
-					method: 'offer',
-					data: { offer, peerId: peer.id }
+					method: 'peerLoad',
+					data: { rtpCapabilities, peerId: peer.id }
 				});
 
 				context.handled = true;
@@ -275,16 +275,16 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				break;
 			}
 
-			case 'answer': {
-				const { answer, peerId } = message.data;
+			case 'peerConnect': {
+				const { dtlsParameters, iceParameters, peerId, direction } = message.data;
 				const remotePeer = room.peers.get(peerId);
 
 				if (!remotePeer)
 					throw new Error(`peer with id "${peerId}" not found`);
 
 				remotePeer.notify({
-					method: 'answer',
-					data: { answer, peerId: peer.id }
+					method: 'peerConnect',
+					data: { dtlsParameters, iceParameters, peerId: peer.id, direction }
 				});
 
 				context.handled = true;
@@ -293,7 +293,7 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 			}
 
 			case 'candidate': {
-				const { candidate, peerId } = message.data;
+				const { candidate, peerId, direction } = message.data;
 				const remotePeer = room.peers.get(peerId);
 
 				if (!remotePeer)
@@ -301,7 +301,77 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 				remotePeer.notify({
 					method: 'candidate',
-					data: { candidate, peerId: peer.id }
+					data: { candidate, peerId: peer.id, direction }
+				});
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'peerProduce': {
+				const { id, kind, rtpParameters, appData, peerId } = message.data;
+				const remotePeer = room.peers.get(peerId);
+
+				if (!remotePeer)
+					throw new Error(`peer with id "${peerId}" not found`);
+
+				permittedProducer(appData.source, room, remotePeer);
+
+				remotePeer.notify({
+					method: 'peerProduce',
+					data: { id, kind, rtpParameters, appData, peerId: peer.id }
+				});
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'peerCloseProducer': {
+				const { producerId, peerId } = message.data;
+				const remotePeer = room.peers.get(peerId);
+
+				if (!remotePeer)
+					throw new Error(`peer with id "${peerId}" not found`);
+
+				remotePeer.notify({
+					method: 'peerCloseProducer',
+					data: { producerId }
+				});
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'peerPauseProducer': {
+				const { producerId, peerId } = message.data;
+				const remotePeer = room.peers.get(peerId);
+
+				if (!remotePeer)
+					throw new Error(`peer with id "${peerId}" not found`);
+
+				remotePeer.notify({
+					method: 'peerPauseProducer',
+					data: { producerId }
+				});
+
+				context.handled = true;
+
+				break;
+			}
+
+			case 'peerResumeProducer': {
+				const { producerId, peerId } = message.data;
+				const remotePeer = room.peers.get(peerId);
+
+				if (!remotePeer)
+					throw new Error(`peer with id "${peerId}" not found`);
+
+				remotePeer.notify({
+					method: 'peerResumeProducer',
+					data: { producerId }
 				});
 
 				context.handled = true;

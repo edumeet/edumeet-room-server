@@ -4,8 +4,8 @@ import { MediaNode } from './media/MediaNode';
 import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
-import LoadBalancer from './LoadBalancer';
 import { getConfig } from './Config';
+import * as geoip from 'geoip-lite';
 
 const logger = new Logger('MediaService');
 const config = getConfig();
@@ -16,9 +16,11 @@ export interface RouterData {
 }
 
 export interface MediaServiceOptions {
-	loadBalancer: LoadBalancer;
 	kdTree: KDTree;
 	mediaNodes: MediaNode[];
+	defaultClientPosition: KDPoint;
+	cpuLoadThreshold?: number;
+	geoDistanceThreshold?: number;
 }
 
 export type MediaNodeConfig = {
@@ -33,23 +35,35 @@ export type MediaNodeConfig = {
 export default class MediaService {
 	public closed = false;
 	public kdTree: KDTree;
-	private loadBalancer: LoadBalancer;
 	public mediaNodes: MediaNode[] = [];
 
-	constructor({ loadBalancer, kdTree, mediaNodes } : MediaServiceOptions) {
-		logger.debug('constructor() [loadBalancer: %s]', loadBalancer);
+	private readonly cpuLoadThreshold: number;
+	private readonly geoDistanceThreshold: number;
+	private readonly defaultClientPosition: KDPoint;
 
-		this.loadBalancer = loadBalancer;
+	constructor({
+		kdTree,
+		mediaNodes,
+		defaultClientPosition,
+		cpuLoadThreshold = 0.60,
+		geoDistanceThreshold = 2000,
+	}: MediaServiceOptions) {
+		logger.debug('constructor()');
+
 		this.kdTree = kdTree;
 		this.mediaNodes = mediaNodes;
+		this.defaultClientPosition = defaultClientPosition;
+		this.cpuLoadThreshold = cpuLoadThreshold;
+		this.geoDistanceThreshold = geoDistanceThreshold;
 	}
 
-	public static create(loadBalancer: LoadBalancer) {
-		logger.debug('create() [loadBalancer: %s, config: %s]', loadBalancer, config);
+	public static create() {
+		logger.debug('create()');
 
 		if (!config.mediaNodes) throw new Error('No media nodes configured');
 
 		const kdTree = new KDTree([]);
+		const mediaNodes: MediaNode[] = [];
 
 		for (const { hostname, port, secret, longitude, latitude, turnHostname } of config.mediaNodes) {
 			const mediaNode = new MediaNode({
@@ -62,18 +76,35 @@ export default class MediaService {
 			});
 
 			kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
+			mediaNodes.push(mediaNode);
 		}
 
 		kdTree.rebalance();
 
-		return new MediaService({ loadBalancer, kdTree, mediaNodes: [] });
+		const defaultClientPosition = new KDPoint([ 50.0, 9.0 ]); // "Middle of Europe"
+
+		return new MediaService({ kdTree, mediaNodes, defaultClientPosition });
 	}
 
 	@skipIfClosed
-	public addMediaNode({ hostname, port, secret, longitude, latitude, turnHostname }: MediaNodeConfig) {
+	public addMediaNode({
+		hostname,
+		port,
+		secret,
+		longitude,
+		latitude,
+		turnHostname,
+	}: MediaNodeConfig) {
 		logger.debug('addMediaNode() [hostname: %s, port: %s, secret: %s, longitude: %s, latitude: %s]', hostname, port, secret, longitude, latitude);
 
-		const mediaNode = new MediaNode({ id: randomUUID(), hostname, port, secret, turnHostname, kdPoint: new KDPoint([ latitude, longitude ]) });
+		const mediaNode = new MediaNode({
+			id: randomUUID(),
+			hostname,
+			port,
+			secret,
+			turnHostname,
+			kdPoint: new KDPoint([ latitude, longitude ]),
+		});
 
 		this.kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
 		this.kdTree.rebalance();
@@ -93,13 +124,13 @@ export default class MediaService {
 	}
 
 	@skipIfClosed
-	public async getRouter(room: Room, peer: Peer): Promise<[ Router, MediaNode ]> {
+	public async getRouter(room: Room, peer: Peer): Promise<[Router, MediaNode]> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
 		let candidates: MediaNode[] = [];
 
 		do {
-			candidates = this.loadBalancer.getCandidates(this.kdTree, room, peer);
+			candidates = this.getCandidates(this.kdTree, room, peer);
 
 			for (const mediaNode of candidates) {
 				try {
@@ -117,4 +148,62 @@ export default class MediaService {
 
 		throw new Error('no media nodes available');
 	}
+
+	public getCandidates(kdTree: KDTree, room: Room, peer: Peer): MediaNode[] {
+		try {
+			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
+
+			// Get sticky candidates
+			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
+			const candidates = room.mediaNodes.items
+				.filter(({ draining, healthy, load, kdPoint }) =>
+					!draining &&
+					healthy &&
+					load < this.cpuLoadThreshold &&
+					KDTree.getDistance(peerGeoPosition, kdPoint) < this.geoDistanceThreshold
+				)
+				.sort((a, b) => a.load - b.load);
+
+			// Get additional candidates from KDTree
+			const kdtreeCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
+				const m = point.appData.mediaNode as MediaNode;
+				
+				if (candidates.includes(m)) return false;
+
+				return !m.draining && m.healthy && m.load < this.cpuLoadThreshold;
+			});
+
+			// Merge candidates
+			kdtreeCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
+
+			return candidates;
+		} catch (err) {
+			logger.error(err);
+		}
+
+		return [];
+	}
+
+	/**
+	 * Get client position using
+	 * 1.) Client direct ipv4 address
+	 * 2.) Http header 'x-forwarded-for' from reverse proxy
+	 */
+	private getClientPosition(peer: Peer): KDPoint {
+		const { address, forwardedFor } = peer.getAddress();
+
+		logger.debug('getClientPosition() [address: %s, forwardedFor: %s]', address, forwardedFor);
+
+		if (forwardedFor) return this.createKDPointFromAddress(forwardedFor) ?? this.defaultClientPosition;
+		else return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
+	}
+
+	private createKDPointFromAddress(address: string): KDPoint | undefined {
+		logger.debug('createKDPointFromAddress() [address: %s]', address);
+
+		const geo = geoip.lookup(address);
+
+		if (geo) return new KDPoint([ ...geo.ll ]);
+	}
+
 }
