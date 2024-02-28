@@ -18,6 +18,7 @@ export interface RouterData {
 export interface MediaServiceOptions {
 	loadBalancer: LoadBalancer;
 	kdTree: KDTree;
+	mediaNodes: MediaNode[];
 }
 
 export type MediaNodeConfig = {
@@ -33,17 +34,17 @@ export default class MediaService {
 	public closed = false;
 	public kdTree: KDTree;
 	private loadBalancer: LoadBalancer;
+	public mediaNodes: MediaNode[] = [];
 
-	constructor({ loadBalancer, kdTree } : MediaServiceOptions) {
+	constructor({ loadBalancer, kdTree, mediaNodes } : MediaServiceOptions) {
 		logger.debug('constructor() [loadBalancer: %s]', loadBalancer);
 
 		this.loadBalancer = loadBalancer;
 		this.kdTree = kdTree;
+		this.mediaNodes = mediaNodes;
 	}
 
-	public static create(
-		loadBalancer: LoadBalancer,
-	) {
+	public static create(loadBalancer: LoadBalancer) {
 		logger.debug('create() [loadBalancer: %s, config: %s]', loadBalancer, config);
 
 		if (!config.mediaNodes) throw new Error('No media nodes configured');
@@ -65,7 +66,7 @@ export default class MediaService {
 
 		kdTree.rebalance();
 
-		return new MediaService({ loadBalancer, kdTree });
+		return new MediaService({ loadBalancer, kdTree, mediaNodes: [] });
 	}
 
 	@skipIfClosed
@@ -76,6 +77,8 @@ export default class MediaService {
 
 		this.kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
 		this.kdTree.rebalance();
+
+		this.mediaNodes.push(mediaNode);
 	}
 
 	@skipIfClosed
