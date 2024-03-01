@@ -19,7 +19,7 @@ export interface MediaServiceOptions {
 	kdTree: KDTree;
 	mediaNodes: MediaNode[];
 	defaultClientPosition: KDPoint;
-	cpuLoadThreshold?: number;
+	loadThreshold?: number;
 	geoDistanceThreshold?: number;
 }
 
@@ -37,7 +37,7 @@ export default class MediaService {
 	public kdTree: KDTree;
 	public mediaNodes: MediaNode[] = [];
 
-	private readonly cpuLoadThreshold: number;
+	private readonly loadThreshold: number;
 	private readonly geoDistanceThreshold: number;
 	private readonly defaultClientPosition: KDPoint;
 
@@ -45,15 +45,15 @@ export default class MediaService {
 		kdTree,
 		mediaNodes,
 		defaultClientPosition,
-		cpuLoadThreshold = 0.60,
-		geoDistanceThreshold = 2000,
+		loadThreshold = 60,
+		geoDistanceThreshold = 1500,
 	}: MediaServiceOptions) {
 		logger.debug('constructor()');
 
 		this.kdTree = kdTree;
 		this.mediaNodes = mediaNodes;
 		this.defaultClientPosition = defaultClientPosition;
-		this.cpuLoadThreshold = cpuLoadThreshold;
+		this.loadThreshold = loadThreshold;
 		this.geoDistanceThreshold = geoDistanceThreshold;
 	}
 
@@ -159,22 +159,31 @@ export default class MediaService {
 				.filter(({ draining, healthy, load, kdPoint }) =>
 					!draining &&
 					healthy &&
-					load < this.cpuLoadThreshold &&
+					load < this.loadThreshold &&
 					KDTree.getDistance(peerGeoPosition, kdPoint) < this.geoDistanceThreshold
 				)
 				.sort((a, b) => a.load - b.load);
 
 			// Get additional candidates from KDTree
-			const kdtreeCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
+			const geoCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 				
 				if (candidates.includes(m)) return false;
 
-				return !m.draining && m.healthy && m.load < this.cpuLoadThreshold;
+				return !m.draining && m.healthy && m.load < this.loadThreshold;
+			});
+
+			const lastResortCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
+				const m = point.appData.mediaNode as MediaNode;
+				
+				if (candidates.includes(m)) return false;
+
+				return !m.draining && m.healthy;
 			});
 
 			// Merge candidates
-			kdtreeCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
+			geoCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
+			lastResortCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
 
 			return candidates;
 		} catch (err) {

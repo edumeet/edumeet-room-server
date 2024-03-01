@@ -53,7 +53,7 @@ export class MediaNode extends EventEmitter {
 	private healthCheckTimeout?: NodeJS.Timeout;
 	public healthy = true;
 	public draining = false;
-	public load = 0;
+	public load = 0; // Percentage of load 0-100
 	public secret: string;
 
 	#routersMiddleware = createRoutersMiddleware({ routers: this.routers });
