@@ -336,8 +336,8 @@ export default class Room extends EventEmitter {
 			}) as { rtpCapabilities: RtpCapabilities, sctpCapabilities: SctpCapabilities };
 
 			router.once('close', () => {
+				this.routers.remove(router);
 				peer.routerReset();
-
 				this.assignRouter(peer);
 			});
 
