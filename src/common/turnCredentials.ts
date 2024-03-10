@@ -28,7 +28,7 @@ export const getCredentials = (peerId: string, secret: string, validTimeInS: num
 };
 
 export const getIceServers = ({ hostname, username, credential }: IceServerConfig): IceServer[] => ([ {
-	urls: [ `turns:${hostname}:443?transport=tcp` ],
+	urls: [ `turn:${hostname}:443?transport=udp`, `turns:${hostname}:443?transport=tcp` ],
 	username,
 	credential
 } ]);
