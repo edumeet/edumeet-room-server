@@ -75,7 +75,10 @@ export const createConsumer = async (
 		// This will wait for the pipe to be ready if it's not already
 		await checkPipe(producer, consumerRouter, producerRouter);
 
-		const consumer = await consumingTransport.consume({ producerId: producer.id, rtpCapabilities: consumerPeer.rtpCapabilities });
+		const consumer = await consumingTransport.consume({
+			producerId: producer.id,
+			rtpCapabilities: consumerPeer.rtpCapabilities,
+		});
 
 		if (consumer.kind === 'video')
 			consumer.appData.layerReporter = (producer.appData.layerWatcher as LayerWatcher).createLayerReporter();
@@ -123,6 +126,7 @@ export const createConsumer = async (
 						kind: consumer.kind,
 						rtpParameters: consumer.rtpParameters,
 						producerPaused: consumer.producerPaused,
+						paused: consumer.paused,
 						appData: producer.appData,
 					}
 				});
@@ -162,6 +166,7 @@ export const createConsumer = async (
 					kind: consumer.kind,
 					rtpParameters: consumer.rtpParameters,
 					producerPaused: consumer.producerPaused,
+					paused: consumer.paused,
 					appData: producer.appData,
 				}
 			});
