@@ -22,6 +22,7 @@ import { DataConsumer } from './media/DataConsumer';
 import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
 import { Permission } from './common/authorization';
 import { safePromise } from './common/safePromise';
+import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 
 const logger = new Logger('Peer');
 
@@ -86,7 +87,9 @@ export class Peer extends EventEmitter {
 
 	public rtpCapabilities?: RtpCapabilities;
 	public sctpCapabilities?: SctpCapabilities;
-	
+
+	private turnCredentialsInterval?: NodeJS.Timeout;
+
 	public consumingTransport?: WebRtcTransport;
 	public producingTransport?: WebRtcTransport;
 	public consumers = new Map<string, Consumer>();
@@ -139,10 +142,31 @@ export class Peer extends EventEmitter {
 			this.rejectRouterReady?.(new Error('Router reset'));
 		}
 
+		clearInterval(this.turnCredentialsInterval);
+
 		this.routerReady = safePromise<Router>(new Promise<Router>((resolve, reject) => {
 			this.resolveRouterReady = resolve;
 			this.rejectRouterReady = reject;
 		}));
+
+		this.startTurnCredentialsRefresh();
+	}
+
+	private startTurnCredentialsRefresh(): void {
+		this.turnCredentialsInterval = setInterval(async () => {
+			let iceServers = [] as IceServer[];
+
+			const [ error, router ] = await this.routerReady;
+
+			if (error) return logger.error('startTurnCredentialsRefresh() | failed to get router [error: %o]', error);
+
+			const { mediaNode: { turnHostname, secret } } = router;
+
+			if (turnHostname)
+				iceServers = getIceServers({ hostname: turnHostname, ...getCredentials(this.id, secret, 3600) });
+
+			this.notify({ method: 'turnCredentials', data: { iceServers } });
+		}, 3_000_000);
 	}
 
 	@skipIfClosed
