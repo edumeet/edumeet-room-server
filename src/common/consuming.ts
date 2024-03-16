@@ -115,6 +115,9 @@ export const createConsumer = async (
 			data: { consumerId: consumer.id }
 		}));
 
+		// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+		const { appData: { layerWatcher, ...producerAppData } } = producer;
+
 		consumer.on('producerresume', () => {
 			if (consumer.appData.suspended) {
 				consumerPeer.notify({
@@ -127,7 +130,7 @@ export const createConsumer = async (
 						rtpParameters: consumer.rtpParameters,
 						producerPaused: consumer.producerPaused,
 						paused: consumer.paused,
-						appData: producer.appData,
+						appData: producerAppData,
 					}
 				});
 
@@ -167,7 +170,7 @@ export const createConsumer = async (
 					rtpParameters: consumer.rtpParameters,
 					producerPaused: consumer.producerPaused,
 					paused: consumer.paused,
-					appData: producer.appData,
+					appData: producerAppData,
 				}
 			});
 		}

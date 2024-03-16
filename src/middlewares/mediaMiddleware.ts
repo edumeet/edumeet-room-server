@@ -46,6 +46,8 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				producer.once('close', () => {
 					peer.producers.delete(producer.id);
 
+					(producer.appData.layerWatcher as LayerWatcher)?.close();
+
 					if (!producer.appData.remoteClosed) {
 						peer.notify({
 							method: 'producerClosed',
@@ -114,6 +116,8 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 					throw new Error(`producer with id "${producerId}" not found`);
 
 				await producer.resume();
+				(producer.appData.layerWatcher as LayerWatcher)?.resetLayers();
+
 				context.handled = true;
 
 				break;
@@ -210,6 +214,7 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				const layerReporter = consumer.appData.layerReporter as LayerReporter;
 
 				await consumer.resume();
+				layerReporter?.resetLayers();
 				layerReporter?.updateLayer(consumer.preferredLayers.spatialLayer);
 				context.handled = true;
 

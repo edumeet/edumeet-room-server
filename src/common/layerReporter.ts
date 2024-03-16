@@ -5,6 +5,8 @@ export declare interface LayerReporter {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'updateLayer', listener: () => void): this;
 	// eslint-disable-next-line no-unused-vars
+	on(event: 'resetLayers', listener: () => void): this;
+	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: () => void): this;
 }
 
@@ -30,5 +32,9 @@ export class LayerReporter extends EventEmitter {
 
 			this.emit('updateLayer');
 		}
+	}
+
+	public resetLayers(): void {
+		this.emit('resetLayers');
 	}
 }

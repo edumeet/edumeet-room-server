@@ -19,6 +19,35 @@ export class LayerWatcher extends EventEmitter {
 	private layerReporters: LayerReporter[] = [];
 	private currentLayer: Layer = 2;
 
+	private resetLayerEmitted = false;
+	private resetLayerEmitTimeout?: NodeJS.Timeout;
+
+	constructor() {
+		super();
+
+		this.resetLayers(true);
+	}
+
+	public close(): void {
+		clearTimeout(this.resetLayerEmitTimeout);
+
+		this.removeAllListeners();
+	}
+
+	public resetLayers(initial = false): void {
+		clearTimeout(this.resetLayerEmitTimeout);
+
+		this.resetLayerEmitted = false;
+	
+		if (!initial) this.emit('newLayer', 2);
+
+		this.resetLayerEmitTimeout = setTimeout(() => {
+			this.resetLayerEmitted = true;
+
+			this.emit('newLayer', this.currentLayer);
+		}, 10_000);
+	}
+
 	public createLayerReporter(): LayerReporter {
 		const layerReporter = new LayerReporter();
 
@@ -27,27 +56,32 @@ export class LayerWatcher extends EventEmitter {
 		layerReporter.on('close', () => {
 			this.layerReporters = this.layerReporters.filter((l) => l !== layerReporter);
 
-			if (this.layerReporters.length === 0)
-				return;
+			if (this.layerReporters.length === 0) return;
 
 			const { layer } = this.layerReporters.reduce((prev, current) => ((prev.layer > current.layer) ? prev : current));
 
 			if (layer !== this.currentLayer) {
 				this.currentLayer = layer;
 
+				if (!this.resetLayerEmitted) return;
+
 				this.emit('newLayer', this.currentLayer);
 			}
 		});
 
-		layerReporter.on('updateLayer', (): void => {
+		layerReporter.on('updateLayer', () => {
 			const { layer } = this.layerReporters.reduce((prev, current) => ((prev.layer > current.layer) ? prev : current));
 
 			if (layer !== this.currentLayer) {
 				this.currentLayer = layer;
 
+				if (!this.resetLayerEmitted) return;
+
 				this.emit('newLayer', this.currentLayer);
 			}
 		});
+
+		layerReporter.on('resetLayers', () => this.resetLayers());
 
 		return layerReporter;
 	}
