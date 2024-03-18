@@ -65,6 +65,21 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				break;
 			}
 
+			case 'recording': {
+				const { recording } = message.data;
+
+				peer.recording = recording;
+
+				room.notifyPeers('recording', {
+					peerId: peer.id,
+					recording
+				}, peer);
+
+				context.handled = true;
+
+				break;
+			}
+
 			case 'escapeMeeting': {
 				const { escapeMeeting } = message.data;
 

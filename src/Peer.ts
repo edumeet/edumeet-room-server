@@ -42,6 +42,7 @@ export interface PeerInfo {
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
 	sessionId: string;
+	recording: boolean;
 }
 
 export interface PeerContext {
@@ -77,6 +78,8 @@ export class Peer extends EventEmitter {
 
 	public displayName: string;
 	public picture?: string;
+
+	public recording = false;
 
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
@@ -383,6 +386,7 @@ export class Peer extends EventEmitter {
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
 			sessionId: this.sessionId,
+			recording: this.recording,
 		};
 	}
 }
