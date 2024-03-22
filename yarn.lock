@@ -309,6 +309,11 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
+"@bufbuild/protobuf@1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-1.1.1.tgz#ed2a8d25975ccc405393c96aaf707c1897e249d3"
+  integrity sha512-1dS2m3jabfW2XL2K6//41wZkO4XJOZtpe0bKLuta0BvK5LxNRyUBSSN5835n3bIFiNJKFWhDnzZEMrV7QVGFfQ==
+
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"
@@ -729,6 +734,26 @@
   dependencies:
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
+
+"@observertc/observer-js@^0.40.10-beta":
+  version "0.40.10-beta"
+  resolved "https://registry.yarnpkg.com/@observertc/observer-js/-/observer-js-0.40.10-beta.tgz#51932e004b94fca1ae87b5437689f002dccd6022"
+  integrity sha512-fEFO2ExCZyr5ApIJ9qnTzzDtYvZE8ek40WzwUATOQpKnU4UrugL03ltmk5WFB/UCRNCjz9pqjFHxxgy022LlIw==
+  dependencies:
+    "@bufbuild/protobuf" "1.1.1"
+    "@observertc/report-schemas-js" "2.2.10"
+    "@observertc/sample-schemas-js" "2.2.10"
+    uuid "^8.3.2"
+
+"@observertc/report-schemas-js@2.2.10":
+  version "2.2.10"
+  resolved "https://registry.yarnpkg.com/@observertc/report-schemas-js/-/report-schemas-js-2.2.10.tgz#6ba5a7414ae4e47a5aa41321eae43b2def058427"
+  integrity sha512-SdsJS2/dMpK/kSjbZBuflMMibHNh5af/Q0PC29sYkCj321wNDnNSzGlf2C/w3ohSxJZBUJToG4N/ZnHRGzbtKQ==
+
+"@observertc/sample-schemas-js@2.2.10":
+  version "2.2.10"
+  resolved "https://registry.yarnpkg.com/@observertc/sample-schemas-js/-/sample-schemas-js-2.2.10.tgz#b7d6419cacdb79c700accd344cf110dbe93a5c5c"
+  integrity sha512-pz9DDh7fd7i7c6ttLaCvUh1Uile5UP6dA3y3q+SJT0JOF7NDyGCPKGMTagOknR2s21p3U/XlLLcQIH4BoveOGg==
 
 "@sinclair/typebox@^0.27.8":
   version "0.27.8"
@@ -3466,6 +3491,11 @@ utf-8-validate@^6.0.3:
   integrity sha512-uIuGf9TWQ/y+0Lp+KGZCMuJWc3N9BHA+l/UmHd/oUHwJJDeysyTRxNQVkbzsIWfGFbRe3OcgML/i0mvVRPOyDA==
   dependencies:
     node-gyp-build "^4.3.0"
+
+uuid@^8.3.2:
+  version "8.3.2"
+  resolved "https://registry.yarnpkg.com/uuid/-/uuid-8.3.2.tgz#80d5b5ced271bb9af6c445f21a1a04c606cefbe2"
+  integrity sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==
 
 uuid@^9.0.1:
   version "9.0.1"

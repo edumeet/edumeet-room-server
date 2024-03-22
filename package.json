@@ -36,6 +36,7 @@
 		"@feathersjs/authentication-client": "^5.0.5",
 		"@feathersjs/feathers": "^5.0.5",
 		"@feathersjs/socketio-client": "^5.0.5",
+		"@observertc/observer-js": "^0.40.10-beta",
 		"debug": "^4.3.4",
 		"edumeet-common": "edumeet/edumeet-common#0.6.1",
 		"geoip-lite": "^1.4.7",
