@@ -44,7 +44,9 @@
 		"jsonwebtoken": "^9.0.0",
 		"mediasoup": "^3.12.16",
 		"socket.io": "^4.7.4",
-		"socket.io-client": "^4.7.4"
+		"socket.io-client": "^4.7.4",
+		"moment": "^2.29.4"
+
 	},
 	"optionalDependencies": {
 		"bufferutil": "^4.0.7",
