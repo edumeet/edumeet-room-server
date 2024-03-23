@@ -5,6 +5,7 @@ import { Peer, PeerContext } from './Peer';
 import { randomUUID } from 'crypto';
 import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
+import { createCountdownTimerMiddleware } from './middlewares/countdownTimerMiddleware';
 import { createLockMiddleware } from './middlewares/lockMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
 import { createLobbyPeerMiddleware } from './middlewares/lobbyPeerMiddleware';
@@ -30,6 +31,12 @@ interface RoomOptions {
 	id: string;
 	name?: string;
 	mediaService: MediaService;
+}
+
+interface CountdownTimer {
+	isEnabled: boolean;
+	isRunning: boolean;
+	left: string;
 }
 
 export class RoomClosedError extends Error {
@@ -61,6 +68,7 @@ export default class Room extends EventEmitter {
 	public filesharingEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
+	public _countdownTimerRef = null;
 
 	public settings: RoomSettings = {};
 
@@ -92,6 +100,12 @@ export default class Room extends EventEmitter {
 
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
+	// public _countdownTimerRef: this._countdownTimerRef,
+	public countdownTimer = {
+		isEnabled: true,
+		isRunning: false,
+		left: '00:00:00'
+	} as CountdownTimer;
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
 	#initialMediaMiddleware: Middleware<PeerContext>;
@@ -116,6 +130,7 @@ export default class Room extends EventEmitter {
 		this.id = id;
 		this.name = name;
 		this.mediaService = mediaService;
+		this._countdownTimerRef = null;
 
 		this.#lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
 		this.#initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
