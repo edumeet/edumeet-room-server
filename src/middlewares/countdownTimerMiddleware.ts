@@ -5,15 +5,16 @@ import { ChatMessage, MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
 import moment from 'moment';
 
+console.log('1'); // eslint-disable-line no-console
+
 const logger = new Logger('CountdownTimerMiddleware');
 
-export const createCountdownTimerMiddleware = ({
-	room,
-	// chatHistory,
-	countdownTimer,
-	_countdownTimerRef
-}: MiddlewareOptions): Middleware<PeerContext> => {
-	// logger.debug('createCountdownTimerMiddleware() [room: %s]', room.id);
+import Room from '../Room';
+
+export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middleware<PeerContext> => {
+	logger.debug('createCountdownTimerMiddleware() [room: %s]', room.id);
+
+	console.log('2'); // eslint-disable-line no-console
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -27,20 +28,22 @@ export const createCountdownTimerMiddleware = ({
 		// if (!thisSession(room, message))
 		// 	return next();
 		
+		console.log('3'); // eslint-disable-line no-console
+
 		switch (message.method) {
 
 			case 'moderator:enableCountdownTimer':
 			{
 				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
-	
+				
 				// const { isEnabled } = message.data;
 	
-				countdownTimer.isEnabled = true;
+				room.countdownTimer.isEnabled = true;
 	
 				room.notifyPeers('moderator:enableCountdownTimer', {
 					peerId: peer.id,
-					isEnabled: countdownTimer.isEnabled
+					isEnabled: room.countdownTimer.isEnabled
 				}, peer);
 		
 				context.handled = true;				
@@ -55,11 +58,11 @@ export const createCountdownTimerMiddleware = ({
 		
 				// const { isEnabled } = message.data;
 		
-				countdownTimer.isEnabled = false;
+				room.countdownTimer.isEnabled = false;
 		
 				room.notifyPeers('moderator:disableCountdownTimer', {
 					peerId: peer.id,
-					isEnabled: countdownTimer.isEnabled
+					isEnabled: room.countdownTimer.isEnabled
 				}, peer);
 			
 				context.handled = true;				
@@ -74,11 +77,11 @@ export const createCountdownTimerMiddleware = ({
 
 			// 	const { isEnabled } = message.data;
 
-			// 	countdownTimer.isEnabled = isEnabled;
+			// 	room.countdownTimer.isEnabled = isEnabled;
 
 			// 	room.notifyPeers('moderator:toggleCountdownTimer', {
 			// 		peerId: peer.id,
-			// 		isEnabled: countdownTimer.isEnabled
+			// 		isEnabled: room.countdownTimer.isEnabled
 			// 	}, peer);
 	
 			// 	context.handled = true;				
@@ -92,11 +95,11 @@ export const createCountdownTimerMiddleware = ({
 
 				const { left } = message.data;
 
-				countdownTimer.left = left;
+				room.countdownTimer.left = left;
 
 				room.notifyPeers('moderator:settedCountdownTimer', {
 					peerId: peer.id,
-					left: countdownTimer.left
+					left: room.countdownTimer.left
 				});
 
 				context.handled = true;				
@@ -111,41 +114,41 @@ export const createCountdownTimerMiddleware = ({
 				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 				
-				countdownTimer.isRunning = true;
+				room.countdownTimer.isRunning = true;
 
 				// room.notifyPeers('moderator:settedCountdownTimer', {
 				// 	peerId: peer.id,
-				// 	// isEnabled: countdownTimer.isEnabled,
-				// 	// left: countdownTimer.left,
-				// 	isRunning: countdownTimer.isRunning
+				// 	// isEnabled: room.countdownTimer.isEnabled,
+				// 	// left: room.countdownTimer.left,
+				// 	isRunning: room.countdownTimer.isRunning
 				// });
 
-				clearInterval(_countdownTimerRef);
+				clearInterval(room._countdownTimerRef);
 
-				_countdownTimerRef = setInterval(() => {
-					let left = moment(`1000-01-01 ${countdownTimer.left}`).unix();
+				room._countdownTimerRef = setInterval(() => {
+					let left = moment(`1000-01-01 ${room.countdownTimer.left}`).unix();
 					const end = moment('1000-01-01 00:00:00').unix();
 
 					left--;
 					// eslint-disable-next-line no-console
-					console.log(`${countdownTimer.left} :ooo `);
-					countdownTimer.left = moment.unix(left).format('HH:mm:ss');
+					console.log(`${room.countdownTimer.left} :ooo `);
+					room.countdownTimer.left = moment.unix(left).format('HH:mm:ss');
 	
 					if (left === end || room.empty) {
-						clearInterval(_countdownTimerRef);
+						clearInterval(room._countdownTimerRef);
 	
-						countdownTimer.isRunning = false;
-						countdownTimer.left = '00:00:00';
+						room.countdownTimer.isRunning = false;
+						room.countdownTimer.left = '00:00:00';
 
 						// room.notifyPeers('moderator:settedCountdownTimer', {
 						// 	peerId: peer.id,
-						// 	left: countdownTimer.left,
-						// 	// isRunning: countdownTimer.isRunning
+						// 	left: room.countdownTimer.left,
+						// 	// isRunning: room.countdownTimer.isRunning
 						// });
 
 						room.notifyPeers('moderator:stoppedCountdownTimer', {
 							peerId: peer.id,
-							isRunning: countdownTimer.isRunning
+							isRunning: room.countdownTimer.isRunning
 						});
 					}
 	
@@ -153,14 +156,14 @@ export const createCountdownTimerMiddleware = ({
 
 				room.notifyPeers('moderator:settedCountdownTimer', {
 					peerId: peer.id,
-					left: countdownTimer.left,
+					left: room.countdownTimer.left,
 				});
 
 				room.notifyPeers('moderator:startedCountdownTimer', {
 					peerId: peer.id,
-					// isEnabled: countdownTimer.isEnabled,
-					// left: countdownTimer.left,
-					isRunning: countdownTimer.isRunning
+					// isEnabled: room.countdownTimer.isEnabled,
+					// left: room.countdownTimer.left,
+					isRunning: room.countdownTimer.isRunning
 				});
 	
 				context.handled = true;				
@@ -172,26 +175,26 @@ export const createCountdownTimerMiddleware = ({
 			{
 				logger.debug('moderator:stopCountdownTimer ');
 	
-				if (countdownTimer.isRunning) {
+				if (room.countdownTimer.isRunning) {
 					// if (!this._hasPermission(peer, MODERATE_ROOM))
 					// 	throw new Error('peer not authorized');
 	
-					// countdownTimer.isRunning = false;
+					// room.countdownTimer.isRunning = false;
 	
-					clearInterval(_countdownTimerRef);
-					countdownTimer.isRunning = false;
+					clearInterval(room._countdownTimerRef);
+					room.countdownTimer.isRunning = false;
 					// eslint-disable-next-line no-console
-					// console.log(`${countdownTimer.left} :ooo `);
+					// console.log(`${room.countdownTimer.left} :ooo `);
 
 					room.notifyPeers('moderator:settedCountdownTimer', {
 						peerId: peer.id,
-						left: countdownTimer.left,
-						// isRunning: countdownTimer.isRunning
+						left: room.countdownTimer.left,
+						// isRunning: room.countdownTimer.isRunning
 					});
 
 					room.notifyPeers('moderator:stoppedCountdownTimer', {
 						peerId: peer.id,
-						isRunning: countdownTimer.isRunning
+						isRunning: room.countdownTimer.isRunning
 					});
 	
 				}

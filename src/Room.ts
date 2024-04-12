@@ -66,9 +66,9 @@ export default class Room extends EventEmitter {
 	public breakoutsEnabled = true; // Possibly updated by the management service
 	public chatEnabled = true; // Possibly updated by the management service
 	public filesharingEnabled = true; // Possibly updated by the management service
+	public countdownTimerEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
-	public _countdownTimerRef = null;
 
 	public settings: RoomSettings = {};
 
@@ -101,6 +101,8 @@ export default class Room extends EventEmitter {
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
 	// public _countdownTimerRef: this._countdownTimerRef,
+	
+	public _countdownTimerRef : any;
 	public countdownTimer = {
 		isEnabled: true,
 		isRunning: false,
@@ -119,6 +121,7 @@ export default class Room extends EventEmitter {
 	#breakoutMiddleware: Middleware<PeerContext>;
 	#chatMiddleware: Middleware<PeerContext>;
 	#fileMiddleware: Middleware<PeerContext>;
+	#countdownTimerMiddleware: Middleware<PeerContext>;
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 
@@ -143,7 +146,8 @@ export default class Room extends EventEmitter {
 		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
 		this.#chatMiddleware = createChatMiddleware({ room: this });
 		this.#fileMiddleware = createFileMiddleware({ room: this });
-
+		this.#countdownTimerMiddleware = createCountdownTimerMiddleware({ room: this });
+		
 		this.#allMiddlewares = [
 			this.#lobbyPeerMiddleware,
 			this.#initialMediaMiddleware,
@@ -155,7 +159,8 @@ export default class Room extends EventEmitter {
 			this.#lobbyMiddleware,
 			this.#breakoutMiddleware,
 			this.#chatMiddleware,
-			this.#fileMiddleware
+			this.#fileMiddleware,
+			this.#countdownTimerMiddleware,
 		];
 	}
 
@@ -296,6 +301,7 @@ export default class Room extends EventEmitter {
 		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
 		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
 		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
+		this.countdownTimerEnabled && peer.pipeline.use(this.#countdownTimerMiddleware);
 
 		this.peers.add(peer);
 
