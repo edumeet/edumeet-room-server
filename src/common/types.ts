@@ -39,8 +39,6 @@ export interface LobbyPeerInfo {
 
 export interface MiddlewareOptions {
 	room: Room | BreakoutRoom;
-	countdownTimer: any;
-	_countdownTimerRef: any
 }
 
 export interface Role {
