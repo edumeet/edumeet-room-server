@@ -5,16 +5,12 @@ import { ChatMessage, MiddlewareOptions } from '../common/types';
 import { PeerContext } from '../Peer';
 import moment from 'moment';
 
-console.log('1'); // eslint-disable-line no-console
-
 const logger = new Logger('CountdownTimerMiddleware');
 
 import Room from '../Room';
 
 export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middleware<PeerContext> => {
 	logger.debug('createCountdownTimerMiddleware() [room: %s]', room.id);
-
-	console.log('2'); // eslint-disable-line no-console
 
 	const middleware: Middleware<PeerContext> = async (
 		context,
@@ -28,8 +24,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 		// if (!thisSession(room, message))
 		// 	return next();
 		
-		console.log('3'); // eslint-disable-line no-console
-
 		switch (message.method) {
 
 			case 'moderator:enableCountdownTimer':
@@ -130,13 +124,12 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 					const end = moment('1000-01-01 00:00:00').unix();
 
 					left--;
-					// eslint-disable-next-line no-console
-					console.log(`${room.countdownTimer.left} :ooo `);
+					
 					room.countdownTimer.left = moment.unix(left).format('HH:mm:ss');
-	
+
 					if (left === end || room.empty) {
 						clearInterval(room._countdownTimerRef);
-	
+						
 						room.countdownTimer.isRunning = false;
 						room.countdownTimer.left = '00:00:00';
 
@@ -183,8 +176,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 	
 					clearInterval(room._countdownTimerRef);
 					room.countdownTimer.isRunning = false;
-					// eslint-disable-next-line no-console
-					// console.log(`${room.countdownTimer.left} :ooo `);
 
 					room.notifyPeers('moderator:settedCountdownTimer', {
 						peerId: peer.id,
