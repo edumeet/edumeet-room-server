@@ -33,17 +33,17 @@ interface RoomOptions {
 	mediaService: MediaService;
 }
 
-interface CountdownTimer {
-	isEnabled: boolean;
-	isRunning: boolean;
-	left: string;
-}
-
 export class RoomClosedError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = 'RoomClosedError';
 	}
+}
+
+interface CountdownTimer {
+	isEnabled: boolean;
+	isRunning: boolean;
+	left: string;
 }
 
 export default class Room extends EventEmitter {
