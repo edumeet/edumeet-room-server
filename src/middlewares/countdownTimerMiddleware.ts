@@ -64,25 +64,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				break;
 			}
 
-			// case 'moderator:toggleCountdownTimer':
-			// {
-			// 	// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
-			// 	// 	throw new Error('peer not authorized');
-
-			// 	const { isEnabled } = message.data;
-
-			// 	room.countdownTimer.isEnabled = isEnabled;
-
-			// 	room.notifyPeers('moderator:toggleCountdownTimer', {
-			// 		peerId: peer.id,
-			// 		isEnabled: room.countdownTimer.isEnabled
-			// 	}, peer);
-	
-			// 	context.handled = true;				
-	
-			// 	break;
-			// }
-
 			case 'moderator:setCountdownTimer': {
 				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
