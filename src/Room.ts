@@ -100,7 +100,6 @@ export default class Room extends EventEmitter {
 
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
-	// public _countdownTimerRef: this._countdownTimerRef,
 	
 	public _countdownTimerRef : any;
 	public countdownTimer = {
@@ -133,7 +132,6 @@ export default class Room extends EventEmitter {
 		this.id = id;
 		this.name = name;
 		this.mediaService = mediaService;
-		this._countdownTimerRef = null;
 
 		this.#lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
 		this.#initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
