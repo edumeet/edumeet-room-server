@@ -1,7 +1,6 @@
 import { Logger, Middleware } from 'edumeet-common';
 // import { hasPermission, Permission } from '../common/authorization';
-import { thisSession } from '../common/checkSessionId';
-import { ChatMessage, MiddlewareOptions } from '../common/types';
+// import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import moment from 'moment';
 
