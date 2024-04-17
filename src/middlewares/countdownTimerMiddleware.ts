@@ -35,7 +35,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				room.countdownTimer.isEnabled = true;
 	
 				room.notifyPeers('moderator:enableCountdownTimer', {
-					peerId: peer.id,
 					isEnabled: room.countdownTimer.isEnabled
 				}, peer);
 		
@@ -54,7 +53,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				room.countdownTimer.isEnabled = false;
 		
 				room.notifyPeers('moderator:disableCountdownTimer', {
-					peerId: peer.id,
 					isEnabled: room.countdownTimer.isEnabled
 				}, peer);
 			
@@ -72,7 +70,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				room.countdownTimer.left = left;
 
 				room.notifyPeers('moderator:settedCountdownTimer', {
-					peerId: peer.id,
 					left: room.countdownTimer.left
 				});
 
@@ -91,7 +88,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				room.countdownTimer.isRunning = true;
 
 				// room.notifyPeers('moderator:settedCountdownTimer', {
-				// 	peerId: peer.id,
 				// 	// isEnabled: room.countdownTimer.isEnabled,
 				// 	// left: room.countdownTimer.left,
 				// 	isRunning: room.countdownTimer.isRunning
@@ -104,6 +100,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 					const end = moment('1000-01-01 00:00:00').unix();
 
 					left--;
+
+					console.log('left', left); // eslint-disable-line
 					
 					room.countdownTimer.left = moment.unix(left).format('HH:mm:ss');
 
@@ -114,13 +112,11 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 						room.countdownTimer.left = '00:00:00';
 
 						// room.notifyPeers('moderator:settedCountdownTimer', {
-						// 	peerId: peer.id,
 						// 	left: room.countdownTimer.left,
 						// 	// isRunning: room.countdownTimer.isRunning
 						// });
 
 						room.notifyPeers('moderator:stoppedCountdownTimer', {
-							peerId: peer.id,
 							isRunning: room.countdownTimer.isRunning
 						});
 					}
@@ -128,12 +124,10 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				}, 1000);
 
 				room.notifyPeers('moderator:settedCountdownTimer', {
-					peerId: peer.id,
 					left: room.countdownTimer.left,
 				});
 
 				room.notifyPeers('moderator:startedCountdownTimer', {
-					peerId: peer.id,
 					// isEnabled: room.countdownTimer.isEnabled,
 					// left: room.countdownTimer.left,
 					isRunning: room.countdownTimer.isRunning
@@ -158,13 +152,11 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 					room.countdownTimer.isRunning = false;
 
 					room.notifyPeers('moderator:settedCountdownTimer', {
-						peerId: peer.id,
 						left: room.countdownTimer.left,
 						// isRunning: room.countdownTimer.isRunning
 					});
 
 					room.notifyPeers('moderator:stoppedCountdownTimer', {
-						peerId: peer.id,
 						isRunning: room.countdownTimer.isRunning
 					});
 	
