@@ -70,12 +70,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				
 				room.countdownTimer.isStarted = true;
 
-				// room.notifyPeers('moderator:setCountdownTimer', {
-				// 	// isEnabled: room.countdownTimer.isEnabled,
-				// 	// left: room.countdownTimer.left,
-				// 	isStarted: room.countdownTimer.isStarted
-				// });
-
 				clearInterval(room._countdownTimerRef);
 
 				room._countdownTimerRef = setInterval(() => {
@@ -84,9 +78,9 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 
 					left--;
 
-					console.log('left', left); // eslint-disable-line
-					
 					room.countdownTimer.left = moment.unix(left).format('HH:mm:ss');
+					
+					console.log('room.countdownTimer.left: ', room.countdownTimer.left); // eslint-disable-line
 
 					if (left === end || room.empty) {
 						clearInterval(room._countdownTimerRef);
@@ -94,10 +88,9 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 						room.countdownTimer.isStarted = false;
 						room.countdownTimer.left = '00:00:00';
 
-						// room.notifyPeers('moderator:setCountdownTimer', {
-						// 	left: room.countdownTimer.left,
-						// 	// isStarted: room.countdownTimer.isStarted
-						// });
+						room.notifyPeers('moderator:setCountdownTimer', {
+							left: room.countdownTimer.left
+						});
 
 						room.notifyPeers('moderator:stoppedCountdownTimer', {
 							isStarted: room.countdownTimer.isStarted
@@ -111,8 +104,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				});
 
 				room.notifyPeers('moderator:startedCountdownTimer', {
-					// isEnabled: room.countdownTimer.isEnabled,
-					// left: room.countdownTimer.left,
 					isStarted: room.countdownTimer.isStarted
 				});
 	
@@ -129,9 +120,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 					// if (!this._hasPermission(peer, MODERATE_ROOM))
 					// 	throw new Error('peer not authorized');
 	
-					// room.countdownTimer.isStarted = false;
-	
 					clearInterval(room._countdownTimerRef);
+					
 					room.countdownTimer.isStarted = false;
 
 					room.notifyPeers('moderator:setCountdownTimer', {
