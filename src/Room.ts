@@ -42,7 +42,7 @@ export class RoomClosedError extends Error {
 
 interface CountdownTimer {
 	isEnabled: boolean;
-	isRunning: boolean;
+	isStarted: boolean;
 	left: string;
 }
 
@@ -104,7 +104,7 @@ export default class Room extends EventEmitter {
 	public _countdownTimerRef : any;
 	public countdownTimer = {
 		isEnabled: true,
-		isRunning: false,
+		isStarted: false,
 		left: '00:00:00'
 	} as CountdownTimer;
 
