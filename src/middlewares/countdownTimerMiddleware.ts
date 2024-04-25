@@ -73,23 +73,23 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				clearInterval(room._countdownTimerRef);
 
 				room._countdownTimerRef = setInterval(() => {
-					let left = moment(`1000-01-01 ${room.countdownTimer.left}`).unix();
+					let timeLeft = moment(`1000-01-01 ${room.countdownTimer.timeLeft}`).unix();
 					const end = moment('1000-01-01 00:00:00').unix();
 
-					left--;
+					timeLeft--;
 
-					room.countdownTimer.left = moment.unix(left).format('HH:mm:ss');
+					room.countdownTimer.timeLeft = moment.unix(timeLeft).format('HH:mm:ss');
 					
-					console.log('room.countdownTimer.left: ', room.countdownTimer.left); // eslint-disable-line
+					console.log('room.countdownTimer.timeLeft: ', room.countdownTimer.timeLeft); // eslint-disable-line
 
-					if (left === end || room.empty) {
+					if (timeLeft === end || room.empty) {
 						clearInterval(room._countdownTimerRef);
 						
 						room.countdownTimer.isStarted = false;
-						room.countdownTimer.left = '00:00:00';
+						room.countdownTimer.timeLeft = '00:00:00';
 
-						room.notifyPeers('moderator:setCountdownTimer', {
-							left: room.countdownTimer.left
+						room.notifyPeers('moderator:updatedCountdownTimer', {
+							timeLeft: room.countdownTimer.timeLeft
 						});
 
 						room.notifyPeers('moderator:stoppedCountdownTimer', {
@@ -99,8 +99,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 	
 				}, 1000);
 
-				room.notifyPeers('moderator:setCountdownTimer', {
-					left: room.countdownTimer.left,
+				room.notifyPeers('moderator:updatedCountdownTimer', {
+					timeLeft: room.countdownTimer.timeLeft,
 				});
 
 				room.notifyPeers('moderator:startedCountdownTimer', {
@@ -124,8 +124,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 					
 					room.countdownTimer.isStarted = false;
 
-					room.notifyPeers('moderator:setCountdownTimer', {
-						left: room.countdownTimer.left,
+					room.notifyPeers('moderator:updatedCountdownTimer', {
+						timeLeft: room.countdownTimer.timeLeft,
 						// isStarted: room.countdownTimer.isStarted
 					});
 
@@ -144,12 +144,13 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 
-				const { left } = message.data;
+				const { timeLeft } = message.data;
 
-				room.countdownTimer.left = left;
+				room.countdownTimer.timeLeft = timeLeft;
+				room.countdownTimer.timeInit = timeLeft;
 
 				room.notifyPeers('moderator:setCountdownTimer', {
-					left: room.countdownTimer.left
+					timeLeft: room.countdownTimer.timeLeft
 				});
 
 				context.handled = true;				
