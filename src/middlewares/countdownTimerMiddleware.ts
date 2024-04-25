@@ -150,7 +150,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				room.countdownTimer.timeInit = timeLeft;
 
 				room.notifyPeers('moderator:setCountdownTimer', {
-					timeLeft: room.countdownTimer.timeLeft
+					timeLeft: room.countdownTimer.timeLeft,
+					timeInit: room.countdownTimer.timeInit
 				});
 
 				context.handled = true;				
