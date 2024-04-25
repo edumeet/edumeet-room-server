@@ -43,7 +43,7 @@ export class RoomClosedError extends Error {
 interface CountdownTimer {
 	isEnabled: boolean;
 	isStarted: boolean;
-	timeInit: string;
+	timeSet: string;
 	timeLeft: string;
 }
 
@@ -107,7 +107,7 @@ export default class Room extends EventEmitter {
 		isEnabled: true,
 		isStarted: false,
 		timeLeft: '00:00:00',
-		timeInit: '00:00:00'
+		timeSet: '00:00:00'
 	} as CountdownTimer;
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
