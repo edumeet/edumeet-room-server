@@ -88,9 +88,7 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 						room.countdownTimer.isStarted = false;
 						room.countdownTimer.remainingTime = '00:00:00';
 
-						room.notifyPeers('moderator:updatedCountdownTimer', {
-							remainingTime: room.countdownTimer.remainingTime
-						});
+						room.notifyPeers('moderator:settedCountdownTimerRemainingTime', room.countdownTimer.remainingTime);
 
 						room.notifyPeers('moderator:stoppedCountdownTimer', {
 							isStarted: room.countdownTimer.isStarted
@@ -99,9 +97,7 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 	
 				}, 1000);
 
-				room.notifyPeers('moderator:updatedCountdownTimer', {
-					remainingTime: room.countdownTimer.remainingTime,
-				});
+				room.notifyPeers('moderator:settedCountdownTimerRemainingTime', room.countdownTimer.remainingTime);
 
 				room.notifyPeers('moderator:startedCountdownTimer', {
 					isStarted: room.countdownTimer.isStarted
@@ -124,10 +120,7 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 					
 					room.countdownTimer.isStarted = false;
 
-					room.notifyPeers('moderator:updatedCountdownTimer', {
-						remainingTime: room.countdownTimer.remainingTime,
-						// isStarted: room.countdownTimer.isStarted
-					});
+					room.notifyPeers('moderator:settedCountdownTimerRemainingTime', room.countdownTimer.remainingTime);
 
 					room.notifyPeers('moderator:stoppedCountdownTimer', {
 						isStarted: room.countdownTimer.isStarted
@@ -140,19 +133,18 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				break;
 			}
 
-			case 'moderator:setCountdownTimer': {
+			case 'moderator:setCountdownTimerInitialTime': {
 				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 
-				const { remainingTime } = message.data;
+				const time = message.data;
 
-				room.countdownTimer.remainingTime = remainingTime;
-				room.countdownTimer.initialTime = remainingTime;
+				room.countdownTimer.remainingTime = time;
+				room.countdownTimer.initialTime = time;
 
-				room.notifyPeers('moderator:hasSetCountdownTimer', {
-					remainingTime: room.countdownTimer.remainingTime,
-					initialTime: room.countdownTimer.initialTime
-				});
+				room.notifyPeers('moderator:settedCountdownTimerInitialTime', room.countdownTimer.initialTime);
+
+				room.notifyPeers('moderator:settedCountdownTimerRemainingTime', room.countdownTimer.remainingTime);
 
 				context.handled = true;				
 
