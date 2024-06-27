@@ -147,11 +147,11 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				const { remainingTime } = message.data;
 
 				room.countdownTimer.remainingTime = remainingTime;
-				room.countdownTimer.timeSet = remainingTime;
+				room.countdownTimer.initialTime = remainingTime;
 
 				room.notifyPeers('moderator:hasSetCountdownTimer', {
 					remainingTime: room.countdownTimer.remainingTime,
-					timeSet: room.countdownTimer.timeSet
+					initialTime: room.countdownTimer.initialTime
 				});
 
 				context.handled = true;				
