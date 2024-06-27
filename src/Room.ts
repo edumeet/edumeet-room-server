@@ -44,7 +44,7 @@ interface CountdownTimer {
 	isEnabled: boolean;
 	isStarted: boolean;
 	timeSet: string;
-	timeLeft: string;
+	remainingTime: string;
 }
 
 export default class Room extends EventEmitter {
@@ -106,7 +106,7 @@ export default class Room extends EventEmitter {
 	public countdownTimer = {
 		isEnabled: true,
 		isStarted: false,
-		timeLeft: '00:00:00',
+		remainingTime: '00:00:00',
 		timeSet: '00:00:00'
 	} as CountdownTimer;
 
