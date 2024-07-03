@@ -1,12 +1,11 @@
-import { Logger, Middleware } from 'edumeet-common';
-// import { hasPermission, Permission } from '../common/authorization';
-// import { thisSession } from '../common/checkSessionId';
+import { Permission } from '../common/authorization';
 import { PeerContext } from '../Peer';
+// import { thisSession } from '../common/checkSessionId';
+import { Logger, Middleware } from 'edumeet-common';
 import moment from 'moment';
+import Room from '../Room';
 
 const logger = new Logger('CountdownTimerMiddleware');
-
-import Room from '../Room';
 
 export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middleware<PeerContext> => {
 	logger.debug('createCountdownTimerMiddleware() [room: %s]', room.id);
@@ -27,8 +26,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 
 			case 'moderator:enableCountdownTimer':
 			{
-				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
-				// 	throw new Error('peer not authorized');
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('peer not authorized');
 				
 				room.countdownTimer.isEnabled = true;
 	
@@ -43,8 +42,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 
 			case 'moderator:disableCountdownTimer':
 			{
-				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
-				// 	throw new Error('peer not authorized');
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('peer not authorized');
 		
 				room.countdownTimer.isEnabled = false;
 		
@@ -61,8 +60,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 			{
 				logger.debug('moderator:startCountdownTimer');
 	
-				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
-				// 	throw new Error('peer not authorized');
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('peer not authorized');
 				
 				room.countdownTimer.isStarted = true;
 
@@ -107,10 +106,11 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 			case 'moderator:stopCountdownTimer':
 			{
 				logger.debug('moderator:stopCountdownTimer ');
+				
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('peer not authorized');
 	
 				if (room.countdownTimer.isStarted) {
-					// if (!this._hasPermission(peer, MODERATE_ROOM))
-					// 	throw new Error('peer not authorized');
 	
 					clearInterval(room._countdownTimerRef);
 					
@@ -130,8 +130,8 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 			}
 
 			case 'moderator:setCountdownTimerInitialTime': {
-				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
-				// 	throw new Error('peer not authorized');
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('peer not authorized');
 
 				const time = message.data;
 
