@@ -30,8 +30,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 				
-				// const { isEnabled } = message.data;
-	
 				room.countdownTimer.isEnabled = true;
 	
 				room.notifyPeers('moderator:enabledCountdownTimer', {
@@ -47,8 +45,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 			{
 				// if (!hasPermission(room, peer, Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
-		
-				// const { isEnabled } = message.data;
 		
 				room.countdownTimer.isEnabled = false;
 		
