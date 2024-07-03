@@ -139,6 +139,9 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 
 				const time = message.data;
 
+				if (!moment(time, 'HH:mm:ss', true).isValid())
+					throw new Error('Invalid time format');
+				
 				room.countdownTimer.remainingTime = time;
 				room.countdownTimer.initialTime = time;
 
