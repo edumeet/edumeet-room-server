@@ -65,7 +65,7 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 				
 				room.countdownTimer.isStarted = true;
 
-				clearInterval(room._countdownTimerRef);
+				clearInterval(room._countdownTimerRef as NodeJS.Timeout);
 
 				room._countdownTimerRef = setInterval(() => {
 					let remainingTime = moment(`1000-01-01 ${room.countdownTimer.remainingTime}`).unix();
@@ -78,7 +78,7 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 					console.log('room.countdownTimer.remainingTime: ', room.countdownTimer.remainingTime); // eslint-disable-line
 
 					if (remainingTime === end || room.empty) {
-						clearInterval(room._countdownTimerRef);
+						clearInterval(room._countdownTimerRef as NodeJS.Timeout);
 						
 						room.countdownTimer.isStarted = false;
 						room.countdownTimer.remainingTime = '00:00:00';
@@ -111,7 +111,7 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 	
 				if (room.countdownTimer.isStarted) {
 	
-					clearInterval(room._countdownTimerRef);
+					clearInterval(room._countdownTimerRef as NodeJS.Timeout);
 					
 					room.countdownTimer.isStarted = false;
 

@@ -102,7 +102,7 @@ export default class Room extends EventEmitter {
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
 	
-	public _countdownTimerRef : any;
+	public _countdownTimerRef: ReturnType<typeof setTimeout> | null = null;
 	public countdownTimer = {
 		isEnabled: true,
 		isStarted: false,
