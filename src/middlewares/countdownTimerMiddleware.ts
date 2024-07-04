@@ -75,8 +75,6 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 
 					room.countdownTimer.remainingTime = moment.unix(remainingTime).format('HH:mm:ss');
 					
-					console.log('room.countdownTimer.remainingTime: ', room.countdownTimer.remainingTime); // eslint-disable-line
-
 					if (remainingTime === end || room.empty) {
 						clearInterval(room._countdownTimerRef as NodeJS.Timeout);
 						
