@@ -82,11 +82,10 @@ export const createCountdownTimerMiddleware = ({ room }: { room: Room }): Middle
 						
 						room.countdownTimer.isStarted = false;
 						room.countdownTimer.remainingTime = '00:00:00';
-
-						room.notifyPeers('moderator:settedCountdownTimerRemainingTime', room.countdownTimer.remainingTime);
-
-						room.notifyPeers('moderator:stoppedCountdownTimer', {
-							isStarted: room.countdownTimer.isStarted
+						
+						room.notifyPeers('moderator:finishedCountdownTimer', {
+							isStarted: room.countdownTimer.isStarted,
+							remainingTime: room.countdownTimer.remainingTime
 						});
 					}
 	
