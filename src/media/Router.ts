@@ -331,28 +331,29 @@ export class Router extends EventEmitter {
 	}): Promise<PipeToRouterResult> {
 		logger.debug('pipeToRouter()');
 
-		if (!producerId && !dataProducerId)
+		if (!producerId && !dataProducerId) {
 			throw new Error('missing producerId or dataProducerId');
-		if (producerId && dataProducerId)
+		}
+
+		if (producerId && dataProducerId) {
 			throw new Error('both producerId and dataProducerId given');
+		}
 
 		let producer: Producer | PipeProducer | undefined;
 		let dataProducer: DataProducer | PipeDataProducer | undefined;
 
 		if (producerId) {
-			producer =
-				this.producers.get(producerId) ??
-				this.pipeProducers.get(producerId);
+			producer = this.producers.get(producerId) ?? this.pipeProducers.get(producerId);
 
-			if (!producer)
+			if (!producer) {
 				throw new TypeError('Producer not found');
+			}
 		} else if (dataProducerId) {
-			dataProducer =
-				this.dataProducers.get(dataProducerId) ??
-				this.pipeDataProducers.get(dataProducerId);
+			dataProducer = this.dataProducers.get(dataProducerId) ?? this.pipeDataProducers.get(dataProducerId);
 
-			if (!dataProducer)
+			if (!dataProducer) {
 				throw new TypeError('DataProducer not found');
+			}
 		}
 
 		const pipeTransportPairKey = router.id;
@@ -364,8 +365,9 @@ export class Router extends EventEmitter {
 
 		let internal = false;
 
-		if (this.mediaNode === router.mediaNode)
+		if (this.mediaNode === router.mediaNode) {
 			internal = true;
+		}
 
 		if (pipeTransportPairPromise) {
 			pipeTransportPair = await pipeTransportPairPromise;
@@ -437,9 +439,7 @@ export class Router extends EventEmitter {
 
 			try {
 				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-				pipeConsumer = await localPipeTransport!.consume({
-					producerId: producer.id
-				});
+				pipeConsumer = await localPipeTransport!.consume({ producerId: producer.id });
 
 				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeProducer = await remotePipeTransport!.produce({
@@ -451,20 +451,22 @@ export class Router extends EventEmitter {
 				});
 
 				// Ensure that the producer has not been closed in the meanwhile.
-				if (producer.closed)
+				if (producer.closed) {
 					throw new Error('original Producer closed');
+				}
 
 				// Ensure that producer.paused has not changed in the meanwhile and, if
 				// so, sync the pipeProducer.
 				if (pipeProducer.paused !== producer.paused) {
-					if (producer.paused)
+					if (producer.paused) {
 						await pipeProducer.pause();
-					else
+					} else {
 						await pipeProducer.resume();
+					}
 				}
 
 				// Pipe events from the pipe Consumer to the pipe Producer.
-				pipeConsumer.once('close', () => pipeProducer?.close());
+				pipeConsumer.once('close', () => pipeProducer?.close(true));
 				pipeConsumer.on('producerpause', async () => await pipeProducer?.pause());
 				pipeConsumer.on('producerresume', async () => await pipeProducer?.resume());
 
@@ -473,15 +475,15 @@ export class Router extends EventEmitter {
 
 				return { pipeConsumer, pipeProducer };
 			} catch (error) {
-				logger.error(
-					'pipeToRouter() | error creating pipe Consumer/Producer pair:%o',
-					error);
+				logger.error('pipeToRouter() | error creating pipe Consumer/Producer pair:%o', error);
 
-				if (pipeConsumer)
+				if (pipeConsumer) {
 					pipeConsumer.close();
+				}
 
-				if (pipeProducer)
+				if (pipeProducer) {
 					pipeProducer.close();
+				}
 
 				throw error;
 			}
@@ -491,9 +493,7 @@ export class Router extends EventEmitter {
 
 			try {
 				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-				pipeDataConsumer = await localPipeTransport!.consumeData({
-					dataProducerId: dataProducer.id
-				});
+				pipeDataConsumer = await localPipeTransport!.consumeData({ dataProducerId: dataProducer.id });
 
 				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeDataProducer = await remotePipeTransport!.produceData({
@@ -505,26 +505,27 @@ export class Router extends EventEmitter {
 				});
 
 				// Ensure that the dataProducer has not been closed in the meanwhile.
-				if (dataProducer.closed)
+				if (dataProducer.closed) {
 					throw new Error('original DataProducer closed');
+				}
 
 				// Pipe events from the pipe Consumer to the pipe DataProducer.
-				pipeDataConsumer.once('close', () => pipeDataProducer?.close());
+				pipeDataConsumer.once('close', () => pipeDataProducer?.close(true));
 
 				// Pipe events from the pipe DataProducer to the pipe Consumer.
 				pipeDataProducer.once('close', () => pipeDataConsumer?.close());
 
 				return { pipeDataConsumer, pipeDataProducer };
 			} catch (error) {
-				logger.error(
-					'pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o',
-					error);
+				logger.error('pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o', error);
 
-				if (pipeDataConsumer)
+				if (pipeDataConsumer) {
 					pipeDataConsumer.close();
+				}
 
-				if (pipeDataProducer)
+				if (pipeDataProducer) {
 					pipeDataProducer.close();
+				}
 
 				throw error;
 			}
@@ -534,13 +535,9 @@ export class Router extends EventEmitter {
 	}
 
 	@skipIfClosed
-	private addPipeTransportPair(
-		pipeTransportPairKey: string,
-		pipeTransportPairPromise: Promise<PipeTransportPair>
-	): void {
+	private addPipeTransportPair(pipeTransportPairKey: string, pipeTransportPairPromise: Promise<PipeTransportPair>): void {
 		if (this.routerPipePromises.has(pipeTransportPairKey)) {
-			throw new Error(
-				'given pipeTransportPairKey already exists in this Router');
+			throw new Error('given pipeTransportPairKey already exists in this Router');
 		}
 
 		this.routerPipePromises.set(pipeTransportPairKey, pipeTransportPairPromise);
@@ -549,12 +546,7 @@ export class Router extends EventEmitter {
 
 			// NOTE: No need to do any other cleanup here since that is done by the
 			// Router calling this method on us.
-			localPipeTransport.once('close', () => {
-				this.routerPipePromises.delete(pipeTransportPairKey);
-			});
-		}).catch(() => {
-			this.routerPipePromises.delete(
-				pipeTransportPairKey);
-		});
+			localPipeTransport.once('close', () => this.routerPipePromises.delete(pipeTransportPairKey));
+		}).catch(() => this.routerPipePromises.delete(pipeTransportPairKey));
 	}
 }

@@ -52,6 +52,8 @@ export class Producer extends EventEmitter {
 
 		super();
 
+		this.setMaxListeners(Infinity);
+
 		this.router = router;
 		this.mediaNode = mediaNode;
 		this.id = id;

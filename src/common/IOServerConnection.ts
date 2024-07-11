@@ -107,8 +107,9 @@ export class IOServerConnection extends BaseConnection {
 			} catch (error) {
 				if (error instanceof SocketTimeoutError)
 					logger.warn('sendRequest() timeout, retrying [attempt: %s]', tries);
-				else
+				else {
 					throw error;
+				}
 			}
 		}
 	}
