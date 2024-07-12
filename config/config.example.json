@@ -39,7 +39,8 @@
 		"chatEnabled": true,
 		"raiseHandEnabled": true,
 		"filesharingEnabled": true,
-		"localRecordingEnabled": true
+		"localRecordingEnabled": true,
+		"drawingEnabled": true
 	},
 	"mediaNodes": [{
 		"hostname": "localhost",
