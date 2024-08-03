@@ -163,10 +163,10 @@ export class Peer extends EventEmitter {
 
 			if (error) return logger.error('startTurnCredentialsRefresh() | failed to get router [error: %o]', error);
 
-			const { mediaNode: { turnHostname, secret } } = router;
+			const { mediaNode: { turnHostname, turnports, secret } } = router;
 
 			if (turnHostname)
-				iceServers = getIceServers({ hostname: turnHostname, ...getCredentials(this.id, secret, 3600) });
+				iceServers = getIceServers({ hostname: turnHostname, turnports: turnports, ...getCredentials(this.id, secret, 3600) });
 
 			this.notify({ method: 'turnCredentials', data: { iceServers } });
 		}, 3_000_000);

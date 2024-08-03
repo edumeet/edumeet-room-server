@@ -55,7 +55,7 @@ export class MediaNode extends EventEmitter {
 		protocol: string; // turn / turns
 		port: number;
 		transport: string;
-	}> | undefined;
+	}>;
 	public readonly kdPoint: KDPoint;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
