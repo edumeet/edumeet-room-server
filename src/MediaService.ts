@@ -30,6 +30,11 @@ export type MediaNodeConfig = {
 	longitude: number;
 	latitude: number;
 	turnHostname?: string;
+	turnports: Array<{
+		protocol: string; // turn / turns
+		port: number;
+		transport: string;
+	}>
 };
 
 export default class MediaService {
@@ -65,13 +70,14 @@ export default class MediaService {
 		const kdTree = new KDTree([]);
 		const mediaNodes: MediaNode[] = [];
 
-		for (const { hostname, port, secret, longitude, latitude, turnHostname } of config.mediaNodes) {
+		for (const { hostname, port, secret, longitude, latitude, turnHostname, turnports } of config.mediaNodes) {
 			const mediaNode = new MediaNode({
 				id: randomUUID(),
 				hostname,
 				port,
 				secret,
 				turnHostname,
+				turnports,
 				kdPoint: new KDPoint([ latitude, longitude ])
 			});
 
@@ -94,6 +100,7 @@ export default class MediaService {
 		longitude,
 		latitude,
 		turnHostname,
+		turnports
 	}: MediaNodeConfig) {
 		logger.debug('addMediaNode() [hostname: %s, port: %s, secret: %s, longitude: %s, latitude: %s]', hostname, port, secret, longitude, latitude);
 
@@ -103,6 +110,7 @@ export default class MediaService {
 			port,
 			secret,
 			turnHostname,
+			turnports,
 			kdPoint: new KDPoint([ latitude, longitude ]),
 		});
 
