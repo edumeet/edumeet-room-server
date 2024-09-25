@@ -79,7 +79,6 @@ export class MediaNode extends EventEmitter {
 	#pipeDataConsumersMiddleware = createPipeDataConsumersMiddleware({ routers: this.routers });
 	#activeSpeakerMiddleware = createActiveSpeakerMiddleware({ routers: this.routers });
 	#recordersMiddleware = createRecordersMiddleware({ routers: this.routers });
-	
 
 	constructor({ id, hostname, port, secret, turnHostname, turnports, kdPoint }: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
