@@ -41,6 +41,7 @@ export class RoomClosedError extends Error {
 }
 interface Drawing {
 	isEnabled: boolean;
+	bgColor: string;
 }
 
 export default class Room extends EventEmitter {
@@ -100,6 +101,7 @@ export default class Room extends EventEmitter {
 
 	public drawing = {
 		isEnabled: false,
+		bgColor: 'lightgray',
 	} as Drawing;
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;

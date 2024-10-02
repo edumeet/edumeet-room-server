@@ -55,6 +55,24 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 			
 				break;
 			}
+				
+			case 'setDrawingBgColor':
+			{
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('peer not authorized');
+			
+				const bgColor = message.data;
+				
+				room.drawing.bgColor = bgColor;
+			
+				room.notifyPeers('settedDrawingBgColor', {
+					bgColor: room.drawing.bgColor
+				}, peer);
+				
+				context.handled = true;				
+				
+				break;
+			}
 			
 			default: {
 				break;
