@@ -5,6 +5,7 @@ import { Peer, PeerContext } from './Peer';
 import { randomUUID } from 'crypto';
 import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
+import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
 import { createLockMiddleware } from './middlewares/lockMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
 import { createLobbyPeerMiddleware } from './middlewares/lobbyPeerMiddleware';
@@ -38,6 +39,9 @@ export class RoomClosedError extends Error {
 		this.name = 'RoomClosedError';
 	}
 }
+interface Drawing {
+	isEnabled: boolean;
+}
 
 export default class Room extends EventEmitter {
 	public sessionId = randomUUID();
@@ -59,6 +63,7 @@ export default class Room extends EventEmitter {
 	public breakoutsEnabled = true; // Possibly updated by the management service
 	public chatEnabled = true; // Possibly updated by the management service
 	public filesharingEnabled = true; // Possibly updated by the management service
+	public drawingEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
 
@@ -93,6 +98,10 @@ export default class Room extends EventEmitter {
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
 
+	public drawing = {
+		isEnabled: false,
+	} as Drawing;
+
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
 	#initialMediaMiddleware: Middleware<PeerContext>;
 	#joinMiddleware: Middleware<PeerContext>;
@@ -105,6 +114,7 @@ export default class Room extends EventEmitter {
 	#breakoutMiddleware: Middleware<PeerContext>;
 	#chatMiddleware: Middleware<PeerContext>;
 	#fileMiddleware: Middleware<PeerContext>;
+	#drawingMiddleware: Middleware<PeerContext>;
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 
@@ -128,6 +138,7 @@ export default class Room extends EventEmitter {
 		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
 		this.#chatMiddleware = createChatMiddleware({ room: this });
 		this.#fileMiddleware = createFileMiddleware({ room: this });
+		this.#drawingMiddleware = createDrawingMiddleware({ room: this });
 
 		this.#allMiddlewares = [
 			this.#lobbyPeerMiddleware,
@@ -140,7 +151,8 @@ export default class Room extends EventEmitter {
 			this.#lobbyMiddleware,
 			this.#breakoutMiddleware,
 			this.#chatMiddleware,
-			this.#fileMiddleware
+			this.#fileMiddleware,
+			this.#drawingMiddleware,
 		];
 	}
 
@@ -281,6 +293,7 @@ export default class Room extends EventEmitter {
 		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
 		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
 		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
+		this.drawingEnabled && peer.pipeline.use(this.#drawingMiddleware);
 
 		this.peers.add(peer);
 
