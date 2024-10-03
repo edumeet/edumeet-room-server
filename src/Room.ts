@@ -101,7 +101,7 @@ export default class Room extends EventEmitter {
 
 	public drawing = {
 		isEnabled: false,
-		bgColor: 'lightgray',
+		bgColor: 'gray',
 	} as Drawing;
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
