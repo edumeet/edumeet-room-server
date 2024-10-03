@@ -24,32 +24,28 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 		
 		switch (message.method) {
 
-			case 'moderator:enableDrawing':
+			case 'enableDrawing':
 			{
 				if (!peer.hasPermission(Permission.MODERATE_ROOM))
 					throw new Error('peer not authorized');
 				
 				room.drawing.isEnabled = true;
 	
-				room.notifyPeers('moderator:enabledDrawing', {
-					isEnabled: room.drawing.isEnabled
-				}, peer);
+				room.notifyPeers('moderator:enabledDrawing', {}, peer);
 		
 				context.handled = true;				
 		
 				break;
 			}
 
-			case 'moderator:disableDrawing':
+			case 'disableDrawing':
 			{
 				if (!peer.hasPermission(Permission.MODERATE_ROOM))
 					throw new Error('peer not authorized');
 		
 				room.drawing.isEnabled = false;
 		
-				room.notifyPeers('moderator:disabledDrawing', {
-					isEnabled: room.drawing.isEnabled
-				}, peer);
+				room.notifyPeers('disabledDrawing', {}, peer);
 			
 				context.handled = true;				
 			
