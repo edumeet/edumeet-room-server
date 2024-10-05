@@ -4,6 +4,7 @@
 		"experimentalDecorators": true,
 		"resolveJsonModule": true,
 		"outDir": "../dist",
+		"sourceMap": true,
 	},
 	"include": ["**/*.ts"]
 }
