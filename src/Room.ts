@@ -5,6 +5,7 @@ import { Peer, PeerContext } from './Peer';
 import { randomUUID } from 'crypto';
 import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
+import { createCountdownTimerMiddleware } from './middlewares/countdownTimerMiddleware';
 import { createLockMiddleware } from './middlewares/lockMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
 import { createLobbyPeerMiddleware } from './middlewares/lobbyPeerMiddleware';
@@ -39,6 +40,13 @@ export class RoomClosedError extends Error {
 	}
 }
 
+interface CountdownTimer {
+	isEnabled: boolean;
+	isStarted: boolean;
+	initialTime: string;
+	remainingTime: string;
+}
+
 export default class Room extends EventEmitter {
 	public sessionId = randomUUID();
 	public closed = false;
@@ -59,6 +67,7 @@ export default class Room extends EventEmitter {
 	public breakoutsEnabled = true; // Possibly updated by the management service
 	public chatEnabled = true; // Possibly updated by the management service
 	public filesharingEnabled = true; // Possibly updated by the management service
+	public countdownTimerEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
 
@@ -92,6 +101,14 @@ export default class Room extends EventEmitter {
 
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
+	
+	public _countdownTimerRef: ReturnType<typeof setTimeout> | null = null;
+	public countdownTimer = {
+		isEnabled: true,
+		isStarted: false,
+		remainingTime: '00:00:00',
+		initialTime: '00:00:00'
+	} as CountdownTimer;
 
 	#lobbyPeerMiddleware: Middleware<PeerContext>;
 	#initialMediaMiddleware: Middleware<PeerContext>;
@@ -105,6 +122,7 @@ export default class Room extends EventEmitter {
 	#breakoutMiddleware: Middleware<PeerContext>;
 	#chatMiddleware: Middleware<PeerContext>;
 	#fileMiddleware: Middleware<PeerContext>;
+	#countdownTimerMiddleware: Middleware<PeerContext>;
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 
@@ -128,7 +146,8 @@ export default class Room extends EventEmitter {
 		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
 		this.#chatMiddleware = createChatMiddleware({ room: this });
 		this.#fileMiddleware = createFileMiddleware({ room: this });
-
+		this.#countdownTimerMiddleware = createCountdownTimerMiddleware({ room: this });
+		
 		this.#allMiddlewares = [
 			this.#lobbyPeerMiddleware,
 			this.#initialMediaMiddleware,
@@ -140,7 +159,8 @@ export default class Room extends EventEmitter {
 			this.#lobbyMiddleware,
 			this.#breakoutMiddleware,
 			this.#chatMiddleware,
-			this.#fileMiddleware
+			this.#fileMiddleware,
+			this.#countdownTimerMiddleware,
 		];
 	}
 
@@ -281,6 +301,7 @@ export default class Room extends EventEmitter {
 		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
 		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
 		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
+		this.countdownTimerEnabled && peer.pipeline.use(this.#countdownTimerMiddleware);
 
 		this.peers.add(peer);
 
