@@ -33,7 +33,7 @@
 		"typescript": "^5.6.2"
 	},
 	"dependencies": {
-		"moment": "^2.29.4"
+		"moment": "^2.29.4",
 		"@feathersjs/authentication-client": "^5.0.30",
 		"@feathersjs/feathers": "^5.0.30",
 		"@feathersjs/socketio-client": "^5.0.30",
