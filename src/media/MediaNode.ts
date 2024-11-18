@@ -30,6 +30,11 @@ interface MediaNodeOptions {
 	port: number;
 	secret: string;
 	turnHostname?: string;
+	turnports: Array<{
+		protocol: string; // turn / turns
+		port: number;
+		transport: string;
+	}>
 	kdPoint: KDPoint
 }
 
@@ -46,6 +51,11 @@ export class MediaNode extends EventEmitter {
 	public hostname: string;
 	public port: number;
 	public turnHostname?: string;
+	public turnports: Array<{
+		protocol: string; // turn / turns
+		port: number;
+		transport: string;
+	}>;
 	public readonly kdPoint: KDPoint;
 	private pendingRequests = new Map<string, string>();
 	public routers: Map<string, Router> = new Map();
@@ -70,7 +80,7 @@ export class MediaNode extends EventEmitter {
 	#activeSpeakerMiddleware = createActiveSpeakerMiddleware({ routers: this.routers });
 	#recordersMiddleware = createRecordersMiddleware({ routers: this.routers });
 
-	constructor({ id, hostname, port, secret, turnHostname, kdPoint }: MediaNodeOptions) {
+	constructor({ id, hostname, port, secret, turnHostname, turnports, kdPoint }: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
@@ -81,6 +91,7 @@ export class MediaNode extends EventEmitter {
 		this.port = port;
 		this.secret = secret;
 		this.turnHostname = turnHostname;
+		this.turnports = turnports;
 		this.kdPoint = kdPoint;
 
 		this.startHealthCheck(true);

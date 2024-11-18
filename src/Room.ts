@@ -345,8 +345,8 @@ export default class Room extends EventEmitter {
 
 			let iceServers = [] as IceServer[];
 
-			if (mediaNode.turnHostname)
-				iceServers = getIceServers({ hostname: mediaNode.turnHostname, ...getCredentials(peer.id, mediaNode.secret, 3600) });
+			if (mediaNode.turnHostname && mediaNode.turnports)
+				iceServers = getIceServers({ hostname: mediaNode.turnHostname, turnports: mediaNode.turnports, ...getCredentials(peer.id, mediaNode.secret, 3600) });
 	
 			const { rtpCapabilities, sctpCapabilities } = await peer.request({
 				method: 'mediaConfiguration',

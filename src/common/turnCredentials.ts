@@ -7,6 +7,11 @@ export interface IceCredentials {
 
 export interface IceServerConfig extends IceCredentials {
 	hostname: string;
+	turnports: Array<{
+		protocol: string; // turn / turns
+		port: number;
+		transport: string;
+	}>
 }
 
 export interface IceServer {
@@ -27,8 +32,16 @@ export const getCredentials = (peerId: string, secret: string, validTimeInS: num
 	return { username, credential: hmac.read() };
 };
 
-export const getIceServers = ({ hostname, username, credential }: IceServerConfig): IceServer[] => ([ {
-	urls: [ `turn:${hostname}:3478?transport=udp`, `turns:${hostname}:443?transport=tcp` ],
-	username,
-	credential
-} ]);
+export const getIceServers = ({ hostname, username, credential, turnports }: IceServerConfig): IceServer[] => {
+	const urls = turnports.map((turnport) =>
+		`${turnport.protocol}:${hostname}:${turnport.port}?transport=${turnport.transport}`
+	);
+
+	return [
+		{
+			urls,
+			username,
+			credential
+		}
+	];
+};

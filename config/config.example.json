@@ -47,6 +47,18 @@
 		"secret": "secret-shared-with-media-node",
 		"latitude": 63.430481,
 		"longitude": 10.394964,
-		"turnHostname": "localhost"
+		"turnHostname": "localhost",
+		"turnports" :  [
+			{
+				"protocol":"turn",
+				"port": 80,
+				"transport": "udp"
+			},
+			{
+				"protocol":"turns",
+				"port": 443,
+				"transport": "tcp"
+			}
+		]
 	}]
 }
