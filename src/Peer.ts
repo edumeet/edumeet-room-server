@@ -326,7 +326,7 @@ export class Peer extends EventEmitter {
 				logger.error('request() [error: %o]', error);
 				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
-				reject('Server error');
+				reject?.('Server error');
 			}
 		});
 
