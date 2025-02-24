@@ -398,4 +398,8 @@ export default class Room extends EventEmitter {
 			...this.lobbyPeers.items.filter((p) => p.groupIds.includes(groupId))
 		];
 	}
+
+	public getPeerById(peerId: string): Peer | undefined {
+		return this.peers.items.find((p) => p.id === peerId);
+	}
 }
