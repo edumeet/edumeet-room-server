@@ -122,6 +122,32 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				break;
 			}
 
+			case 'moveToBreakoutRoom': {
+				const { roomSessionId, roomPeerId } = message.data;
+
+				const roomToBeMovedTo = room.breakoutRooms.get(roomSessionId);
+				const peerToBeMoved = room.getPeerById(roomPeerId);
+
+				if (!peerToBeMoved)
+					throw new Error('Peer not found');
+
+				if (!roomToBeMovedTo)
+					throw new Error('Session not found');
+				
+				if (peerToBeMoved.sessionId === roomSessionId)
+					throw new Error('Already in session');
+
+				roomToBeMovedTo.addPeer(peerToBeMoved);
+
+				changeRoom(roomToBeMovedTo, peerToBeMoved, true);
+
+				response.chatHistory = roomToBeMovedTo.chatHistory;
+				response.fileHistory = roomToBeMovedTo.fileHistory;
+				context.handled = true;
+
+				break;
+			}
+
 			default: {
 				break;
 			}
