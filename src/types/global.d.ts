@@ -1,10 +1,12 @@
-import { Worker } from 'mediasoup/node/lib/Worker';
-import { Router } from 'mediasoup/node/lib/Router';
-import { Transport } from 'mediasoup/node/lib/Transport';
-import { Producer } from 'mediasoup/node/lib/Producer';
-import { Consumer } from 'mediasoup/node/lib/Consumer';
-import { DataProducer } from 'mediasoup/node/lib/DataProducer';
-import { DataConsumer } from 'mediasoup/node/lib/DataConsumer';
+import {
+	Worker,
+	Router,
+	Transport,
+	Producer,
+	Consumer,
+	DataProducer,
+	DataConsumer
+} from 'mediasoup/types';
 import ServerManager from '../ServerManager';
 import ManagementService from '../ManagementService';
 

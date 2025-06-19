@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { Router } from './Router';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
 import { MediaNode } from './MediaNode';
-import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
+import { RtpParameters } from 'mediasoup/types';
 
 const logger = new Logger('PipeConsumer');
 

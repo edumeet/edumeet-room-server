@@ -7,9 +7,11 @@ import { DataProducer, DataProducerOptions } from './DataProducer';
 import { DataConsumer, DataConsumerOptions } from './DataConsumer';
 import { MediaKind } from 'edumeet-common';
 import { MediaNode } from './MediaNode';
-import { RtpCapabilities, RtpParameters } from 'mediasoup/node/lib/RtpParameters';
-import { SctpParameters, SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
-import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup/node/lib/WebRtcTransport';
+import {
+	RtpCapabilities, RtpParameters,
+	SctpParameters, SctpStreamParameters,
+	DtlsParameters, IceCandidate, IceParameters,
+} from 'mediasoup/types';
 
 const logger = new Logger('WebRtcTransport');
 

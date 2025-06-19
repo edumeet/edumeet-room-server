@@ -6,7 +6,7 @@ import { KDPoint } from 'edumeet-common';
 import { Producer } from '../../src/media/Producer';
 import { Consumer } from '../../src/media/Consumer';
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
-import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup/node/lib/WebRtcTransport';
+import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup/types';
 
 const fakePoint = {} as unknown as KDPoint;
 const create = () => {

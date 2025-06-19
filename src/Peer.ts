@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { MediaSourceType, Role } from './common/types';
 import { Router } from './media/Router';
-import { RtpCapabilities, SctpCapabilities } from 'mediasoup/node/lib/types';
+import { RtpCapabilities, SctpCapabilities } from 'mediasoup/types';
 import { WebRtcTransport } from './media/WebRtcTransport';
 import { Consumer } from './media/Consumer';
 import { Producer } from './media/Producer';
