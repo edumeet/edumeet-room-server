@@ -39,6 +39,7 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				response.chatHistory = room.chatHistory;
 				response.fileHistory = room.fileHistory;
 				response.countdownTimer = room.countdownTimer;
+				response.drawing = room.drawing;
 				response.breakoutRooms = room.getBreakoutRooms().map((b) => (b.breakoutRoomInfo));
 				response.lobbyPeers = lobbyPeers;
 				response.locked = room.locked;

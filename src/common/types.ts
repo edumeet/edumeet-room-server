@@ -31,6 +31,12 @@ export interface FileMessage {
 	timestamp: number;
 }
 
+export interface CanvasObject {
+	object: object;
+	objectId: string,
+	status: string;
+}
+
 export interface LobbyPeerInfo {
 	id: string;
 	displayName?: string;
