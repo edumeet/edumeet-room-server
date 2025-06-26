@@ -14,8 +14,7 @@ import { DataConsumer } from './DataConsumer';
 import { ActiveSpeakerObserver, ActiveSpeakerObserverOptions } from './ActiveSpeakerObserver';
 import { AudioLevelObserver, AudioLevelObserverOptions } from './AudioLevelObserver';
 import { canConsume } from '../common/ortc';
-import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
-import { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
+import { SctpCapabilities, RtpCapabilities } from 'mediasoup/types';
 import { Recorder, RecorderOptions } from './Recorder';
 
 const logger = new Logger('Router');
