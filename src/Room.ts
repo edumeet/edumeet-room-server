@@ -13,8 +13,10 @@ import { createLobbyMiddleware } from './middlewares/lobbyMiddleware';
 import { createModeratorMiddleware } from './middlewares/moderatorMiddleware';
 import { createJoinMiddleware } from './middlewares/joinMiddleware';
 import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddleware';
-import { ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomRole, RoomSettings } from './common/types';
+import { CanvasObject, ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
+import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
+
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { MediaNode } from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
@@ -31,6 +33,12 @@ interface RoomOptions {
 	id: string;
 	name?: string;
 	mediaService: MediaService;
+}
+
+interface Drawing {
+	isEnabled: boolean;
+	bgColor: string;
+	canvasState: CanvasObject[];
 }
 
 export class RoomClosedError extends Error {
@@ -70,6 +78,7 @@ export default class Room extends EventEmitter {
 	public countdownTimerEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
+	public drawingEnabled = true; // Possibly updated by the management service
 
 	public settings: RoomSettings = {};
 
@@ -101,6 +110,12 @@ export default class Room extends EventEmitter {
 
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
+
+	public drawing = {
+		isEnabled: false,
+		bgColor: 'white',
+		canvasState: [],
+	} as Drawing;
 	
 	public _countdownTimerRef: ReturnType<typeof setTimeout> | null = null;
 	public countdownTimer = {
@@ -123,6 +138,7 @@ export default class Room extends EventEmitter {
 	#chatMiddleware: Middleware<PeerContext>;
 	#fileMiddleware: Middleware<PeerContext>;
 	#countdownTimerMiddleware: Middleware<PeerContext>;
+	#drawingMiddleware: Middleware<PeerContext>;
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 
@@ -147,6 +163,7 @@ export default class Room extends EventEmitter {
 		this.#chatMiddleware = createChatMiddleware({ room: this });
 		this.#fileMiddleware = createFileMiddleware({ room: this });
 		this.#countdownTimerMiddleware = createCountdownTimerMiddleware({ room: this });
+		this.#drawingMiddleware = createDrawingMiddleware({ room: this });
 		
 		this.#allMiddlewares = [
 			this.#lobbyPeerMiddleware,
@@ -161,6 +178,7 @@ export default class Room extends EventEmitter {
 			this.#chatMiddleware,
 			this.#fileMiddleware,
 			this.#countdownTimerMiddleware,
+			this.#drawingMiddleware,
 		];
 	}
 
@@ -302,6 +320,7 @@ export default class Room extends EventEmitter {
 		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
 		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
 		this.countdownTimerEnabled && peer.pipeline.use(this.#countdownTimerMiddleware);
+		this.drawingEnabled && peer.pipeline.use(this.#drawingMiddleware);
 
 		this.peers.add(peer);
 
