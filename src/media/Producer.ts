@@ -3,7 +3,7 @@ import { Router } from './Router';
 import { ProducerScore } from '../common/types';
 import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
 import { MediaNode } from './MediaNode';
-import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
+import { RtpParameters } from 'mediasoup/types';
 
 const logger = new Logger('Producer');
 

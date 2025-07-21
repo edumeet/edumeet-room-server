@@ -7,8 +7,7 @@ import { Logger, skipIfClosed, MediaKind } from 'edumeet-common';
 import { PipeDataProducer, PipeDataProducerOptions } from './PipeDataProducer';
 import { PipeDataConsumer, PipeDataConsumerOptions } from './PipeDataConsumer';
 import { MediaNode } from './MediaNode';
-import { RtpParameters } from 'mediasoup/node/lib/RtpParameters';
-import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
+import { RtpParameters, SctpStreamParameters } from 'mediasoup/types';
 
 const logger = new Logger('PipeTransport');
 

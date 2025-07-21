@@ -7,7 +7,7 @@ import {
 	RtpCodecParameters,
 	RtpHeaderExtension,
 	RtpParameters
-} from 'mediasoup/node/lib/RtpParameters';
+} from 'mediasoup/types';
 
 /**
  * Validates RtpCapabilities. It may modify given data by adding missing
