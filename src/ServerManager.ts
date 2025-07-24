@@ -114,9 +114,11 @@ export default class ServerManager {
 					chatEnabled = true,
 					raiseHandEnabled = true,
 					filesharingEnabled = true,
-					localRecordingEnabled = true
+					localRecordingEnabled = true,
+					tracker=undefined
 				} = config.defaultRoomSettings;
-
+				
+				room.tracker = tracker;
 				room.defaultRole = defaultRole;
 				room.maxActiveVideos = maxActiveVideos;
 				room.locked = locked;
@@ -151,6 +153,7 @@ export default class ServerManager {
 
 						room.maxActiveVideos = managedRoom.maxActiveVideos;
 						room.locked = managedRoom.locked;
+						room.tracker = managedRoom.tracker;
 						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
 						room.chatEnabled = managedRoom.chatEnabled;
 						room.raiseHandEnabled = managedRoom.raiseHandEnabled;

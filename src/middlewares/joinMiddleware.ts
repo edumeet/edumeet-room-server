@@ -43,6 +43,9 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				response.breakoutRooms = room.getBreakoutRooms().map((b) => (b.breakoutRoomInfo));
 				response.lobbyPeers = lobbyPeers;
 				response.locked = room.locked;
+				// Torrent tracker for fileService (do not use DHT or the files will be visible)
+				if (room.tracker)
+					response.tracker = room.tracker;
 
 				room.joinPeer(peer);
 				context.handled = true;

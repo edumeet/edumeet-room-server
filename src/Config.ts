@@ -63,6 +63,7 @@ export interface Config {
 		filesharingEnabled?: boolean;
 		raiseHandEnabled?: boolean;
 		localRecordingEnabled?: boolean;
+		tracker?: string;
 	};
 	mediaNodes?: MediaNodeConfig[];
 }
