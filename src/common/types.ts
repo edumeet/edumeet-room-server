@@ -138,6 +138,8 @@ export type ManagedRoom = {
 	// Features of the room
 	maxActiveVideos: number;
 	locked: boolean;
+	tracker?: string;
+	maxFileSize?: number;
 	breakoutsEnabled: boolean;
 	chatEnabled: boolean;
 	raiseHandEnabled: boolean;
