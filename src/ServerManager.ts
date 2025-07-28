@@ -161,6 +161,7 @@ export default class ServerManager {
 						// TODO remove after it is part of mgmt service
 						if (managedRoom.tracker)
 							room.tracker = managedRoom.tracker;
+
 						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
 						room.chatEnabled = managedRoom.chatEnabled;
 						room.raiseHandEnabled = managedRoom.raiseHandEnabled;
