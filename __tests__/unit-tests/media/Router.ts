@@ -2,7 +2,7 @@ import 'jest';
 import { Router } from '../../../src/media/Router';
 import MediaNode from '../../../src/media/MediaNode';
 import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
-import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
+import { SctpCapabilities } from 'mediasoup/types';
 import { Producer } from '../../../src/media/Producer';
 import { WebRtcTransport } from '../../../src/media/WebRtcTransport';
 import { PipeTransport } from '../../../src/media/PipeTransport';

@@ -3,7 +3,7 @@ import 'jest';
 import { DataConsumer } from '../../../src/media/DataConsumer';
 import { Router } from '../../../src/media/Router';
 import MediaNode from '../../../src/media/MediaNode';
-import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
+import { SctpStreamParameters } from 'mediasoup/types';
 
 describe('Consumer', () => {
 	const dataConsumerId = 'id'; 
