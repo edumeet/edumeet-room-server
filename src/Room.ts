@@ -70,6 +70,7 @@ export default class Room extends EventEmitter {
 	public defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
 	public locked = true; // Possibly updated by the management service
 	public tracker?: string; // Torrent tracker
+	public maxFileSize = 100_000_000; // Torrent tracker
 	public promoteOnHostJoin = false; // Possibly updated by the management service
 
 	public maxActiveVideos = 12; // Possibly updated by the management service

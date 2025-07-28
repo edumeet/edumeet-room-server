@@ -64,6 +64,7 @@ export interface Config {
 		raiseHandEnabled?: boolean;
 		localRecordingEnabled?: boolean;
 		tracker?: string;
+		maxFileSize?: number;
 	};
 	mediaNodes?: MediaNodeConfig[];
 }
