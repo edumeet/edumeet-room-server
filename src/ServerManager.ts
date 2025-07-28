@@ -115,10 +115,13 @@ export default class ServerManager {
 					raiseHandEnabled = true,
 					filesharingEnabled = true,
 					localRecordingEnabled = true,
-					tracker=undefined
+					tracker=undefined,
+					maxFileSize = 100_000_000					
 				} = config.defaultRoomSettings;
 				
 				room.tracker = tracker;
+				if (maxFileSize)
+					room.maxFileSize = maxFileSize;
 				room.defaultRole = defaultRole;
 				room.maxActiveVideos = maxActiveVideos;
 				room.locked = locked;
@@ -153,7 +156,11 @@ export default class ServerManager {
 
 						room.maxActiveVideos = managedRoom.maxActiveVideos;
 						room.locked = managedRoom.locked;
-						room.tracker = managedRoom.tracker;
+						if (managedRoom.maxFileSize)
+							room.maxFileSize = managedRoom.maxFileSize;
+						// TODO remove after it is part of mgmt service
+						if (managedRoom.tracker)
+							room.tracker = managedRoom.tracker;
 						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
 						room.chatEnabled = managedRoom.chatEnabled;
 						room.raiseHandEnabled = managedRoom.raiseHandEnabled;
