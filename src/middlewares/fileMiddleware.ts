@@ -48,6 +48,23 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 
 				break;
 			}
+			case 'clearFile': {
+
+				const { magnetURI } = message.data;
+
+				room.fileHistory = room.fileHistory.filter((item: FileMessage) => {
+					// user can only drop own files
+					return (!(magnetURI == item.magnetURI && item.peerId == peer.id));
+				}) as FileMessage[];
+
+				room.notifyPeers('clearFile', {
+					magnetURI,
+				});
+
+				context.handled = true;
+
+				break;
+			}
 
 			default: {
 				break;
