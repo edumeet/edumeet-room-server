@@ -33,7 +33,6 @@
 		"typescript": "^5.6.2"
 	},
 	"dependencies": {
-		"moment": "^2.29.4",
 		"@feathersjs/authentication-client": "^5.0.30",
 		"@feathersjs/feathers": "^5.0.30",
 		"@feathersjs/socketio-client": "^5.0.30",
@@ -44,6 +43,7 @@
 		"h264-profile-level-id": "^1.1.1",
 		"jsonwebtoken": "^9.0.2",
 		"mediasoup": "^3.14.14",
+		"moment": "^2.29.4",
 		"socket.io": "^4.8.0",
 		"socket.io-client": "^4.8.0"
 	},
@@ -52,6 +52,6 @@
 		"utf-8-validate": "^6.0.4"
 	},
 	"resolutions": {
-    	"strip-ansi": "6.0.1"
-  	}
+		"strip-ansi": "6.0.1"
+	}
 }
