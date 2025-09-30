@@ -1,13 +1,6 @@
+import { MediaKind } from 'edumeet-common';
 import * as h264 from 'h264-profile-level-id';
-import {
-	MediaKind,
-	RtcpFeedback,
-	RtpCapabilities,
-	RtpCodecCapability,
-	RtpCodecParameters,
-	RtpHeaderExtension,
-	RtpParameters
-} from 'mediasoup/node/lib/RtpParameters';
+import { RtpCapabilities, RtpCodecCapability, RtcpFeedback, RtpHeaderExtension, RtpParameters, RtpCodecParameters } from 'mediasoup/types';
 
 /**
  * Validates RtpCapabilities. It may modify given data by adding missing
@@ -197,8 +190,8 @@ export function canConsume(
 	const matchingCodecs: RtpCodecParameters[] = [];
 
 	for (const codec of consumableParams.codecs) {
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const matchedCapCodec = caps.codecs!.find((capCodec) => matchCodecs(capCodec, codec, { strict: true }));
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-explicit-any
+		const matchedCapCodec = caps.codecs!.find((capCodec: any) => matchCodecs(capCodec, codec, { strict: true }));
 
 		if (!matchedCapCodec) {
 			continue;
@@ -224,6 +217,7 @@ function matchCodecs(
 	bCodec: RtpCodecCapability | RtpCodecParameters,
 	{ strict = false, modify = false } = {}
 ): boolean {
+	
 	const aMimeType = aCodec.mimeType.toLowerCase();
 	const bMimeType = bCodec.mimeType.toLowerCase();
 
@@ -238,6 +232,11 @@ function matchCodecs(
 	if (aCodec.channels !== bCodec.channels) {
 		return false;
 	}
+
+	if (!aCodec.parameters)
+		return false;
+	if (!bCodec.parameters)
+		return false;
 
 	// Per codec special checks.
 	switch (aMimeType) {

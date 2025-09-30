@@ -22,10 +22,9 @@ import { MediaNode } from './media/MediaNode';
 import BreakoutRoom from './BreakoutRoom';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 import { safePromise } from './common/safePromise';
-import type { RtpCapabilities } from 'mediasoup/node/lib/RtpParameters';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
-import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
 import { Router } from './media/Router';
+import { RtpCapabilities, SctpCapabilities } from 'mediasoup/types';
 
 const logger = new Logger('Room');
 

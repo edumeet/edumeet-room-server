@@ -1,7 +1,6 @@
 import { EventEmitter } from 'events';
 import { MediaSourceType, Role } from './common/types';
 import { Router } from './media/Router';
-import { RtpCapabilities, SctpCapabilities } from 'mediasoup/node/lib/types';
 import { WebRtcTransport } from './media/WebRtcTransport';
 import { Consumer } from './media/Consumer';
 import { Producer } from './media/Producer';
@@ -23,6 +22,7 @@ import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
 import { Permission } from './common/authorization';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
+import { RtpCapabilities, SctpCapabilities } from 'mediasoup/types';
 
 const logger = new Logger('Peer');
 
