@@ -62,6 +62,7 @@ export interface Config {
 		chatEnabled?: boolean;
 		filesharingEnabled?: boolean;
 		raiseHandEnabled?: boolean;
+		reactionsEnabled?: boolean;
 		localRecordingEnabled?: boolean;
 		tracker?: string;
 		maxFileSize?: number;

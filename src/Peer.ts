@@ -41,6 +41,8 @@ export interface PeerInfo {
 	picture?: string;
 	raisedHand: boolean;
 	raisedHandTimestamp?: number;
+	sendReaction: string | null;
+	sendReactionTimestamp?: number;
 	sessionId: string;
 	recording: boolean;
 }
@@ -83,6 +85,8 @@ export class Peer extends EventEmitter {
 
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
+	#sendReaction = null;
+	public sendReactionTimestamp?: number;
 	#escapeMeeting = false;
 	public escapeMeetingTimestamp?: number;
 
@@ -271,6 +275,15 @@ export class Peer extends EventEmitter {
 		this.raisedHandTimestamp = Date.now();
 	}
 
+	public get sendReaction(): string {
+		return this.#sendReaction;
+	}
+
+	public set sendReaction(value: string) {
+		this.#sendReaction = value;
+		this.sendReactionTimestamp = Date.now();
+	}
+
 	public get escapeMeeting(): boolean {
 		return this.#escapeMeeting;
 	}
@@ -385,6 +398,8 @@ export class Peer extends EventEmitter {
 			picture: this.picture,
 			raisedHand: this.raisedHand,
 			raisedHandTimestamp: this.raisedHandTimestamp,
+			sendReaction: this.sendReaction,
+			sendReactionTimestamp: this.sendReactionTimestamp,
 			sessionId: this.sessionId,
 			recording: this.recording,
 		};

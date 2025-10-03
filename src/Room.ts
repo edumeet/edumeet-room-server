@@ -78,6 +78,7 @@ export default class Room extends EventEmitter {
 	public filesharingEnabled = true; // Possibly updated by the management service
 	public countdownTimerEnabled = true; // Possibly updated by the management service
 	public raiseHandEnabled = true; // Possibly updated by the management service
+	public reactionsEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
 	public drawingEnabled = true; // Possibly updated by the management service
 
@@ -284,6 +285,7 @@ export default class Room extends EventEmitter {
 				chatEnabled: this.chatEnabled,
 				filesharingEnabled: this.filesharingEnabled,
 				raiseHandEnabled: this.raiseHandEnabled,
+				reactionsEnabled: this.reactionsEnabled,
 				localRecordingEnabled: this.localRecordingEnabled,
 
 				settings: this.settings,

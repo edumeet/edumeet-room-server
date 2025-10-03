@@ -120,6 +120,15 @@ describe('Peer', () => {
 		expect(peer.raisedHandTimestamp).toBeDefined();
 	});
 
+	it('set sendReaction()', () => {
+		expect(peer.sendReactionTimestamp).toBeUndefined();
+
+		peer.sendReaction = 'thumbup';
+
+		expect(peer.sendReaction).toBe('thumbup');
+		expect(peer.sendReactionTimestamp).toBeDefined();
+	});
+
 	describe('Connections', () => {
 		let pipelineWithMiddleware: Pipeline<PeerContext>;
 		let pipelineWithoutMiddleware: Pipeline<PeerContext>;
