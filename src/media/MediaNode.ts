@@ -315,4 +315,40 @@ export class MediaNode extends EventEmitter {
 			this.healthy = true;
 		}
 	}
+
+	@skipIfClosed
+	public async createPlainTransport(request: SocketMessage): Promise<unknown> {
+		logger.debug('createPlainTransport() [request: %o]', request);
+
+		const connection = await this.getOrCreateConnection();
+
+		return connection.request(request);
+	}
+
+	@skipIfClosed
+	public async connectPlainTransport(request: SocketMessage): Promise<unknown> {
+		logger.debug('connectPlainTransport() [request: %o]', request);
+
+		const connection = await this.getOrCreateConnection();
+
+		return connection.request(request);
+	}
+
+	@skipIfClosed
+	public async closePlainTransport(request: SocketMessage): Promise<unknown> {
+		logger.debug('closePlainTransport() [request: %o]', request);
+
+		const connection = await this.getOrCreateConnection();
+
+		return connection.request(request);
+	}
+
+	@skipIfClosed
+	public async getPlainTransportStats(request: SocketMessage): Promise<unknown> {
+		logger.debug('getPlainTransportStats() [request: %o]', request);
+
+		const connection = await this.getOrCreateConnection();
+
+		return connection.request(request);
+	}
 }
