@@ -85,7 +85,7 @@ export class Peer extends EventEmitter {
 
 	#raisedHand = false;
 	public raisedHandTimestamp?: number;
-	#sendReaction = null;
+	#sendReaction: string | null = null;
 	public sendReactionTimestamp?: number;
 	#escapeMeeting = false;
 	public escapeMeetingTimestamp?: number;
@@ -275,11 +275,11 @@ export class Peer extends EventEmitter {
 		this.raisedHandTimestamp = Date.now();
 	}
 
-	public get sendReaction(): string {
+	public get sendReaction(): string | null {
 		return this.#sendReaction;
 	}
 
-	public set sendReaction(value: string) {
+	public set sendReaction(value: string | null) {
 		this.#sendReaction = value;
 		this.sendReactionTimestamp = Date.now();
 	}
