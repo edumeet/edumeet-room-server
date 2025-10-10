@@ -65,14 +65,14 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				break;
 			}
 
-			case 'sendReaction': {
-				const { sendReaction } = message.data;
+			case 'reaction': {
+				const { reaction } = message.data;
 
-				peer.sendReaction = sendReaction;
+				peer.sendReaction = reaction;
 
-				room.notifyPeers('sendReaction', {
+				room.notifyPeers('reaction', {
 					peerId: peer.id,
-					sendReaction,
+					reaction,
 					sendReactionTimestamp: peer.sendReactionTimestamp
 				}, peer);
 
