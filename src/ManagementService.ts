@@ -119,9 +119,14 @@ export default class ManagementService {
 			// create default from fallback.data
 			const fdata = fallback.data[0];
 
-			// get roles here?
-			// or 
-			// get them with a virt adapter
+			// get roles with a virt adapter on mgmt side
+			// TODO finish user and group roles
+			let maxFileSize = 100_000_000;
+			
+			// mb to byte
+			if (fdata.maxFileSize)
+				maxFileSize = fdata.maxFileSize*1_000_000;
+
 			const defaultRoom =	{
 				id: 0,
 				name: '',
@@ -137,7 +142,7 @@ export default class ManagementService {
 				maxActiveVideos: 12,
 				locked: fdata.lockedUnmanaged,
 				tracker: fdata.tracker || '',
-				maxFileSize: fdata.maxFileSize || 100_000_000,
+				maxFileSize: maxFileSize,
 				breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
 				chatEnabled: fdata.chatEnabledUnmanaged,
 				raiseHandEnabled: fdata.raiseHandEnabledUnmanaged,
