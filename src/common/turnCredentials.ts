@@ -23,7 +23,7 @@ export interface IceServer {
 export const getCredentials = (peerId: string, secret: string, validTimeInS: number): IceCredentials => {
 	const unixTimeStamp = ~~(Date.now() / 1000) + validTimeInS;
 	const username = `${unixTimeStamp}:${peerId}`;
-	const hmac = createHmac('sha1', secret);
+	const hmac = createHmac('sha256', secret);
 
 	hmac.setEncoding('base64');
 	hmac.write(username);
