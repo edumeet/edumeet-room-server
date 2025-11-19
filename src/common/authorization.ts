@@ -106,6 +106,7 @@ export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
 	room.chatEnabled = managedRoom.chatEnabled;
 	room.filesharingEnabled = managedRoom.filesharingEnabled;
 	room.raiseHandEnabled = managedRoom.raiseHandEnabled;
+	room.reactionsEnabled = managedRoom.reactionsEnabled;
 	room.localRecordingEnabled = managedRoom.localRecordingEnabled;
 	room.breakoutsEnabled = managedRoom.breakoutsEnabled;
 	room.maxActiveVideos = managedRoom.maxActiveVideos;

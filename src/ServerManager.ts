@@ -113,6 +113,7 @@ export default class ServerManager {
 					breakoutsEnabled = true,
 					chatEnabled = true,
 					raiseHandEnabled = true,
+					reactionsEnabled = true,
 					filesharingEnabled = true,
 					localRecordingEnabled = true,
 					tracker=undefined,
@@ -128,6 +129,7 @@ export default class ServerManager {
 				room.breakoutsEnabled = breakoutsEnabled;
 				room.chatEnabled = chatEnabled;
 				room.raiseHandEnabled = raiseHandEnabled;
+				room.reactionsEnabled = reactionsEnabled;
 				room.filesharingEnabled = filesharingEnabled;
 				room.localRecordingEnabled = localRecordingEnabled;
 			}
@@ -165,6 +167,7 @@ export default class ServerManager {
 						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
 						room.chatEnabled = managedRoom.chatEnabled;
 						room.raiseHandEnabled = managedRoom.raiseHandEnabled;
+						room.reactionsEnabled = managedRoom.reactionsEnabled;
 						room.filesharingEnabled = managedRoom.filesharingEnabled;
 						room.localRecordingEnabled = managedRoom.localRecordingEnabled;
 

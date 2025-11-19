@@ -143,6 +143,7 @@ export type ManagedRoom = {
 	breakoutsEnabled: boolean;
 	chatEnabled: boolean;
 	raiseHandEnabled: boolean;
+	reactionsEnabled: boolean;
 	filesharingEnabled: boolean;
 	localRecordingEnabled: boolean;
 
