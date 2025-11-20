@@ -95,7 +95,7 @@ export default class ManagementService {
 
 	@skipIfClosed
 	public async getRoom(name: string, tenantId: number): Promise<ManagedRoom | undefined> {
-		logger.debug('getRoom() [name: %s]', name);
+		logger.debug('getRoom() [name: %s, tenantid: %s]', name, tenantId);
 
 		const [ error ] = await this.ready;
 
@@ -145,6 +145,7 @@ export default class ManagementService {
 				maxFileSize: maxFileSize,
 				breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
 				chatEnabled: fdata.chatEnabledUnmanaged,
+				reactionsEnabled: fdata.reactionsEnabledUnmanaged,
 				raiseHandEnabled: fdata.raiseHandEnabledUnmanaged,
 				filesharingEnabled: fdata.filesharingEnabledUnmanaged,
 				localRecordingEnabled: fdata.localRecordingEnabledUnmanaged,
