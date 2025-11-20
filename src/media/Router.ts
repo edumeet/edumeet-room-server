@@ -435,12 +435,9 @@ export class Router extends EventEmitter {
 			let pipeProducer: PipeProducer | undefined;
 
 			try {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeConsumer = await localPipeTransport!.consume({
 					producerId: producer.id
 				});
-
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeProducer = await remotePipeTransport!.produce({
 					producerId: producer.id,
 					kind: pipeConsumer.kind,
@@ -489,12 +486,9 @@ export class Router extends EventEmitter {
 			let pipeDataProducer: PipeDataProducer | undefined;
 
 			try {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeDataConsumer = await localPipeTransport!.consumeData({
 					dataProducerId: dataProducer.id
 				});
-
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeDataProducer = await remotePipeTransport!.produceData({
 					dataProducerId: dataProducer.id,
 					sctpStreamParameters: pipeDataConsumer.sctpStreamParameters,

@@ -190,7 +190,7 @@ export function canConsume(
 	const matchingCodecs: RtpCodecParameters[] = [];
 
 	for (const codec of consumableParams.codecs) {
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-explicit-any
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const matchedCapCodec = caps.codecs!.find((capCodec: any) => matchCodecs(capCodec, codec, { strict: true }));
 
 		if (!matchedCapCodec) {
@@ -279,6 +279,7 @@ function matchCodecs(
 				try {
 					selectedProfileLevelId =
 						h264.generateProfileLevelIdForAnswer(aCodec.parameters, bCodec.parameters);
+				// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
 				} catch (error) {
 					return false;
 				}

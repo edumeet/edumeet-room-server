@@ -1,7 +1,6 @@
 import BreakoutRoom from '../BreakoutRoom';
 import Room from '../Room';
-
-// eslint-disable-next-line no-shadow
+ 
 export enum MediaSourceType {
 	// eslint-disable-next-line no-unused-vars
 	MIC = 'mic',

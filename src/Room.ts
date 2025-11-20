@@ -319,11 +319,11 @@ export default class Room extends EventEmitter {
 			this.#lockMiddleware,
 		);
 
-		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
-		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
-		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
-		this.countdownTimerEnabled && peer.pipeline.use(this.#countdownTimerMiddleware);
-		this.drawingEnabled && peer.pipeline.use(this.#drawingMiddleware);
+		if (this.breakoutsEnabled) peer.pipeline.use(this.#breakoutMiddleware);
+		if (this.chatEnabled) peer.pipeline.use(this.#chatMiddleware);
+		if (this.filesharingEnabled) peer.pipeline.use(this.#fileMiddleware);
+		if (this.countdownTimerEnabled) peer.pipeline.use(this.#countdownTimerMiddleware);
+		if (this.drawingEnabled) peer.pipeline.use(this.#drawingMiddleware);
 
 		this.peers.add(peer);
 

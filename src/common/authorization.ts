@@ -2,7 +2,7 @@ import { Peer } from '../Peer';
 import Room from '../Room';
 import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, MediaSourceType, RoomSettings } from './types';
 
-/* eslint-disable no-unused-vars, no-shadow */
+/* eslint-disable no-unused-vars */
 export enum Permission {
 	// The role(s) will gain access to the room even if it is locked (!)
 	BYPASS_ROOM_LOCK = 'BYPASS_ROOM_LOCK',
