@@ -39,6 +39,7 @@ export default class ManagementService {
 	#client: Application;
 	#reAuthTimer: NodeJS.Timeout;
 
+	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
 	#roomUserRolesService: FeathersService;
@@ -69,6 +70,7 @@ export default class ManagementService {
 		this.#roomOwnersService = this.#client.service('roomOwners');
 		this.#roomUserRolesService = this.#client.service('roomUserRoles');
 		this.#roomGroupRolesService = this.#client.service('roomGroupRoles');
+		this.#defaultsService = this.#client.service('defaults');
 
 		this.#usersService = this.#client.service('users');
 		this.#groupsService = this.#client.service('groups');
@@ -104,6 +106,54 @@ export default class ManagementService {
 		logger.debug('getRoom() [name: %s] -> data: %o', name, data);
 
 		if (total === 1) return data[0];
+
+		// no room found (this means this room is unmaged),
+		// so fallback to tenant default if set
+		// tenant default is not the exact same as the room type
+		// so we check for services enabled, and default states for now
+		const fallback = await this.#defaultsService.find({ query: { name, tenantId } });
+
+		logger.debug('getRoom() [name: %s] -> fallback: %o', name, fallback);
+
+		if (fallback.total === 1) {
+			// create default from fallback.data
+			const fdata = fallback.data[0];
+
+			// get roles with a virt adapter on mgmt side
+			// TODO finish user and group roles
+			let maxFileSize = 100_000_000;
+			
+			// mb to byte
+			if (fdata.maxFileSize)
+				maxFileSize = fdata.maxFileSize*1_000_000;
+
+			const defaultRoom =	{
+				id: 0,
+				name: '',
+				description: '',
+				createdAt: 0,
+				updatedAt: 0,
+				creatorId: 0,
+				tenantId: tenantId,
+				owners: [],
+				groupRoles: [],
+				userRoles: [],
+				defaultRole: fdata.defaultRole || [],
+				maxActiveVideos: 12,
+				locked: fdata.lockedUnmanaged,
+				tracker: fdata.tracker || '',
+				maxFileSize: maxFileSize,
+				breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
+				chatEnabled: fdata.chatEnabledUnmanaged,
+				raiseHandEnabled: fdata.raiseHandEnabledUnmanaged,
+				filesharingEnabled: fdata.filesharingEnabledUnmanaged,
+				localRecordingEnabled: fdata.localRecordingEnabledUnmanaged,
+				logo: fdata.logo || '',
+				background: fdata.background || ''
+			};
+
+			return defaultRoom;
+		}
 	}
 
 	@skipIfClosed

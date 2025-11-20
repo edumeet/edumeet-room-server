@@ -243,3 +243,37 @@ export type ManagedGroupUser = {
 	groupId: string;
 	userId: string;
 }
+
+export type Default = {
+	id: number,
+	tenantId: string, // number,
+	numberLimit: string, // number,
+	liveNumberLimit: string, // number,
+	userManagedRoomNumberLimit: string, // number,
+	managerManagedRoomNumberLimit: string, // number,
+	lockedManaged: boolean | undefined,
+	raiseHandEnabledManaged: boolean | undefined,
+	localRecordingEnabledManaged: boolean | undefined,
+	lockedUnmanaged: boolean | undefined,
+	raiseHandEnabledUnmanaged: boolean | undefined,
+	localRecordingEnabledUnmanaged: boolean | undefined,
+	lockedLock: boolean | undefined,
+	raiseHandEnabledLock: boolean | undefined,
+	localRecordingEnabledLock: boolean | undefined,
+	chatEnabledUnmanaged: boolean | undefined,
+	breakoutsEnabledUnmanaged: boolean | undefined,
+	filesharingEnabledUnmanaged: boolean | undefined,
+	chatEnabledManaged: boolean | undefined,
+	breakoutsEnabledManaged: boolean | undefined,
+	filesharingEnabledManaged: boolean | undefined,
+	chatEnabledLock: boolean | undefined,
+	breakoutsEnabledLock: boolean | undefined,
+	filesharingEnabledLock: boolean | undefined,
+	tracker: string,
+	maxFileSize: string, // number,
+	background: string,
+	logo: string,
+	defaultRoleId: string, // number,
+	defaultRole: ManagedRole, // number,
+	tenantPermissionLimitRole: string, // number,
+}
