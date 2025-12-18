@@ -129,7 +129,7 @@ export type ManagedRoom = {
 	groupRoles: ManagedGroupRole[]; // Group roles in this room
 	userRoles: ManagedUserRole[]; // User roles in this room
 	defaultRole?: ManagedRole; // Default role for users without a role in this room
-
+	defaultRoleId?: string | undefined; // Default role for users without a role in this room
 	// Look and feel
 	logo?: string;
 	background?: string;

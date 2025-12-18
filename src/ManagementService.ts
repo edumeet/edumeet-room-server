@@ -101,60 +101,73 @@ export default class ManagementService {
 
 		if (error) throw error;
 
+		// Room exist on mgmt
 		const { total, data } = await this.#roomsService.find({ query: { name, tenantId } });
 
-		logger.debug('getRoom() [name: %s] -> data: %o', name, data);
+		let room = undefined;
 
-		if (total === 1) return data[0];
-
-		// no room found (this means this room is unmaged),
-		// so fallback to tenant default if set
-		// tenant default is not the exact same as the room type
-		// so we check for services enabled, and default states for now
+		if (total === 1) {
+			logger.debug('getRoom() [name: %s] -> data: %o', name, data);
+			room = data[0] as ManagedRoom;
+			if (room?.defaultRoleId!=null) {
+				return room;
+			}
+		}
+		// check fallback
+		
 		const fallback = await this.#defaultsService.find({ query: { name, tenantId } });
-
+		
 		logger.debug('getRoom() [name: %s] -> fallback: %o', name, fallback);
 
 		if (fallback.total === 1) {
 			// create default from fallback.data
 			const fdata = fallback.data[0];
-
-			// get roles with a virt adapter on mgmt side
-			// TODO finish user and group roles
-			let maxFileSize = 100_000_000;
+		
+			if (room!==undefined) {
+				// FALLBACK Default Role if not set by room owner
+				room.defaultRoleId = fdata.defaultRoleId;
+				room.defaultRole = fdata.defaultRole || [];
+			} else {
+				// FALLBACK
+				// get roles with a virt adapter on mgmt side
+				// TODO finish user and group roles
+				let maxFileSize = 100_000_000;
 			
-			// mb to byte
-			if (fdata.maxFileSize)
-				maxFileSize = fdata.maxFileSize*1_000_000;
+				// mb to byte
+				if (fdata.maxFileSize)
+					maxFileSize = fdata.maxFileSize*1_000_000;
 
-			const defaultRoom =	{
-				id: 0,
-				name: '',
-				description: '',
-				createdAt: 0,
-				updatedAt: 0,
-				creatorId: 0,
-				tenantId: tenantId,
-				owners: [],
-				groupRoles: [],
-				userRoles: [],
-				defaultRole: fdata.defaultRole || [],
-				maxActiveVideos: 12,
-				locked: fdata.lockedUnmanaged,
-				tracker: fdata.tracker || '',
-				maxFileSize: maxFileSize,
-				breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
-				chatEnabled: fdata.chatEnabledUnmanaged,
-				reactionsEnabled: fdata.reactionsEnabledUnmanaged,
-				raiseHandEnabled: fdata.raiseHandEnabledUnmanaged,
-				filesharingEnabled: fdata.filesharingEnabledUnmanaged,
-				localRecordingEnabled: fdata.localRecordingEnabledUnmanaged,
-				logo: fdata.logo || '',
-				background: fdata.background || ''
-			};
+				const defaultRoom =	{
+					id: 0,
+					name: '',
+					description: '',
+					createdAt: 0,
+					updatedAt: 0,
+					creatorId: 0,
+					tenantId: tenantId,
+					owners: [],
+					groupRoles: [],
+					userRoles: [],
+					defaultRole: fdata.defaultRole || [],
+					maxActiveVideos: 12,
+					locked: fdata.lockedUnmanaged,
+					tracker: fdata.tracker || '',
+					maxFileSize: maxFileSize,
+					breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
+					chatEnabled: fdata.chatEnabledUnmanaged,
+					reactionsEnabled: fdata.reactionsEnabledUnmanaged,
+					raiseHandEnabled: fdata.raiseHandEnabledUnmanaged,
+					filesharingEnabled: fdata.filesharingEnabledUnmanaged,
+					localRecordingEnabled: fdata.localRecordingEnabledUnmanaged,
+					logo: fdata.logo || '',
+					background: fdata.background || ''
+				};
 
-			return defaultRoom;
+				room = defaultRoom;
+			}
 		}
+
+		return room;
 	}
 
 	@skipIfClosed
