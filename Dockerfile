@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 
 RUN apt-get update; DEBIAN_FRONTEND=noninteractive apt-get install -yq gettext-base; apt-get clean
 
