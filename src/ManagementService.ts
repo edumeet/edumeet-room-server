@@ -128,6 +128,8 @@ export default class ManagementService {
 
 		if (fdata.maxFileSize)
 			maxFileSize = fdata.maxFileSize * 1_000_000;
+		else if (config.maxFileSize)
+			maxFileSize = config.maxFileSize;
 
 		if (room !== undefined) {
 			// FALLBACK from Default if not set by room owner
