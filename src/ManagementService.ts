@@ -139,7 +139,7 @@ export default class ManagementService {
 			room.defaultRole = room.defaultRole || fdata.defaultRole || [];
 			room.logo = room.logo || fdata.logo || '';
 			room.background = room.background || fdata.background || '';
-			room.tracker = room.tracker || fdata.tracker || config.defaultRoomSettings.tracker || '';
+			room.tracker = room.tracker || fdata.tracker || config.defaultRoomSettings?.tracker || '';
 			room.maxFileSize = room.maxFileSize || maxFileSize;
 		} else {
 			// FALLBACK
