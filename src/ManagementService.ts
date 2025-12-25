@@ -159,7 +159,7 @@ export default class ManagementService {
 				defaultRole: fdata.defaultRole || [],
 				maxActiveVideos: 12,
 				locked: fdata.lockedUnmanaged,
-				tracker: fdata.tracker || config.defaultRoomSetting?.tracker || '',
+				tracker: fdata.tracker || config.defaultRoomSettings?.tracker || '',
 				maxFileSize: maxFileSize,
 				breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
 				chatEnabled: fdata.chatEnabledUnmanaged,
