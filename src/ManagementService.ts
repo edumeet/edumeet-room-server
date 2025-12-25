@@ -126,10 +126,12 @@ export default class ManagementService {
 
 		let maxFileSize = 100_000_000;
 
-		if (fdata.maxFileSize)
-			maxFileSize = fdata.maxFileSize * 1_000_000;
-		else if (config.maxFileSize)
-			maxFileSize = config.maxFileSize;
+		if (fdata.maxFileSize !== null && fdata.maxFileSize !== undefined) {
+			maxFileSize = Math.max(0, Number(fdata.maxFileSize)) * 1_000_000;
+		} else if (config.defaultRoomSettings?.maxFileSize !== null &&
+			config.defaultRoomSettings?.maxFileSize !== undefined) {
+			maxFileSize = Math.max(0, Number(config.defaultRoomSettings.maxFileSize));
+		}
 
 		if (room !== undefined) {
 			// FALLBACK from Default if not set by room owner
@@ -137,7 +139,7 @@ export default class ManagementService {
 			room.defaultRole = room.defaultRole || fdata.defaultRole || [];
 			room.logo = room.logo || fdata.logo || '';
 			room.background = room.background || fdata.background || '';
-			room.tracker = room.tracker || fdata.tracker || config.tracker || '';
+			room.tracker = room.tracker || fdata.tracker || config.defaultRoomSettings.tracker || '';
 			room.maxFileSize = room.maxFileSize || maxFileSize;
 		} else {
 			// FALLBACK
@@ -157,7 +159,7 @@ export default class ManagementService {
 				defaultRole: fdata.defaultRole || [],
 				maxActiveVideos: 12,
 				locked: fdata.lockedUnmanaged,
-				tracker: fdata.tracker || config.tracker || '',
+				tracker: fdata.tracker || config.defaultRoomSetting?.tracker || '',
 				maxFileSize: maxFileSize,
 				breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
 				chatEnabled: fdata.chatEnabledUnmanaged,
