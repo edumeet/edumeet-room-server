@@ -2803,7 +2803,7 @@ makeerror@1.0.12:
   dependencies:
     tmpl "1.0.5"
 
-mediasoup@^3.19.11:
+mediasoup@^3.19.14:
   version "3.19.14"
   resolved "https://registry.yarnpkg.com/mediasoup/-/mediasoup-3.19.14.tgz#82207b8a9c0f7e1a374225046a46eacf7e01c6aa"
   integrity sha512-8ESNnyvxD5XgMSORMR258T/RIcL6e0/eDOTeHM4GG4dezJOdgwdbjBRWkfL9f4oHKtpar2NgbIPEqg62uWhoXg==

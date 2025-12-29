@@ -117,9 +117,9 @@ export default class ServerManager {
 					filesharingEnabled = true,
 					localRecordingEnabled = true,
 					tracker=undefined,
-					maxFileSize = 100_000_000					
+					maxFileSize = 100_000_000
 				} = config.defaultRoomSettings;
-				
+
 				room.tracker = tracker;
 				if (maxFileSize)
 					room.maxFileSize = maxFileSize;
