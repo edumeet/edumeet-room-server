@@ -39,7 +39,7 @@ export const socketHandler = (socket: Socket) => {
 			token as string,
 		);
 	} catch (error) {
-		logger.warn('handleConnection() [error: %o]', error);
+		logger.warn({ err: error }, 'handleConnection() [error: %o]');
 
 		socketConnection.close();
 	}

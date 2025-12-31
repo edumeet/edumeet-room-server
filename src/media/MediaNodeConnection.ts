@@ -80,7 +80,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 			this.#handleSocket();
 		} catch (error) {
-			logger.error('constructor() [error: %o]', error);
+			logger.error({ err: error }, 'constructor() [error: %o]');
 			
 			this.rejectReady(new ConnectionError('Failed to connect to media node'));
 			this.close();
@@ -135,7 +135,7 @@ export class MediaNodeConnection extends EventEmitter {
 				if (!context.handled)
 					throw new Error(`no middleware handled the notification [method: ${notification.method}]`);
 			} catch (error) {
-				logger.error('notification() [error: %o]', error);
+				logger.error({ err: error }, 'notification() [error: %o]');
 			}
 		});
 
@@ -158,7 +158,7 @@ export class MediaNodeConnection extends EventEmitter {
 					result('Server error', null);
 				}
 			} catch (error) {
-				logger.error('request() [error: %o]', error);
+				logger.error({ err: error }, 'request() [error: %o]');
 
 				result('Server error', null);
 			}

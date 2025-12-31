@@ -312,7 +312,7 @@ export class Peer extends EventEmitter {
 				if (!context.handled)
 					throw new Error('no middleware handled the notification');
 			} catch (error) {
-				logger.error('notification() [error: %o]', error);
+				logger.error({ err: error }, 'notification() [error: %o]');
 			}
 		});
 
@@ -335,7 +335,7 @@ export class Peer extends EventEmitter {
 					reject('Server error');
 				}
 			} catch (error) {
-				logger.error('request() [error: %o]', error);
+				logger.error({ err: error }, 'request() [error: %o]');
 				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
 				reject?.('Server error');
@@ -358,7 +358,7 @@ export class Peer extends EventEmitter {
 			try {
 				return connection.notify(notification);
 			} catch (error) {
-				logger.error('notify() [error: %o]', error);
+				logger.error({ err: error }, 'notify() [error: %o]');
 			}
 		}
 
@@ -373,7 +373,7 @@ export class Peer extends EventEmitter {
 			try {
 				return await connection.request(request);
 			} catch (error) {
-				logger.error('request() [error: %o]', error);
+				logger.error({ err: error }, 'request() [error: %o]');
 			}
 		}
 

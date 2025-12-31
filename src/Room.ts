@@ -245,7 +245,7 @@ export default class Room extends EventEmitter {
 			else
 				this.parkPeer(peer);
 		} catch (error) {
-			logger.error('addPeer() [error: %o]', error);
+			logger.error({ err: error }, 'addPeer() [error: %o]');
 
 			peer.close();
 		}
@@ -391,7 +391,7 @@ export default class Room extends EventEmitter {
 			peer.rtpCapabilities = rtpCapabilities;
 			peer.sctpCapabilities = sctpCapabilities;
 		} catch (error) {
-			logger.error('assignRouter() [%o]', error);
+			logger.error({ err: error }, 'assignRouter() [%o]');
 
 			peer.notify({ method: 'noMediaServer' });
 
