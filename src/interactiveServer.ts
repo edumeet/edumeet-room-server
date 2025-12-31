@@ -134,7 +134,9 @@ export const interactiveServer = (serverManager: ServerManager, managementServic
 	});
 
 	try {
-		fs.unlinkSync(SOCKET_PATH);
+		if (fs.existsSync(SOCKET_PATH)) {
+			fs.unlinkSync(SOCKET_PATH);
+		}
 	} catch (error) {
 		logger.debug({ err: error }, 'InteractiveServer listening [error: %o}');
 	}
