@@ -469,9 +469,8 @@ export class Router extends EventEmitter {
 
 				return { pipeConsumer, pipeProducer };
 			} catch (error) {
-				logger.error(
-					'pipeToRouter() | error creating pipe Consumer/Producer pair:%o',
-					error);
+				logger.error({ err: error },
+					'pipeToRouter() | error creating pipe Consumer/Producer pair:%o');
 
 				if (pipeConsumer)
 					pipeConsumer.close();
@@ -509,9 +508,8 @@ export class Router extends EventEmitter {
 
 				return { pipeDataConsumer, pipeDataProducer };
 			} catch (error) {
-				logger.error(
-					'pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o',
-					error);
+				logger.error({ err: error },
+					'pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o');
 
 				if (pipeDataConsumer)
 					pipeDataConsumer.close();

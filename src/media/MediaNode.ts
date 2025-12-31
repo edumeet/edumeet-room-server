@@ -141,7 +141,7 @@ export class MediaNode extends EventEmitter {
 
 			return router;
 		} catch (error) {
-			logger.error('getRouter() [%o]', error);
+			logger.error({ err: error }, 'getRouter() [%o]');
 
 			throw error;
 		} finally {

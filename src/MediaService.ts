@@ -149,7 +149,7 @@ export default class MediaService {
 
 					return [ router, mediaNode ];
 				} catch (error) {
-					logger.error('getRouter() [error %o]', error);
+					logger.error({ err: error }, 'getRouter() [error %o]');
 				}
 			}
 		} while (candidates.length > 0);
@@ -211,7 +211,12 @@ export default class MediaService {
 
 		logger.debug('getClientPosition() [address: %s, forwardedFor: %s]', address, forwardedFor);
 
-		if (forwardedFor) return this.createKDPointFromAddress(forwardedFor) ?? this.defaultClientPosition;
+		if (forwardedFor) {
+			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+			const ip = ff.split(',')[0].trim();
+
+			return this.createKDPointFromAddress(ip) ?? this.defaultClientPosition;
+		}
 		else return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
 	}
 
