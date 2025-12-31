@@ -8,7 +8,6 @@ import {
 	BaseConnection,
 	InboundNotification,
 	InboundRequest,
-	IOServerConnection,
 	List,
 	Logger,
 	Pipeline,
@@ -18,7 +17,7 @@ import {
 } from 'edumeet-common';
 import { DataProducer } from './media/DataProducer';
 import { DataConsumer } from './media/DataConsumer';
-import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
+import { IOServerConnection, clientAddress } from './common/IOServerConnection';
 import { Permission } from './common/authorization';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
