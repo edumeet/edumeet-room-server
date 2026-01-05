@@ -39,6 +39,26 @@ export default class ServerManager {
 		this.managementService = managementService;
 	}
 
+	public setPeerManagedId(peer: Peer, newManagedId: string | undefined): void
+	{
+		const oldManagedId = peer.managedId;
+
+		// No change -> do nothing
+		if (oldManagedId === newManagedId)
+			return;
+
+		// Remove old mapping
+		if (oldManagedId)
+			this.managedPeers.delete(String(oldManagedId));
+
+		// Apply new value
+		peer.managedId = newManagedId;
+
+		// Add new mapping
+		if (peer.managedId)
+			this.managedPeers.set(String(peer.managedId), peer);
+	}
+
 	@skipIfClosed
 	public close() {
 		logger.debug('close()');
@@ -121,7 +141,7 @@ export default class ServerManager {
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
 
-			room = new Room({ id: roomId, mediaService: this.mediaService });
+			room = new Room({ id: roomId, mediaService: this.mediaService, serverManager: this });
 
 			this.rooms.set(`${tenantId}/${roomId}`, room);
 

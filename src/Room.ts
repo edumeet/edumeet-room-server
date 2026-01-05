@@ -26,12 +26,15 @@ import { IceServer, getCredentials, getIceServers } from './common/turnCredentia
 import { Router } from './media/Router';
 import { RtpCapabilities, SctpCapabilities } from 'mediasoup/types';
 
+import ServerManager from './ServerManager';
+
 const logger = new Logger('Room');
 
 interface RoomOptions {
 	id: string;
 	name?: string;
 	mediaService: MediaService;
+	serverManager: ServerManager;
 }
 
 interface Drawing {
@@ -144,7 +147,9 @@ export default class Room extends EventEmitter {
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 
-	constructor({ id, name, mediaService }: RoomOptions) {
+	#serverManager: ServerManager;
+
+	constructor({ id, name, mediaService, serverManager }: RoomOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
@@ -152,6 +157,7 @@ export default class Room extends EventEmitter {
 		this.id = id;
 		this.name = name;
 		this.mediaService = mediaService;
+		this.#serverManager = serverManager;
 
 		this.#lobbyPeerMiddleware = createLobbyPeerMiddleware({ room: this });
 		this.#initialMediaMiddleware = createInitialMediaMiddleware({ room: this });
@@ -423,5 +429,10 @@ export default class Room extends EventEmitter {
 
 	public getPeerById(peerId: string): Peer | undefined {
 		return this.peers.items.find((p) => p.id === peerId);
+	}
+
+	public setPeerManagedId(peer: Peer, newManagedId: string | undefined): void
+	{
+		this.#serverManager.setPeerManagedId(peer, newManagedId);
 	}
 }

@@ -336,9 +336,15 @@ export class Peer extends EventEmitter {
 				}
 			} catch (error) {
 				logger.error({ err: error }, 'request() [error: %o]');
-				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
-				reject?.('Server error');
+				if (error instanceof SocketTimeoutError)
+					this.notify({ method: 'mediaConnectionError', data: { error } });
+
+				const msg = (error instanceof Error && typeof error.message === 'string' && error.message)
+					? error.message
+					: 'Server error';
+
+				reject?.(msg);
 			}
 		});
 

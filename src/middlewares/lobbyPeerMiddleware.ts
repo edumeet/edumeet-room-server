@@ -55,9 +55,6 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 			{
 				const { token } = message.data as { token?: string };
 
-				const oldManagedId = peer.managedId;
-
-				// Default: logout/guest if no token field
 				let newManagedId: string | undefined;
 
 				if (typeof token === 'undefined')
@@ -71,10 +68,7 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 					if (!res.ok)
 					{
 						if (res.reason === 'expired')
-						{
-							// Expired token -> downgrade to guest (logout-like)
 							newManagedId = undefined;
-						}
 						else
 						{
 							// Invalid token
@@ -87,19 +81,11 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 					}
 				}
 
-				// Keep managedPeers index consistent
-				if (oldManagedId && oldManagedId !== newManagedId)
-					this.#serverManager.managedPeers.delete(String(oldManagedId));
+				room.setPeerManagedId(peer, newManagedId);
 
-				peer.managedId = newManagedId;
-
-				if (peer.managedId)
-					this.#serverManager.managedPeers.set(String(peer.managedId), peer);
-
-				updatePeerPermissions(room, peer);
+				updatePeerPermissions(room, peer, true);
 
 				context.handled = true;
-
 				break;
 			}
 
