@@ -114,11 +114,51 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				break;
 			}
 
-			case 'updateToken': {
-				const { token } = message.data;
-				const managedId = token ? verifyPeer(token) : undefined;
+			case 'updateToken':
+			{
+				const { token } = message.data as { token?: string };
 
-				peer.managedId = managedId;
+				const oldManagedId = peer.managedId;
+
+				// Default: logout/guest if no token field
+				let newManagedId: string | undefined;
+
+				if (typeof token === 'undefined')
+				{
+					newManagedId = undefined;
+				}
+				else
+				{
+					const res = verifyPeer(token);
+
+					if (!res.ok)
+					{
+						if (res.reason === 'expired')
+						{
+							// Expired token -> downgrade to guest (logout-like)
+							newManagedId = undefined;
+						}
+						else
+						{
+							// Invalid token
+							throw new Error('Invalid token');
+						}
+					}
+					else
+					{
+						newManagedId = res.managedId;
+					}
+				}
+
+				// Keep managedPeers index consistent
+				if (oldManagedId && oldManagedId !== newManagedId)
+					this.#serverManager.managedPeers.delete(String(oldManagedId));
+
+				peer.managedId = newManagedId;
+
+				if (peer.managedId)
+					this.#serverManager.managedPeers.set(String(peer.managedId), peer);
+
 				updatePeerPermissions(room, peer);
 
 				context.handled = true;

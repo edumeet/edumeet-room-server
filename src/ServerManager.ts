@@ -71,21 +71,49 @@ export default class ServerManager {
 			tenantId
 		);
 
-		const managedId = token ? verifyPeer(token) : undefined;
+		let managedId: string | undefined;
+
+		let tokenExpired = false;
+
+		if (token)
+		{
+			const res = verifyPeer(token);
+
+			if (!res.ok)
+			{
+				if (res.reason === 'expired')
+				{
+					tokenExpired = true;
+					managedId = undefined;
+				}
+				else
+				{
+					throw new Error('Invalid token');
+				}
+			}
+			else
+			{
+				managedId = res.managedId;
+			}
+		}
 
 		let peer = this.peers.get(peerId);
 
-		if (peer) {
-			logger.debug('handleConnection() there is already a Peer with same peerId [peerId: %s]', peerId);
-
-			// If we already have a Peer and the new connection does not have a token
-			// then we must close the new connection.
-			// As long as the token is correct for the Peer, we can accept the new
-			// connection and close the old one.
-			if (managedId && managedId === peer.managedId)
-				peer.close();
+		if (peer)
+		{
+			if (peer.managedId)
+			{
+				if (managedId && managedId === peer.managedId)
+					peer.close();
+				else if (tokenExpired)
+					peer.close();
+				else
+					throw new Error('Invalid token');
+			}
 			else
-				throw new Error('Invalid token');
+			{
+				peer.close();
+			}
 		}
 
 		let room = this.rooms.get(`${tenantId}/${roomId}`);

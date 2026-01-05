@@ -4,13 +4,35 @@ import { getConfig } from '../Config';
 const config = getConfig();
 const signingKeys = config.managementService?.jwtPublicKeys || [];
 
-export const verifyPeer = (token: string): string | undefined => {
-	for (const key of signingKeys) {
-		try {
-			const { sub } = jwt.verify(token, key) as JwtPayload;
+export type VerifyPeerResult =
+	| { ok: true; managedId: string; expiresAtMs?: number }
+	| { ok: false; reason: 'expired' | 'invalid' };
 
-			return sub;
-		// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
-		} catch (err) {}
+export const verifyPeer = (token: string): VerifyPeerResult =>
+{
+	let sawExpired = false;
+
+	for (const key of signingKeys)
+	{
+		try
+		{
+			const payload = jwt.verify(token, key) as JwtPayload;
+			const sub = payload?.sub;
+
+			if (typeof sub !== 'string' || !sub)
+				return { ok: false, reason: 'invalid' };
+
+			const exp = payload?.exp;
+			const expiresAtMs = typeof exp === 'number' ? exp * 1000 : undefined;
+
+			return { ok: true, managedId: sub, expiresAtMs };
+		}
+		catch (err: any)
+		{
+			if (err?.name === 'TokenExpiredError')
+				sawExpired = true;
+		}
 	}
+
+	return { ok: false, reason: sawExpired ? 'expired' : 'invalid' };
 };
