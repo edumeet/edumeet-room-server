@@ -32,6 +32,7 @@ interface PeerOptions {
 	sessionId: string;
 	connection?: BaseConnection;
 	managedId?: string;
+	reconnectKey?: string;
 }
 
 export interface PeerInfo {
@@ -72,6 +73,7 @@ export class Peer extends EventEmitter {
 
 	public id: string;
 	public managedId?: string;
+	public reconnectKey?: string;
 	public groupIds: string[] = [];
 	#permissions: string[] = [];
 
@@ -120,6 +122,7 @@ export class Peer extends EventEmitter {
 		picture,
 		sessionId,
 		connection,
+		reconnectKey
 	}: PeerOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
@@ -130,6 +133,7 @@ export class Peer extends EventEmitter {
 		this.displayName = displayName ?? 'Guest';
 		this.picture = picture;
 		this.managedId = managedId;
+		this.reconnectKey = reconnectKey;
 
 		this.routerReset(true);
 

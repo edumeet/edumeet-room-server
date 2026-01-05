@@ -6,6 +6,7 @@ import Room from './Room';
 import ManagementService from './ManagementService';
 import { RoomSettings } from './common/types';
 import { getConfig } from './Config';
+import crypto from 'crypto';
 
 const logger = new Logger('ServerManager');
 const config = getConfig();
@@ -82,60 +83,48 @@ export default class ServerManager {
 		tenantId = 0,
 		displayName?: string,
 		token?: string,
+		reconnectKey?: string,
 	): void {
 		logger.debug(
-			'handleConnection() [peerId: %s, displayName: %s, roomId: %s, tenantId: %s]',
+			'handleConnection() [peerId: %s, displayName: %s, roomId: %s, tenantId: %s, reconnectKey: %s]',
 			peerId,
 			displayName,
 			roomId,
-			tenantId
+			tenantId,
+			reconnectKey
 		);
 
+		// Enforce: token must be valid whenever provided
 		let managedId: string | undefined;
 
-		let tokenExpired = false;
-
-		if (token)
-		{
+		if (token !== undefined) {
 			const res = verifyPeer(token);
 
-			if (!res.ok)
-			{
-				if (res.reason === 'expired')
-				{
-					tokenExpired = true;
-					managedId = undefined;
-				}
-				else
-				{
-					throw new Error('Invalid token');
-				}
+			if (!res.ok) {
+				throw new Error(res.reason === "expired" ? "Token expired" : "Invalid token");
 			}
-			else
-			{
-				managedId = res.managedId;
-			}
+
+			managedId = res.managedId;
 		}
 
-		let peer = this.peers.get(peerId);
+		// --- 1) Reconnect handling first ---
+		const existingPeer = this.peers.get(peerId);
 
-		if (peer)
-		{
-			if (peer.managedId)
-			{
-				if (managedId && managedId === peer.managedId)
-					peer.close();
-				else if (tokenExpired)
-					peer.close();
-				else
-					throw new Error('Invalid token');
+		if (existingPeer) {
+			if (!reconnectKey || !existingPeer.reconnectKey || reconnectKey !== existingPeer.reconnectKey) {
+				throw new Error('Wrong reconnectKey');
 			}
-			else
-			{
-				peer.close();
+
+			// If existing peer is managed, require token + identity match
+			if (existingPeer.managedId) {
+				if (!managedId) throw new Error('Invalid token');
+				if (managedId !== existingPeer.managedId) throw new Error('Invalid token');
 			}
+
+			existingPeer.close();
 		}
 
+		// --- 2) Room lookup/creation (unchanged from your code) ---
 		let room = this.rooms.get(`${tenantId}/${roomId}`);
 
 		if (!room) {
@@ -164,7 +153,7 @@ export default class ServerManager {
 					reactionsEnabled = true,
 					filesharingEnabled = true,
 					localRecordingEnabled = true,
-					tracker=undefined,
+					tracker = undefined,
 					maxFileSize = 100_000_000
 				} = config.defaultRoomSettings;
 
@@ -267,11 +256,22 @@ export default class ServerManager {
 			})();
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection });
+		// --- 3) Create peer (rotate reconnectKey every connect) ---
+		const newReconnectKey = crypto.randomBytes(32).toString('base64url');
+
+		const peer = new Peer({
+			id: peerId,
+			managedId,
+			sessionId: room.sessionId,
+			displayName,
+			connection,
+			reconnectKey: newReconnectKey
+		});
 
 		this.peers.set(peerId, peer);
 
-		if (managedId) this.managedPeers.set(String(managedId), peer);
+		if (managedId)
+			this.managedPeers.set(String(managedId), peer);
 
 		peer.once('close', () => {
 			logger.debug('handleConnection() peer closed [peerId: %s]', peerId);
@@ -282,5 +282,11 @@ export default class ServerManager {
 		});
 
 		room.addPeer(peer);
+
+		// --- 4) Send reconnectKey privately to this peer only ---
+		peer.notify({
+			method: 'reconnectKey',
+			data: { reconnectKey: peer.reconnectKey }
+		});
 	}
 }

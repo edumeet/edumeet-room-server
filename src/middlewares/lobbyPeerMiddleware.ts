@@ -67,13 +67,7 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 
 					if (!res.ok)
 					{
-						if (res.reason === 'expired')
-							newManagedId = undefined;
-						else
-						{
-							// Invalid token
-							throw new Error('Invalid token');
-						}
+						throw new Error(res.reason === 'expired' ? 'Token expired' : 'Invalid token');
 					}
 					else
 					{
