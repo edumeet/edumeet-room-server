@@ -95,6 +95,9 @@ export default class ServerManager {
 			reconnectKey
 		);
 
+		logger.info({ peerId, displayName, roomId, tenantId, token, reconnectKey }, "handleConnection()");
+		logger.error({ peerId, displayName, roomId, tenantId, token, reconnectKey }, "handleConnection()");
+
 		// Enforce: token must be valid whenever provided
 		let managedId: string | undefined;
 
