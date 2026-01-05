@@ -152,7 +152,10 @@ export class Peer extends EventEmitter {
 			this.rejectRouterReady?.(new Error('Router reset'));
 		}
 
-		clearInterval(this.turnCredentialsInterval);
+		if (this.turnCredentialsInterval) {
+			clearInterval(this.turnCredentialsInterval);
+			this.turnCredentialsInterval = undefined;
+		}
 
 		this.routerReady = safePromise<Router>(new Promise<Router>((resolve, reject) => {
 			this.resolveRouterReady = resolve;
@@ -184,6 +187,11 @@ export class Peer extends EventEmitter {
 		logger.debug('close() [peerId: %s]', this.id);
 
 		this.closed = true;
+
+		if (this.turnCredentialsInterval) {
+			clearInterval(this.turnCredentialsInterval);
+			this.turnCredentialsInterval = undefined;
+		}
 
 		this.connections.items.forEach((c) => c.close());
 		this.producers.forEach((p) => p.close());
