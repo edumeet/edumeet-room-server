@@ -85,12 +85,13 @@ export default class ServerManager {
 		token?: string,
 		reconnectKey?: string,
 	): void {
-		logger.debug(
-			'handleConnection() [peerId: %s, displayName: %s, roomId: %s, tenantId: %s, reconnectKey: %s]',
+		logger.info(
+			'handleConnection() [peerId: %s, displayName: %s, roomId: %s, tenantId: %s, token: %s, reconnectKey: %s]',
 			peerId,
 			displayName,
 			roomId,
 			tenantId,
+			token,
 			reconnectKey
 		);
 
@@ -115,10 +116,20 @@ export default class ServerManager {
 				throw new Error('Wrong reconnectKey');
 			}
 
-			// If existing peer is managed, require token + identity match
+			// If existing peer is managed:
+			// - If the reconnect includes a token, it must be valid and match the same managedId.
+			// - If the reconnect includes NO token, treat it as a guest downgrade (allowed as long as reconnectKey matches).
 			if (existingPeer.managedId) {
-				if (!managedId) throw new Error('Invalid token');
-				if (managedId !== existingPeer.managedId) throw new Error('Invalid token');
+				if (managedId) {
+					if (managedId !== existingPeer.managedId)
+						throw new Error('Invalid token');
+				} else {
+					logger.debug(
+						'handleConnection() managed peer reconnecting without token -> downgrade to guest [peerId: %s, oldManagedId: %s]',
+						peerId,
+						existingPeer.managedId
+					);
+				}
 			}
 
 			existingPeer.close();
