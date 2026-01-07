@@ -288,6 +288,7 @@ export default class ManagementService {
 			logger.debug('roomsService "patched" event [roomId: %s]', managedRoom.id);
 
 			const room = this.#managedRooms.get(String(managedRoom.id));
+
 			if (room) updateRoom(room, managedRoom);
 		});
 	}
@@ -297,10 +298,12 @@ export default class ManagementService {
 		this.#roomOwnersService
 			.on('created', (roomOwner: ManagedRoomOwner) => {
 				const room = this.#managedRooms.get(roomOwner.roomId);
+
 				if (room) addRoomOwner(room, roomOwner);
 			})
 			.on('removed', (roomOwner: ManagedRoomOwner) => {
 				const room = this.#managedRooms.get(roomOwner.roomId);
+
 				if (room) removeRoomOwner(room, roomOwner);
 			});
 	}
@@ -310,10 +313,12 @@ export default class ManagementService {
 		this.#roomUserRolesService
 			.on('created', (roomUserRole: ManagedUserRole) => {
 				const room = this.#managedRooms.get(roomUserRole.roomId);
+
 				if (room) addRoomUserRole(room, roomUserRole);
 			})
 			.on('removed', (roomUserRole: ManagedUserRole) => {
 				const room = this.#managedRooms.get(roomUserRole.roomId);
+
 				if (room) removeRoomUserRole(room, roomUserRole);
 			});
 	}
@@ -323,10 +328,12 @@ export default class ManagementService {
 		this.#roomGroupRolesService
 			.on('created', (roomGroupRole: ManagedGroupRole) => {
 				const room = this.#managedRooms.get(roomGroupRole.roomId);
+
 				if (room) addRoomGroupRole(room, roomGroupRole);
 			})
 			.on('removed', (roomGroupRole: ManagedGroupRole) => {
 				const room = this.#managedRooms.get(roomGroupRole.roomId);
+
 				if (room) removeRoomGroupRole(room, roomGroupRole);
 			});
 	}
