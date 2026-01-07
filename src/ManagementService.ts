@@ -133,12 +133,11 @@ export default class ManagementService {
 
 		this.setupSocketLifecycle();
 
-		// Re-auth every hour (no token exp decoding).
-		// Note: if the JWT expires sooner than 1 hour, you can still get a disconnect,
-		// but the connect handler will restore auth automatically.
+		// we run authenticateLocal() to get a new token every hour
 		this.#reAuthTimer = setInterval(() => {
-			this.ensureAuthenticated()
-				.catch((e) => logger.warn('Hourly ensureAuthenticated failed: %o', e));
+			this.authenticateLocal()
+				.then(() => logger.debug('Hourly authenticateLocal() OK'))
+				.catch((e) => logger.warn('Hourly authenticateLocal() failed: %o', e));
 		}, 60 * 60 * 1000);
 
 		this.setupListeners();
