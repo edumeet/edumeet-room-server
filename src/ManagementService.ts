@@ -252,8 +252,8 @@ export default class ManagementService {
 			await this.#client.reAuthenticate();
 
 			return;
-		} catch (e) {
-			logger.debug('reAuthenticate() failed, falling back to local auth: %o', e);
+		} catch (error) {
+			logger.debug({ err: error }, 'reAuthenticate() failed, falling back to local auth: %o');
 		}
 
 		await this.authenticateLocal();
