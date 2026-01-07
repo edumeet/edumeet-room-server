@@ -1544,9 +1544,9 @@ ecdsa-sig-formatter@1.0.11:
   dependencies:
     safe-buffer "^5.0.1"
 
-"edumeet-common@github:edumeet/edumeet-common#0.6.4":
-  version "0.6.4"
-  resolved "https://codeload.github.com/edumeet/edumeet-common/tar.gz/9bece662bf2d65a4df950ebf4933ef1354666fc8"
+"edumeet-common@github:edumeet/edumeet-common#0.6.6":
+  version "0.6.6"
+  resolved "https://codeload.github.com/edumeet/edumeet-common/tar.gz/dc6d33dc6f2e14096db17f66bb2d7bb8124e1ae1"
   dependencies:
     pino "^9.14.0"
     socket.io-client "^4.8.3"
