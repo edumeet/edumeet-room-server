@@ -44,6 +44,27 @@ interface ManagementServiceOptions {
 	mediaService: MediaService;
 }
 
+type FeathersErrorLike = {
+	code?: number;
+	className?: string;
+	name?: string;
+	message?: string;
+};
+
+function isNonRecoverableAuthError(err: unknown): boolean {
+	const e = err as FeathersErrorLike | undefined;
+
+	// Feathers authentication failures usually come as 401 / not-authenticated.
+	if (e?.code === 401) return true;
+	if (e?.className === 'not-authenticated') return true;
+	if (e?.name === 'NotAuthenticated') return true;
+
+	// Missing credentials / misconfiguration should fail fast.
+	if (typeof e?.message === 'string' && e.message.includes('credentials not configured')) return true;
+
+	return false;
+}
+
 export default class ManagementService {
 	public closed = false;
 
@@ -112,13 +133,9 @@ export default class ManagementService {
 
 		this.setupSocketLifecycle();
 
-		this.ensureAuthenticated()
-			.then(this.resolveReady)
-			.catch(this.rejectReady);
-
 		// Re-auth every hour (no token exp decoding).
 		// Note: if the JWT expires sooner than 1 hour, you can still get a disconnect,
-		// but the connect/reconnect handlers will restore auth automatically.
+		// but the connect handler will restore auth automatically.
 		this.#reAuthTimer = setInterval(() => {
 			this.ensureAuthenticated()
 				.catch((e) => logger.warn('Hourly ensureAuthenticated failed: %o', e));
@@ -255,13 +272,24 @@ export default class ManagementService {
 
 		try {
 			await this.#client.reAuthenticate();
+			this.resolveReady();
 
 			return;
-		} catch (error) {
-			logger.debug({ err: error }, 'reAuthenticate() failed, falling back to local auth: %o');
+		} catch (err) {
+			logger.debug({ err }, 'reAuthenticate() failed, falling back to local auth: %o');
 		}
 
-		await this.authenticateLocal();
+		try {
+			await this.authenticateLocal();
+			this.resolveReady();
+		} catch (err) {
+			// Reject only on failures that will not heal by reconnecting/retrying.
+			if (isNonRecoverableAuthError(err)) {
+				this.rejectReady(err);
+			}
+
+			throw err;
+		}
 	}
 
 	@skipIfClosed
