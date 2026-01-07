@@ -5,10 +5,34 @@ import authentication from '@feathersjs/authentication-client';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { Peer } from './Peer';
 import Room from './Room';
-import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUser, ManagedUserRole } from './common/types';
+import {
+	ManagedGroup,
+	ManagedGroupRole,
+	ManagedGroupUser,
+	ManagedRole,
+	ManagedRolePermission,
+	ManagedRoom,
+	ManagedRoomOwner,
+	ManagedUser,
+	ManagedUserRole
+} from './common/types';
 import MediaService from './MediaService';
 import { getConfig } from './Config';
-import { addGroupUser, addRolePermission, addRoomGroupRole, addRoomOwner, addRoomUserRole, removeGroup, removeGroupUser, removeRole, removeRolePermission, removeRoomGroupRole, removeRoomOwner, removeRoomUserRole, updateRoom } from './common/authorization';
+import {
+	addGroupUser,
+	addRolePermission,
+	addRoomGroupRole,
+	addRoomOwner,
+	addRoomUserRole,
+	removeGroup,
+	removeGroupUser,
+	removeRole,
+	removeRolePermission,
+	removeRoomGroupRole,
+	removeRoomOwner,
+	removeRoomUserRole,
+	updateRoom
+} from './common/authorization';
 import { safePromise } from './common/safePromise';
 
 const config = getConfig();
@@ -62,8 +86,14 @@ export default class ManagementService {
 		if (!config.managementService)
 			logger.debug('Management service not configured');
 
+		const socket = io(config.managementService?.host ?? '', {
+			reconnection: true,
+			reconnectionAttempts: Infinity,
+			transports: ['websocket']
+		});
+
 		this.#client = feathers()
-			.configure(socketio(io(config.managementService?.host ?? '')))
+			.configure(socketio(socket))
 			.configure(authentication());
 
 		this.#roomsService = this.#client.service('rooms');
@@ -79,8 +109,17 @@ export default class ManagementService {
 		this.#rolesService = this.#client.service('roles');
 		this.#rolePermissionsService = this.#client.service('rolePermissions');
 
-		this.authenticate();
-		this.#reAuthTimer = setInterval(() => this.authenticate(), 3600000);
+		this.setupSocketLifecycle();
+
+		this.ensureAuthenticated()
+			.then(this.resolveReady)
+			.catch(this.rejectReady);
+
+		// Hourly re-auth (no token exp decoding). Reconnect handler covers disconnects before the hour tick.
+		this.#reAuthTimer = setInterval(() => {
+			this.ensureAuthenticated().catch((e) => logger.warn('Hourly ensureAuthenticated failed: %o', e));
+		}, 60 * 60 * 1000);
+
 		this.setupListeners();
 	}
 
@@ -178,23 +217,55 @@ export default class ManagementService {
 	}
 
 	@skipIfClosed
-	private authenticate(): void {
-		logger.debug('authenticate()');
+	private setupSocketLifecycle(): void {
+		const socket: any = (this.#client as any).io;
+
+		if (!socket) {
+			logger.warn('setupSocketLifecycle(): client.io not available');
+			return;
+		}
+
+		socket.on('disconnect', (reason: string) => {
+			logger.debug('Socket connection disconnected: %s', reason);
+		});
+
+		socket.on('connect', () => {
+			logger.debug('Socket connected -> ensureAuthenticated()');
+			this.ensureAuthenticated().catch((e) => logger.warn('ensureAuthenticated failed on connect: %o', e));
+		});
+
+		// In socket.io-client v4, reconnect events are on the Manager: socket.io
+		if (socket.io && typeof socket.io.on === 'function') {
+			socket.io.on('reconnect', () => {
+				logger.debug('Socket reconnected -> ensureAuthenticated()');
+				this.ensureAuthenticated().catch((e) => logger.warn('ensureAuthenticated failed on reconnect: %o', e));
+			});
+		}
+	}
+
+	@skipIfClosed
+	private async ensureAuthenticated(): Promise<void> {
+		try {
+			await this.#client.reAuthenticate();
+			return;
+		} catch {
+			// token missing/expired -> do local auth
+		}
+
+		await this.authenticateLocal();
+	}
+
+	@skipIfClosed
+	private async authenticateLocal(): Promise<void> {
+		logger.debug('authenticateLocal()');
 
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
-		
-		this.#client.authenticate({
+
+		await this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
-		})
-			.then(this.resolveReady)
-			.catch(this.rejectReady);
-
-		this.#client.io.on('disconnect', () => {
-			logger.debug('Socket connection disconnected');
-			// TODO: handle explicit disconnect
 		});
 	}
 
