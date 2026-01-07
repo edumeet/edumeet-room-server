@@ -1,4 +1,4 @@
-import io from 'socket.io-client';
+import io, { Socket } from 'socket.io-client';
 import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
 import authentication from '@feathersjs/authentication-client';
@@ -51,16 +51,8 @@ export default class ManagementService {
 	#managedPeers: Map<string, Peer>;
 	#mediaService: MediaService;
 
-	public resolveReady!: () => void;
-	// eslint-disable-next-line no-unused-vars
-	public rejectReady!: (error: unknown) => void;
-
-	public ready = safePromise(new Promise<void>((resolve, reject) => {
-		this.resolveReady = resolve;
-		this.rejectReady = reject;
-	}));
-
 	#client: Application;
+	#socket: Socket;
 	#reAuthTimer: NodeJS.Timeout;
 
 	#defaultsService: FeathersService;
@@ -76,6 +68,15 @@ export default class ManagementService {
 	#rolesService: FeathersService;
 	#rolePermissionsService: FeathersService;
 
+	public resolveReady!: () => void;
+	// eslint-disable-next-line no-unused-vars
+	public rejectReady!: (error: unknown) => void;
+
+	public ready = safePromise(new Promise<void>((resolve, reject) => {
+		this.resolveReady = resolve;
+		this.rejectReady = reject;
+	}));
+
 	constructor({ managedRooms, managedPeers, mediaService }: ManagementServiceOptions) {
 		logger.debug('constructor()');
 
@@ -86,14 +87,14 @@ export default class ManagementService {
 		if (!config.managementService)
 			logger.debug('Management service not configured');
 
-		const socket = io(config.managementService?.host ?? '', {
+		this.#socket = io(config.managementService?.host ?? '', {
 			reconnection: true,
 			reconnectionAttempts: Infinity,
-			transports: ['websocket']
+			transports: [ 'websocket' ]
 		});
 
 		this.#client = feathers()
-			.configure(socketio(socket))
+			.configure(socketio(this.#socket))
 			.configure(authentication());
 
 		this.#roomsService = this.#client.service('rooms');
@@ -115,9 +116,10 @@ export default class ManagementService {
 			.then(this.resolveReady)
 			.catch(this.rejectReady);
 
-		// Hourly re-auth (no token exp decoding). Reconnect handler covers disconnects before the hour tick.
+		// Hourly re-auth (no token expiry decoding)
 		this.#reAuthTimer = setInterval(() => {
-			this.ensureAuthenticated().catch((e) => logger.warn('Hourly ensureAuthenticated failed: %o', e));
+			this.ensureAuthenticated()
+				.catch((e) => logger.warn('Hourly ensureAuthenticated failed: %o', e));
 		}, 60 * 60 * 1000);
 
 		this.setupListeners();
@@ -130,6 +132,70 @@ export default class ManagementService {
 		this.closed = true;
 		clearInterval(this.#reAuthTimer);
 		this.#client.logout();
+		this.#socket.disconnect();
+	}
+
+	@skipIfClosed
+	private setupSocketLifecycle(): void {
+		this.#socket.on('disconnect', (reason) => {
+			logger.debug('Socket disconnected: %s', reason);
+		});
+
+		this.#socket.on('connect', () => {
+			logger.debug('Socket connected -> ensureAuthenticated()');
+			this.ensureAuthenticated()
+				.catch((e) => logger.warn('ensureAuthenticated failed on connect: %o', e));
+		});
+
+		this.#socket.io.on('reconnect', () => {
+			logger.debug('Socket reconnected -> ensureAuthenticated()');
+			this.ensureAuthenticated()
+				.catch((e) => logger.warn('ensureAuthenticated failed on reconnect: %o', e));
+		});
+	}
+
+	@skipIfClosed
+	private async ensureAuthenticated(): Promise<void> {
+		try {
+			await this.#client.reAuthenticate();
+
+			return;
+		} catch {
+			// token expired or missing
+		}
+
+		await this.authenticateLocal();
+	}
+
+	@skipIfClosed
+	private async authenticateLocal(): Promise<void> {
+		logger.debug('authenticateLocal()');
+
+		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
+			throw new Error('Management service credentials not configured');
+
+		await this.#client.authenticate({
+			strategy: 'local',
+			email: process.env.MANAGEMENT_USERNAME,
+			password: process.env.MANAGEMENT_PASSWORD
+		});
+	}
+
+	@skipIfClosed
+	private setupListeners() {
+		logger.debug('setupListeners()');
+
+		this.registerRoomsServiceListeners();
+		this.registerRoomOwnersServiceListeners();
+		this.registerRoomUserRolesServiceListeners();
+		this.registerRoomGroupRolesServiceListeners();
+
+		this.registerUsersServiceListeners();
+		this.registerGroupsServiceListeners();
+		this.registerGroupUsersServiceListeners();
+
+		this.registerRolesServiceListeners();
+		this.registerRolePermissionsServiceListeners();
 	}
 
 	@skipIfClosed
@@ -217,105 +283,24 @@ export default class ManagementService {
 	}
 
 	@skipIfClosed
-	private setupSocketLifecycle(): void {
-		const socket: any = (this.#client as any).io;
-
-		if (!socket) {
-			logger.warn('setupSocketLifecycle(): client.io not available');
-			return;
-		}
-
-		socket.on('disconnect', (reason: string) => {
-			logger.debug('Socket connection disconnected: %s', reason);
-		});
-
-		socket.on('connect', () => {
-			logger.debug('Socket connected -> ensureAuthenticated()');
-			this.ensureAuthenticated().catch((e) => logger.warn('ensureAuthenticated failed on connect: %o', e));
-		});
-
-		// In socket.io-client v4, reconnect events are on the Manager: socket.io
-		if (socket.io && typeof socket.io.on === 'function') {
-			socket.io.on('reconnect', () => {
-				logger.debug('Socket reconnected -> ensureAuthenticated()');
-				this.ensureAuthenticated().catch((e) => logger.warn('ensureAuthenticated failed on reconnect: %o', e));
-			});
-		}
-	}
-
-	@skipIfClosed
-	private async ensureAuthenticated(): Promise<void> {
-		try {
-			await this.#client.reAuthenticate();
-			return;
-		} catch {
-			// token missing/expired -> do local auth
-		}
-
-		await this.authenticateLocal();
-	}
-
-	@skipIfClosed
-	private async authenticateLocal(): Promise<void> {
-		logger.debug('authenticateLocal()');
-
-		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
-			throw new Error('Management service credentials not configured');
-
-		await this.#client.authenticate({
-			strategy: 'local',
-			email: process.env.MANAGEMENT_USERNAME,
-			password: process.env.MANAGEMENT_PASSWORD
-		});
-	}
-
-	@skipIfClosed
-	private setupListeners() {
-		logger.debug('setupListeners()');
-
-		// Room related services
-		this.registerRoomsServiceListeners();
-		this.registerRoomOwnersServiceListeners();
-		this.registerRoomUserRolesServiceListeners();
-		this.registerRoomGroupRolesServiceListeners();
-
-		// User related services
-		this.registerUsersServiceListeners();
-		this.registerGroupsServiceListeners();
-		this.registerGroupUsersServiceListeners();
-
-		// Role related services
-		this.registerRolesServiceListeners();
-		this.registerRolePermissionsServiceListeners();
-	}
-
-	@skipIfClosed
 	private registerRoomsServiceListeners(): void {
-		this.#roomsService
-			.on('patched', (managedRoom: ManagedRoom) => {
-				logger.debug('roomsService "patched" event [roomId: %s]', managedRoom.id);
+		this.#roomsService.on('patched', (managedRoom: ManagedRoom) => {
+			logger.debug('roomsService "patched" event [roomId: %s]', managedRoom.id);
 
-				const room = this.#managedRooms.get(String(managedRoom.id));
-
-				if (room) updateRoom(room, managedRoom);
-			});
+			const room = this.#managedRooms.get(String(managedRoom.id));
+			if (room) updateRoom(room, managedRoom);
+		});
 	}
 
 	@skipIfClosed
 	private registerRoomOwnersServiceListeners(): void {
 		this.#roomOwnersService
 			.on('created', (roomOwner: ManagedRoomOwner) => {
-				logger.debug('roomOwnersService "created" event [roomId: %s]', roomOwner.id);
-
 				const room = this.#managedRooms.get(roomOwner.roomId);
-
 				if (room) addRoomOwner(room, roomOwner);
 			})
 			.on('removed', (roomOwner: ManagedRoomOwner) => {
-				logger.debug('roomOwnersService "removed" event [roomId: %s]', roomOwner.id);
-
 				const room = this.#managedRooms.get(roomOwner.roomId);
-
 				if (room) removeRoomOwner(room, roomOwner);
 			});
 	}
@@ -324,17 +309,11 @@ export default class ManagementService {
 	private registerRoomUserRolesServiceListeners(): void {
 		this.#roomUserRolesService
 			.on('created', (roomUserRole: ManagedUserRole) => {
-				logger.debug('roomUserRolesService "created" event [roomId: %s]', roomUserRole.id);
-
 				const room = this.#managedRooms.get(roomUserRole.roomId);
-
 				if (room) addRoomUserRole(room, roomUserRole);
 			})
 			.on('removed', (roomUserRole: ManagedUserRole) => {
-				logger.debug('roomUserRolesService "removed" event [roomId: %s]', roomUserRole.id);
-
 				const room = this.#managedRooms.get(roomUserRole.roomId);
-
 				if (room) removeRoomUserRole(room, roomUserRole);
 			});
 	}
@@ -343,77 +322,54 @@ export default class ManagementService {
 	private registerRoomGroupRolesServiceListeners(): void {
 		this.#roomGroupRolesService
 			.on('created', (roomGroupRole: ManagedGroupRole) => {
-				logger.debug('roomGroupRolesService "created" event [roomId: %s]', roomGroupRole.id);
-
 				const room = this.#managedRooms.get(roomGroupRole.roomId);
-
 				if (room) addRoomGroupRole(room, roomGroupRole);
 			})
 			.on('removed', (roomGroupRole: ManagedGroupRole) => {
-				logger.debug('roomGroupRolesService "removed" event [roomId: %s]', roomGroupRole.id);
-
 				const room = this.#managedRooms.get(roomGroupRole.roomId);
-
 				if (room) removeRoomGroupRole(room, roomGroupRole);
 			});
 	}
 
 	@skipIfClosed
 	private registerUsersServiceListeners(): void {
-		this.#usersService
-			.on('removed', (user: ManagedUser) => {
-				logger.debug('usersService "removed" event [userId: %s]', user.id);
-
-				this.#managedPeers.get(String(user.id))?.close();
-			});
+		this.#usersService.on('removed', (user: ManagedUser) => {
+			this.#managedPeers.get(String(user.id))?.close();
+		});
 	}
 
 	@skipIfClosed
 	private registerGroupsServiceListeners(): void {
-		this.#groupsService
-			.on('removed', (group: ManagedGroup) => {
-				logger.debug('groupsService "removed" event [groupId: %s]', group.id);
-
-				this.#managedRooms.forEach((r) => removeGroup(r, group));
-			});
+		this.#groupsService.on('removed', (group: ManagedGroup) => {
+			this.#managedRooms.forEach((r) => removeGroup(r, group));
+		});
 	}
 
 	@skipIfClosed
 	private registerGroupUsersServiceListeners(): void {
 		this.#groupUsersService
 			.on('created', (groupUser: ManagedGroupUser) => {
-				logger.debug('groupUsersService "created" event [groupId: %s]', groupUser.id);
-
 				this.#managedRooms.forEach((r) => addGroupUser(r, groupUser));
 			})
 			.on('removed', (groupUser: ManagedGroupUser) => {
-				logger.debug('groupUsersService "removed" event [groupId: %s]', groupUser.id);
-
 				this.#managedRooms.forEach((r) => removeGroupUser(r, groupUser));
 			});
 	}
 
 	@skipIfClosed
 	private registerRolesServiceListeners(): void {
-		this.#rolesService
-			.on('removed', (role: ManagedRole) => {
-				logger.debug('rolesService "removed" event [roleId: %s]', role.id);
-
-				this.#managedRooms.forEach((r) => removeRole(r, role));
-			});
+		this.#rolesService.on('removed', (role: ManagedRole) => {
+			this.#managedRooms.forEach((r) => removeRole(r, role));
+		});
 	}
 
 	@skipIfClosed
 	private registerRolePermissionsServiceListeners(): void {
 		this.#rolePermissionsService
 			.on('created', (rolePermission: ManagedRolePermission) => {
-				logger.debug('rolePermissionsService "created" event [roleId: %s]', rolePermission.id);
-
 				this.#managedRooms.forEach((r) => addRolePermission(r, rolePermission));
 			})
 			.on('removed', (rolePermission: ManagedRolePermission) => {
-				logger.debug('rolePermissionsService "removed" event [roleId: %s]', rolePermission.id);
-
 				this.#managedRooms.forEach((r) => removeRolePermission(r, rolePermission));
 			});
 	}
