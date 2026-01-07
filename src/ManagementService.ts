@@ -236,11 +236,16 @@ export default class ManagementService {
 				.catch((e) => logger.warn('ensureAuthenticated failed on connect: %o', e));
 		});
 
-		// In socket.io-client v4, reconnect events are on the Manager: socket.io
 		this.#socket.io.on('reconnect', () => {
-			logger.debug('Socket reconnected -> ensureAuthenticated()');
-			this.ensureAuthenticated()
-				.catch((e) => logger.warn('ensureAuthenticated failed on reconnect: %o', e));
+			logger.debug('Socket reconnected.');
+		});
+
+		this.#socket.io.on('reconnect_attempt', (attempt) => {
+			logger.debug('Socket reconnect attempt: %s', attempt);
+		});
+
+		this.#socket.io.on('reconnect_error', (err) => {
+			logger.debug({ err }, 'Socket reconnect error: %o');
 		});
 	}
 
