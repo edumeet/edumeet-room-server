@@ -216,8 +216,7 @@ export default class MediaService {
 			const ip = ff.split(',')[0].trim();
 
 			return this.createKDPointFromAddress(ip) ?? this.defaultClientPosition;
-		}
-		else return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
+		} else return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
 	}
 
 	private createKDPointFromAddress(address: string): KDPoint | undefined {

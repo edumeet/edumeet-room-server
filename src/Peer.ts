@@ -149,7 +149,7 @@ export class Peer extends EventEmitter {
 		}
 
 		if (this.turnCredentialsInterval) {
-		clearInterval(this.turnCredentialsInterval);
+			clearInterval(this.turnCredentialsInterval);
 			this.turnCredentialsInterval = undefined;
 		}
 
