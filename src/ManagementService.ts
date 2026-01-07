@@ -272,6 +272,7 @@ export default class ManagementService {
 
 		try {
 			await this.#client.reAuthenticate();
+			logger.debug('reAuthenticate() OK');
 			this.resolveReady();
 
 			return;
@@ -281,6 +282,7 @@ export default class ManagementService {
 
 		try {
 			await this.authenticateLocal();
+			logger.debug('authenticateLocal() OK');
 			this.resolveReady();
 		} catch (err) {
 			// Reject only on failures that will not heal by reconnecting/retrying.
