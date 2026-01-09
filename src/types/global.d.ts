@@ -7,8 +7,7 @@ import { DataProducer } from 'mediasoup/node/lib/DataProducer';
 import { DataConsumer } from 'mediasoup/node/lib/DataConsumer';
 import ServerManager from '../ServerManager';
 import ManagementService from '../ManagementService';
-
-/* eslint-disable no-var */
+ 
 declare global {
 	var serverManager: ServerManager;
 	var managementService: ManagementService | undefined;

@@ -1,14 +1,38 @@
-import io from 'socket.io-client';
+import io, { Socket } from 'socket.io-client';
 import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
 import authentication from '@feathersjs/authentication-client';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { Peer } from './Peer';
 import Room from './Room';
-import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUser, ManagedUserRole } from './common/types';
+import {
+	ManagedGroup,
+	ManagedGroupRole,
+	ManagedGroupUser,
+	ManagedRole,
+	ManagedRolePermission,
+	ManagedRoom,
+	ManagedRoomOwner,
+	ManagedUser,
+	ManagedUserRole
+} from './common/types';
 import MediaService from './MediaService';
 import { getConfig } from './Config';
-import { addGroupUser, addRolePermission, addRoomGroupRole, addRoomOwner, addRoomUserRole, removeGroup, removeGroupUser, removeRole, removeRolePermission, removeRoomGroupRole, removeRoomOwner, removeRoomUserRole, updateRoom } from './common/authorization';
+import {
+	addGroupUser,
+	addRolePermission,
+	addRoomGroupRole,
+	addRoomOwner,
+	addRoomUserRole,
+	removeGroup,
+	removeGroupUser,
+	removeRole,
+	removeRolePermission,
+	removeRoomGroupRole,
+	removeRoomOwner,
+	removeRoomUserRole,
+	updateRoom
+} from './common/authorization';
 import { safePromise } from './common/safePromise';
 
 const config = getConfig();
@@ -18,6 +42,27 @@ interface ManagementServiceOptions {
 	managedRooms: Map<string, Room>;
 	managedPeers: Map<string, Peer>;
 	mediaService: MediaService;
+}
+
+type FeathersErrorLike = {
+	code?: number;
+	className?: string;
+	name?: string;
+	message?: string;
+};
+
+function isNonRecoverableAuthError(err: unknown): boolean {
+	const e = err as FeathersErrorLike | undefined;
+
+	// Feathers authentication failures usually come as 401 / not-authenticated.
+	if (e?.code === 401) return true;
+	if (e?.className === 'not-authenticated') return true;
+	if (e?.name === 'NotAuthenticated') return true;
+
+	// Missing credentials / misconfiguration should fail fast.
+	if (typeof e?.message === 'string' && e.message.includes('credentials not configured')) return true;
+
+	return false;
 }
 
 export default class ManagementService {
@@ -37,8 +82,10 @@ export default class ManagementService {
 	}));
 
 	#client: Application;
+	#socket: Socket;
 	#reAuthTimer: NodeJS.Timeout;
 
+	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
 	#roomUserRolesService: FeathersService;
@@ -61,14 +108,21 @@ export default class ManagementService {
 		if (!config.managementService)
 			logger.debug('Management service not configured');
 
+		this.#socket = io(config.managementService?.host ?? '', {
+			reconnection: true,
+			reconnectionAttempts: Infinity,
+			transports: [ 'websocket' ]
+		});
+
 		this.#client = feathers()
-			.configure(socketio(io(config.managementService?.host ?? '')))
+			.configure(socketio(this.#socket))
 			.configure(authentication());
 
 		this.#roomsService = this.#client.service('rooms');
 		this.#roomOwnersService = this.#client.service('roomOwners');
 		this.#roomUserRolesService = this.#client.service('roomUserRoles');
 		this.#roomGroupRolesService = this.#client.service('roomGroupRoles');
+		this.#defaultsService = this.#client.service('defaults');
 
 		this.#usersService = this.#client.service('users');
 		this.#groupsService = this.#client.service('groups');
@@ -77,8 +131,15 @@ export default class ManagementService {
 		this.#rolesService = this.#client.service('roles');
 		this.#rolePermissionsService = this.#client.service('rolePermissions');
 
-		this.authenticate();
-		this.#reAuthTimer = setInterval(() => this.authenticate(), 3600000);
+		this.setupSocketLifecycle();
+
+		// we run authenticateLocal() to get a new token every hour
+		this.#reAuthTimer = setInterval(() => {
+			this.authenticateLocal()
+				.then(() => logger.debug('Hourly authenticateLocal() OK'))
+				.catch((e) => logger.warn('Hourly authenticateLocal() failed: %o', e));
+		}, 60 * 60 * 1000);
+
 		this.setupListeners();
 	}
 
@@ -89,41 +150,160 @@ export default class ManagementService {
 		this.closed = true;
 		clearInterval(this.#reAuthTimer);
 		this.#client.logout();
+		this.#socket.disconnect();
 	}
 
 	@skipIfClosed
 	public async getRoom(name: string, tenantId: number): Promise<ManagedRoom | undefined> {
-		logger.debug('getRoom() [name: %s]', name);
+		logger.debug('getRoom() [name: %s, tenantid: %s]', name, tenantId);
 
 		const [ error ] = await this.ready;
 
 		if (error) throw error;
 
+		// Room exist on mgmt
 		const { total, data } = await this.#roomsService.find({ query: { name, tenantId } });
 
-		logger.debug('getRoom() [name: %s] -> data: %o', name, data);
+		let room = undefined;
 
-		if (total === 1) return data[0];
+		if (total === 1) {
+			logger.debug('getRoom() [name: %s] -> data: %o', name, data);
+			room = data[0] as ManagedRoom;
+		}
+
+		let fdata = undefined;
+
+		const fallback = await this.#defaultsService.find({ query: { name, tenantId } });
+
+		if (fallback.total === 1) {
+			logger.debug('getRoom() [name: %s] -> fallback: %o', name, fallback);
+			fdata = fallback.data[0];
+		}
+
+		if (fdata === undefined) {
+			return room;
+		}
+
+		let maxFileSize = 100_000_000;
+
+		if (fdata.maxFileSize !== null && fdata.maxFileSize !== undefined) {
+			maxFileSize = Math.max(0, Number(fdata.maxFileSize)) * 1_000_000;
+		} else if (config.defaultRoomSettings?.maxFileSize !== null &&
+			config.defaultRoomSettings?.maxFileSize !== undefined) {
+			maxFileSize = Math.max(0, Number(config.defaultRoomSettings.maxFileSize));
+		}
+
+		if (room !== undefined) {
+			// FALLBACK from Default if not set by room owner
+			room.defaultRoleId = room.defaultRoleId || fdata.defaultRoleId || '';
+			room.defaultRole = room.defaultRole || fdata.defaultRole || [];
+			room.logo = room.logo || fdata.logo || '';
+			room.background = room.background || fdata.background || '';
+			room.tracker = room.tracker || fdata.tracker || config.defaultRoomSettings?.tracker || '';
+			room.maxFileSize = room.maxFileSize || maxFileSize;
+		} else {
+			// FALLBACK
+			// get roles with a virt adapter on mgmt side
+			// TODO finish user and group roles
+			const defaultRoom = {
+				id: 0,
+				name: '',
+				description: '',
+				createdAt: 0,
+				updatedAt: 0,
+				creatorId: 0,
+				tenantId: tenantId,
+				owners: [],
+				groupRoles: [],
+				userRoles: [],
+				defaultRole: fdata.defaultRole || [],
+				maxActiveVideos: 12,
+				locked: fdata.lockedUnmanaged,
+				tracker: fdata.tracker || config.defaultRoomSettings?.tracker || '',
+				maxFileSize: maxFileSize,
+				breakoutsEnabled: fdata.breakoutsEnabledUnmanaged,
+				chatEnabled: fdata.chatEnabledUnmanaged,
+				reactionsEnabled: fdata.reactionsEnabledUnmanaged,
+				raiseHandEnabled: fdata.raiseHandEnabledUnmanaged,
+				filesharingEnabled: fdata.filesharingEnabledUnmanaged,
+				localRecordingEnabled: fdata.localRecordingEnabledUnmanaged,
+				logo: fdata.logo || '',
+				background: fdata.background || ''
+			};
+
+			room = defaultRoom;
+		}
+
+		return room;
 	}
 
 	@skipIfClosed
-	private authenticate(): void {
-		logger.debug('authenticate()');
+	private setupSocketLifecycle(): void {
+		logger.debug('setupSocketLifecycle()');
+
+		this.#socket.on('disconnect', (reason) => {
+			logger.debug('Socket connection disconnected: %s', reason);
+			// TODO: handle explicit disconnect
+		});
+
+		this.#socket.on('connect', () => {
+			logger.debug('Socket connected -> ensureAuthenticated()');
+			this.ensureAuthenticated()
+				.catch((e) => logger.warn('ensureAuthenticated failed on connect: %o', e));
+		});
+
+		this.#socket.io.on('reconnect', () => {
+			logger.debug('Socket reconnected.');
+		});
+
+		this.#socket.io.on('reconnect_attempt', (attempt) => {
+			logger.debug('Socket reconnect attempt: %s', attempt);
+		});
+
+		this.#socket.io.on('reconnect_error', (err) => {
+			logger.debug({ err }, 'Socket reconnect error: %o');
+		});
+	}
+
+	@skipIfClosed
+	private async ensureAuthenticated(): Promise<void> {
+		logger.debug('ensureAuthenticated()');
+
+		try {
+			await this.#client.reAuthenticate();
+			logger.debug('reAuthenticate() OK');
+			this.resolveReady();
+
+			return;
+		} catch (err) {
+			logger.debug({ err }, 'reAuthenticate() failed, falling back to local auth: %o');
+		}
+
+		try {
+			await this.authenticateLocal();
+			logger.debug('authenticateLocal() OK');
+			this.resolveReady();
+		} catch (err) {
+			// Reject only on failures that will not heal by reconnecting/retrying.
+			if (isNonRecoverableAuthError(err)) {
+				this.rejectReady(err);
+			}
+
+			throw err;
+		}
+	}
+
+	@skipIfClosed
+	private async authenticateLocal(): Promise<void> {
+		logger.debug('authenticateLocal()');
 
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
-		
-		this.#client.authenticate({
+
+		await this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
-		})
-			.then(this.resolveReady)
-			.catch(this.rejectReady);
-
-		this.#client.io.on('disconnect', () => {
-			logger.debug('Socket connection disconnected');
-			// TODO: handle explicit disconnect
 		});
 	}
 

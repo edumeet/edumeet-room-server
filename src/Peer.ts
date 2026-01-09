@@ -8,7 +8,6 @@ import {
 	BaseConnection,
 	InboundNotification,
 	InboundRequest,
-	IOServerConnection,
 	List,
 	Logger,
 	Pipeline,
@@ -18,7 +17,7 @@ import {
 } from 'edumeet-common';
 import { DataProducer } from './media/DataProducer';
 import { DataConsumer } from './media/DataConsumer';
-import { clientAddress } from 'edumeet-common/lib/IOServerConnection';
+import { IOServerConnection, clientAddress } from './common/IOServerConnection';
 import { Permission } from './common/authorization';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
@@ -149,7 +148,10 @@ export class Peer extends EventEmitter {
 			this.rejectRouterReady?.(new Error('Router reset'));
 		}
 
-		clearInterval(this.turnCredentialsInterval);
+		if (this.turnCredentialsInterval) {
+			clearInterval(this.turnCredentialsInterval);
+			this.turnCredentialsInterval = undefined;
+		}
 
 		this.routerReady = safePromise<Router>(new Promise<Router>((resolve, reject) => {
 			this.resolveRouterReady = resolve;
@@ -181,6 +183,11 @@ export class Peer extends EventEmitter {
 		logger.debug('close() [peerId: %s]', this.id);
 
 		this.closed = true;
+
+		if (this.turnCredentialsInterval) {
+			clearInterval(this.turnCredentialsInterval);
+			this.turnCredentialsInterval = undefined;
+		}
 
 		this.connections.items.forEach((c) => c.close());
 		this.producers.forEach((p) => p.close());
@@ -313,7 +320,7 @@ export class Peer extends EventEmitter {
 				if (!context.handled)
 					throw new Error('no middleware handled the notification');
 			} catch (error) {
-				logger.error('notification() [error: %o]', error);
+				logger.error({ err: error }, 'notification() [error: %o]');
 			}
 		});
 
@@ -336,7 +343,7 @@ export class Peer extends EventEmitter {
 					reject('Server error');
 				}
 			} catch (error) {
-				logger.error('request() [error: %o]', error);
+				logger.error({ err: error }, 'request() [error: %o]');
 				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
 				reject?.('Server error');
@@ -359,7 +366,7 @@ export class Peer extends EventEmitter {
 			try {
 				return connection.notify(notification);
 			} catch (error) {
-				logger.error('notify() [error: %o]', error);
+				logger.error({ err: error }, 'notify() [error: %o]');
 			}
 		}
 
@@ -374,7 +381,7 @@ export class Peer extends EventEmitter {
 			try {
 				return await connection.request(request);
 			} catch (error) {
-				logger.error('request() [error: %o]', error);
+				logger.error({ err: error }, 'request() [error: %o]');
 			}
 		}
 

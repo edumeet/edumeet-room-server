@@ -10,6 +10,7 @@ export function getConfig(): Config {
 			const rawConfig = fs.readFileSync('./config/config.json', 'utf8');
 
 			config = JSON.parse(rawConfig);
+		// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
 		} catch (e) {
 			config = {
 				listenHost: '0.0.0.0',

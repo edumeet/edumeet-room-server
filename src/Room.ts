@@ -245,7 +245,7 @@ export default class Room extends EventEmitter {
 			else
 				this.parkPeer(peer);
 		} catch (error) {
-			logger.error('addPeer() [error: %o]', error);
+			logger.error({ err: error }, 'addPeer() [error: %o]');
 
 			peer.close();
 		}
@@ -319,11 +319,11 @@ export default class Room extends EventEmitter {
 			this.#lockMiddleware,
 		);
 
-		this.breakoutsEnabled && peer.pipeline.use(this.#breakoutMiddleware);
-		this.chatEnabled && peer.pipeline.use(this.#chatMiddleware);
-		this.filesharingEnabled && peer.pipeline.use(this.#fileMiddleware);
-		this.countdownTimerEnabled && peer.pipeline.use(this.#countdownTimerMiddleware);
-		this.drawingEnabled && peer.pipeline.use(this.#drawingMiddleware);
+		if (this.breakoutsEnabled) peer.pipeline.use(this.#breakoutMiddleware);
+		if (this.chatEnabled) peer.pipeline.use(this.#chatMiddleware);
+		if (this.filesharingEnabled) peer.pipeline.use(this.#fileMiddleware);
+		if (this.countdownTimerEnabled) peer.pipeline.use(this.#countdownTimerMiddleware);
+		if (this.drawingEnabled) peer.pipeline.use(this.#drawingMiddleware);
 
 		this.peers.add(peer);
 
@@ -391,7 +391,7 @@ export default class Room extends EventEmitter {
 			peer.rtpCapabilities = rtpCapabilities;
 			peer.sctpCapabilities = sctpCapabilities;
 		} catch (error) {
-			logger.error('assignRouter() [%o]', error);
+			logger.error({ err: error }, 'assignRouter() [%o]');
 
 			peer.notify({ method: 'noMediaServer' });
 

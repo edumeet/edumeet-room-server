@@ -10,6 +10,7 @@ export const verifyPeer = (token: string): string | undefined => {
 			const { sub } = jwt.verify(token, key) as JwtPayload;
 
 			return sub;
+		// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
 		} catch (err) {}
 	}
 };

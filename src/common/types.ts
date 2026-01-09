@@ -1,7 +1,6 @@
 import BreakoutRoom from '../BreakoutRoom';
 import Room from '../Room';
-
-// eslint-disable-next-line no-shadow
+ 
 export enum MediaSourceType {
 	// eslint-disable-next-line no-unused-vars
 	MIC = 'mic',
@@ -130,7 +129,7 @@ export type ManagedRoom = {
 	groupRoles: ManagedGroupRole[]; // Group roles in this room
 	userRoles: ManagedUserRole[]; // User roles in this room
 	defaultRole?: ManagedRole; // Default role for users without a role in this room
-
+	defaultRoleId?: string | undefined; // Default role for users without a role in this room
 	// Look and feel
 	logo?: string;
 	background?: string;
@@ -243,4 +242,38 @@ export type ManagedGroupUser = {
 	id: number;
 	groupId: string;
 	userId: string;
+}
+
+export type Default = {
+	id: number,
+	tenantId: string, // number,
+	numberLimit: string, // number,
+	liveNumberLimit: string, // number,
+	userManagedRoomNumberLimit: string, // number,
+	managerManagedRoomNumberLimit: string, // number,
+	lockedManaged: boolean | undefined,
+	raiseHandEnabledManaged: boolean | undefined,
+	localRecordingEnabledManaged: boolean | undefined,
+	lockedUnmanaged: boolean | undefined,
+	raiseHandEnabledUnmanaged: boolean | undefined,
+	localRecordingEnabledUnmanaged: boolean | undefined,
+	lockedLock: boolean | undefined,
+	raiseHandEnabledLock: boolean | undefined,
+	localRecordingEnabledLock: boolean | undefined,
+	chatEnabledUnmanaged: boolean | undefined,
+	breakoutsEnabledUnmanaged: boolean | undefined,
+	filesharingEnabledUnmanaged: boolean | undefined,
+	chatEnabledManaged: boolean | undefined,
+	breakoutsEnabledManaged: boolean | undefined,
+	filesharingEnabledManaged: boolean | undefined,
+	chatEnabledLock: boolean | undefined,
+	breakoutsEnabledLock: boolean | undefined,
+	filesharingEnabledLock: boolean | undefined,
+	tracker: string,
+	maxFileSize: string, // number,
+	background: string,
+	logo: string,
+	defaultRoleId: string, // number,
+	defaultRole: ManagedRole, // number,
+	tenantPermissionLimitRole: string, // number,
 }

@@ -175,7 +175,7 @@ export const createConsumer = async (
 			});
 		}
 	} catch (error) {
-		return logger.error('createConsumer() [error: %o]', error);
+		return logger.error({ err: error }, 'createConsumer() [error: %o]');
 	}
 };
 
@@ -250,7 +250,7 @@ export const createDataConsumer = async (
 			}
 		});
 	} catch (error) {
-		return logger.error('createDataConsumer() [error: %o]', error);
+		return logger.error({ err: error }, 'createDataConsumer() [error: %o]');
 	}
 };
 

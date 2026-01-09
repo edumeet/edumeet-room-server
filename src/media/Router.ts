@@ -435,12 +435,9 @@ export class Router extends EventEmitter {
 			let pipeProducer: PipeProducer | undefined;
 
 			try {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeConsumer = await localPipeTransport!.consume({
 					producerId: producer.id
 				});
-
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeProducer = await remotePipeTransport!.produce({
 					producerId: producer.id,
 					kind: pipeConsumer.kind,
@@ -472,9 +469,8 @@ export class Router extends EventEmitter {
 
 				return { pipeConsumer, pipeProducer };
 			} catch (error) {
-				logger.error(
-					'pipeToRouter() | error creating pipe Consumer/Producer pair:%o',
-					error);
+				logger.error({ err: error },
+					'pipeToRouter() | error creating pipe Consumer/Producer pair:%o');
 
 				if (pipeConsumer)
 					pipeConsumer.close();
@@ -489,12 +485,9 @@ export class Router extends EventEmitter {
 			let pipeDataProducer: PipeDataProducer | undefined;
 
 			try {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeDataConsumer = await localPipeTransport!.consumeData({
 					dataProducerId: dataProducer.id
 				});
-
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pipeDataProducer = await remotePipeTransport!.produceData({
 					dataProducerId: dataProducer.id,
 					sctpStreamParameters: pipeDataConsumer.sctpStreamParameters,
@@ -515,9 +508,8 @@ export class Router extends EventEmitter {
 
 				return { pipeDataConsumer, pipeDataProducer };
 			} catch (error) {
-				logger.error(
-					'pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o',
-					error);
+				logger.error({ err: error },
+					'pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o');
 
 				if (pipeDataConsumer)
 					pipeDataConsumer.close();

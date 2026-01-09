@@ -117,9 +117,9 @@ export default class ServerManager {
 					filesharingEnabled = true,
 					localRecordingEnabled = true,
 					tracker=undefined,
-					maxFileSize = 100_000_000					
+					maxFileSize = 100_000_000
 				} = config.defaultRoomSettings;
-				
+
 				room.tracker = tracker;
 				if (maxFileSize)
 					room.maxFileSize = maxFileSize;
@@ -210,10 +210,8 @@ export default class ServerManager {
 					room.resolveRoomReady();
 				} catch (error) {
 					logger.error(
-						'handleConnection() error while getting room [roomId: %s, tenantId: %s, error: %o]',
-						roomId,
-						tenantId,
-						error
+						{ roomId, tenantId, err: error },
+						'handleConnection() error while getting room'
 					);
 
 					room.rejectRoomReady(error as Error);

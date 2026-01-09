@@ -20,16 +20,12 @@ export interface IceServer {
 	credential: string;
 }
 
-export const getCredentials = (peerId: string, secret: string, validTimeInS: number): IceCredentials => {
-	const unixTimeStamp = ~~(Date.now() / 1000) + validTimeInS;
+export const getCredentials = (peerId: string, secret: string, validTimeInS: number) => {
+	const unixTimeStamp = Math.floor(Date.now() / 1000) + validTimeInS;
 	const username = `${unixTimeStamp}:${peerId}`;
-	const hmac = createHmac('sha1', secret);
+	const credential = createHmac('sha1', secret).update(username).digest('base64');
 
-	hmac.setEncoding('base64');
-	hmac.write(username);
-	hmac.end();
-
-	return { username, credential: hmac.read() };
+	return { username, credential };
 };
 
 export const getIceServers = ({ hostname, username, credential, turnports }: IceServerConfig): IceServer[] => {
