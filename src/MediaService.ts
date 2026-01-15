@@ -163,6 +163,54 @@ export default class MediaService {
 
 			// Get sticky candidates
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
+
+			const getReasons = (
+				m: MediaNode,
+				{
+					enforceGeoDistance = false,
+					enforceLoad = false,
+					duplicate = false
+				}: { enforceGeoDistance?: boolean; enforceLoad?: boolean; duplicate?: boolean } = {}
+			) => {
+				const reasons: string[] = [];
+				const distance = KDTree.getDistance(peerGeoPosition, m.kdPoint);
+
+				if (duplicate) reasons.push('DUPLICATE');
+				if (m.draining) reasons.push('DRAINING');
+				if (!m.healthy) reasons.push('UNHEALTHY');
+				if (enforceLoad && m.load >= this.loadThreshold) reasons.push('OVERLOAD');
+				if (enforceGeoDistance && distance >= this.geoDistanceThreshold) reasons.push('TOO_FAR');
+
+				return { distance, reasons, eligible: reasons.length === 0 };
+			};
+
+			const stickyEvaluation = room.mediaNodes.items.map((m) => {
+				const { distance, reasons, eligible } = getReasons(m, { enforceGeoDistance: true, enforceLoad: true });
+
+				return {
+					id: m.id,
+					hostname: m.hostname,
+					port: m.port,
+					healthy: m.healthy,
+					draining: m.draining,
+					load: m.load,
+					distance,
+					eligible,
+					reasons
+				};
+			});
+
+			logger.debug(
+				{
+					peerGeoPosition,
+					defaultClientPosition: this.defaultClientPosition,
+					loadThreshold: this.loadThreshold,
+					geoDistanceThreshold: this.geoDistanceThreshold,
+					sticky: stickyEvaluation
+				},
+				'getCandidates() sticky evaluation'
+			);
+
 			const candidates = room.mediaNodes.items
 				.filter(({ draining, healthy, load, kdPoint }) =>
 					!draining &&
@@ -175,7 +223,7 @@ export default class MediaService {
 			// Get additional candidates from KDTree
 			const geoCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
-				
+
 				if (candidates.includes(m)) return false;
 
 				return !m.draining && m.healthy && m.load < this.loadThreshold;
@@ -183,15 +231,86 @@ export default class MediaService {
 
 			const lastResortCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
-				
+
 				if (candidates.includes(m)) return false;
 
 				return !m.draining && m.healthy;
 			});
 
+			logger.debug(
+				{
+					geoCandidates: (geoCandidates ?? []).map(([ p, distance ]) => {
+						const m = p.appData.mediaNode as MediaNode;
+						const { reasons, eligible } = getReasons(m, {
+							enforceGeoDistance: false,
+							enforceLoad: true,
+							duplicate: candidates.includes(m)
+						});
+
+						return {
+							id: m.id,
+							hostname: m.hostname,
+							port: m.port,
+							healthy: m.healthy,
+							draining: m.draining,
+							load: m.load,
+							distance,
+							eligible,
+							reasons
+						};
+					}),
+					lastResortCandidates: (lastResortCandidates ?? []).map(([ p, distance ]) => {
+						const m = p.appData.mediaNode as MediaNode;
+						const { reasons, eligible } = getReasons(m, {
+							enforceGeoDistance: false,
+							enforceLoad: false,
+							duplicate: candidates.includes(m)
+						});
+
+						return {
+							id: m.id,
+							hostname: m.hostname,
+							port: m.port,
+							healthy: m.healthy,
+							draining: m.draining,
+							load: m.load,
+							distance,
+							eligible,
+							reasons
+						};
+					})
+				},
+				'getCandidates() kd-tree evaluation'
+			);
+
 			// Merge candidates
 			geoCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
 			lastResortCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
+
+			logger.debug(
+				{
+					finalCandidates: candidates.map((m) => {
+						const { distance, reasons, eligible } = getReasons(m, {
+							enforceGeoDistance: false,
+							enforceLoad: false,
+							duplicate: false
+						});
+
+						return {
+							id: m.id,
+							hostname: m.hostname,
+							port: m.port,
+							healthy: m.healthy,
+							draining: m.draining,
+							load: m.load,
+							distance,
+							eligible,
+							reasons
+						};
+					})
+				},
+				'getCandidates() final candidates'
+			);
 
 			return candidates;
 		} catch (err) {
