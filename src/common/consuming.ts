@@ -90,6 +90,16 @@ export const createConsumer = async (
 
 		consumerPeer.consumers.set(consumer.id, consumer);
 
+		logger.debug({
+			consumerId: consumer.id,
+			consumerPeerId: consumerPeer.id,
+			consumerPeerName: consumerPeer.displayName,
+			producerPeerId: producerPeer.id,
+			producerPeerName: producerPeer.displayName,
+			kind: consumer.kind,
+			producerId: consumer.producerId
+		}, 'created consumer');
+
 		// The consuming peer went to a different session, maybe close the consumer
 		consumerPeer.on('sessionIdChanged', () => {
 			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
@@ -110,16 +120,38 @@ export const createConsumer = async (
 			});
 		});
 
-		consumer.on('producerpause', () => consumerPeer.notify({
-			method: 'consumerPaused',
-			data: { consumerId: consumer.id }
-		}));
+		consumer.on('producerpause', () => {
+			logger.debug({
+				consumerId: consumer.id,
+				consumerPeerId: consumerPeer.id,
+				consumerPeerName: consumerPeer.displayName,
+				producerPeerId: producerPeer.id,
+				producerPeerName: producerPeer.displayName,
+				kind: consumer.kind,
+				producerId: consumer.producerId
+			}, 'notify consumerPaused');
+
+			consumerPeer.notify({
+				method: 'consumerPaused',
+				data: { consumerId: consumer.id }
+			});
+		});
 
 		// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
 		const { appData: { layerWatcher, ...producerAppData } } = producer;
 
 		consumer.on('producerresume', () => {
 			if (consumer.appData.suspended) {
+				logger.debug({
+					consumerId: consumer.id,
+					consumerPeerId: consumerPeer.id,
+					consumerPeerName: consumerPeer.displayName,
+					producerPeerId: producerPeer.id,
+					producerPeerName: producerPeer.displayName,
+					kind: consumer.kind,
+					producerId: consumer.producerId
+				}, 'producerresume -> notify newConsumer (unsuspend)');
+
 				consumerPeer.notify({
 					method: 'newConsumer',
 					data: {
@@ -136,6 +168,16 @@ export const createConsumer = async (
 
 				delete consumer.appData.suspended;
 			} else {
+				logger.debug({
+					consumerId: consumer.id,
+					consumerPeerId: consumerPeer.id,
+					consumerPeerName: consumerPeer.displayName,
+					producerPeerId: producerPeer.id,
+					producerPeerName: producerPeer.displayName,
+					kind: consumer.kind,
+					producerId: consumer.producerId
+				}, 'producerresume -> notify consumerResumed');
+
 				consumerPeer.notify({
 					method: 'consumerResumed',
 					data: { consumerId: consumer.id }
@@ -157,9 +199,19 @@ export const createConsumer = async (
 			}
 		}));
 
-		if (consumer.producerPaused)
+		if (consumer.producerPaused) {
 			consumer.appData.suspended = true;
-		else {
+
+			logger.debug({
+				consumerId: consumer.id,
+				consumerPeerId: consumerPeer.id,
+				consumerPeerName: consumerPeer.displayName,
+				producerPeerId: producerPeer.id,
+				producerPeerName: producerPeer.displayName,
+				kind: consumer.kind,
+				producerId: consumer.producerId
+			}, 'consumer initially suspended');
+		} else {
 			consumerPeer.notify({
 				method: 'newConsumer',
 				data: {
@@ -173,6 +225,18 @@ export const createConsumer = async (
 					appData: producerAppData,
 				}
 			});
+
+			logger.debug({
+				consumerId: consumer.id,
+				consumerPeerId: consumerPeer.id,
+				consumerPeerName: consumerPeer.displayName,
+				producerPeerId: producerPeer.id,
+				producerPeerName: producerPeer.displayName,
+				kind: consumer.kind,
+				producerId: consumer.producerId,
+				producerPaused: consumer.producerPaused,
+				paused: consumer.paused
+			}, 'notify newConsumer (initial)');
 		}
 	} catch (error) {
 		return logger.error({ err: error }, 'createConsumer() [error: %o]');
