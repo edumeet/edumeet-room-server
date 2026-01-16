@@ -164,6 +164,17 @@ export default class MediaService {
 			// Get sticky candidates
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
 
+			// Find the best (nearest) geo candidate distance under normal constraints.
+			// Used to decide whether it is worth breaking stickiness when sticky is too far.
+			const bestGeoCandidate = kdTree.nearestNeighbors(peerGeoPosition, 1, (point) => {
+				const m = point.appData.mediaNode as MediaNode;
+
+				return !m.draining && m.healthy && m.load < this.loadThreshold;
+			});
+
+			const bestGeoDistance = bestGeoCandidate?.[0]?.[1] ?? Number.POSITIVE_INFINITY;
+			const geoGainRatio = 0.75; // >25% closer => split (new node)
+
 			const getReasons = (
 				m: MediaNode,
 				{
@@ -179,7 +190,13 @@ export default class MediaService {
 				if (m.draining) reasons.push('DRAINING');
 				if (!m.healthy) reasons.push('UNHEALTHY');
 				if (enforceLoad && m.load >= this.loadThreshold) reasons.push('OVERLOAD');
-				if (enforceGeoDistance && distance >= this.geoDistanceThreshold) reasons.push('TOO_FAR');
+
+				// Sticky distance logic:
+				// - If within geoDistanceThreshold => OK
+				// - If farther, only mark TOO_FAR when the best geo node is >25% closer.
+				if (enforceGeoDistance && distance >= this.geoDistanceThreshold) {
+					if (bestGeoDistance < distance * geoGainRatio) reasons.push('TOO_FAR');
+				}
 
 				return { distance, reasons, eligible: reasons.length === 0 };
 			};
@@ -206,18 +223,27 @@ export default class MediaService {
 					defaultClientPosition: this.defaultClientPosition,
 					loadThreshold: this.loadThreshold,
 					geoDistanceThreshold: this.geoDistanceThreshold,
+					bestGeoDistance,
+					geoGainRatio,
 					sticky: stickyEvaluation
 				},
 				'getCandidates() sticky evaluation'
 			);
 
 			const candidates = room.mediaNodes.items
-				.filter(({ draining, healthy, load, kdPoint }) =>
-					!draining &&
-					healthy &&
-					load < this.loadThreshold &&
-					KDTree.getDistance(peerGeoPosition, kdPoint) < this.geoDistanceThreshold
-				)
+				.filter(({ draining, healthy, load, kdPoint }) => {
+					if (draining) return false;
+					if (!healthy) return false;
+					if (load >= this.loadThreshold) return false;
+
+					const distance = KDTree.getDistance(peerGeoPosition, kdPoint);
+
+					// Normal sticky behavior when within threshold
+					if (distance < this.geoDistanceThreshold) return true;
+
+					// If sticky is far, keep it unless the best geo node is >25% closer
+					return !(bestGeoDistance < distance * geoGainRatio);
+				})
 				.sort((a, b) => a.load - b.load);
 
 			// Get additional candidates from KDTree
@@ -345,5 +371,4 @@ export default class MediaService {
 
 		if (geo) return new KDPoint([ ...geo.ll ]);
 	}
-
 }
