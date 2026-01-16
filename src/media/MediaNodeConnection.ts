@@ -109,7 +109,10 @@ export class MediaNodeConnection extends EventEmitter {
 
 		this.#socket.on('notification', async (notification) => {
 			logger.debug('"notification" recieved [notification: %o]', notification);
-			this.emit('load', notification.data?.load);
+
+			const dataLoad = notification.data?.load;
+
+			if (typeof dataLoad === 'number') this.emit('load', dataLoad);
 
 			if (notification.method === 'mediaNodeReady') {
 				clearTimeout(this.#resolveReadyTimeoutHandle);
@@ -121,6 +124,12 @@ export class MediaNodeConnection extends EventEmitter {
 				this.rejectReady(new DrainingError('Media node is draining'));
 
 				return this.emit('draining');
+			}
+
+			if (notification.method === 'mediaNodeStats') {
+				// Do nothing: handled above by dataLoad
+
+				return;
 			}
 
 			try {
@@ -142,7 +151,10 @@ export class MediaNodeConnection extends EventEmitter {
 		this.#socket.on('request', async (request, result) => {
 			logger.debug('"request" event [request: %o]', request);
 			try {
-				this.emit('load', request.data?.load);
+				const dataLoad = request.data?.load;
+
+				if (typeof dataLoad === 'number') this.emit('load', dataLoad);
+
 				const context = {
 					message: request,
 					response: {},
@@ -188,7 +200,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 		const { load } = response;
 
-		if (load) this.emit('load', load);
+		if (typeof load === 'number') this.emit('load', load);
 
 		return response;
 	}

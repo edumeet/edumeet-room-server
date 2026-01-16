@@ -64,6 +64,7 @@ export class MediaNode extends EventEmitter {
 	public healthy = true;
 	public draining = false;
 	public load = 0; // Percentage of load 0-100
+	public lastLoadUpdateTs = 0;
 	public secret: string;
 
 	#routersMiddleware = createRoutersMiddleware({ routers: this.routers });
@@ -205,7 +206,10 @@ export class MediaNode extends EventEmitter {
 		);
 
 		connection.on('load', (load) => {
+			if (typeof load !== 'number') return;
+
 			this.load = load;
+			this.lastLoadUpdateTs = Date.now();
 		});
 
 		connection.on('draining', () => {
