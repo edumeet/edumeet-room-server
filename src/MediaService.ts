@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import { getConfig } from './Config';
 import * as geoip from 'geoip-lite';
+import { lookup as dnsLookup } from 'dns/promises';
 
 const logger = new Logger('MediaService');
 const config = getConfig();
@@ -29,6 +30,7 @@ export type MediaNodeConfig = {
 	secret: string;
 	longitude: number;
 	latitude: number;
+	country?: string;
 	turnHostname?: string;
 	turnports: Array<{
 		protocol: string; // turn / turns
@@ -46,6 +48,8 @@ export default class MediaService {
 	private readonly geoDistanceThreshold: number;
 	private readonly defaultClientPosition: KDPoint;
 
+	private readonly mediaNodeCountries = new Map<string, string>(); // key: hostname
+
 	constructor({
 		kdTree,
 		mediaNodes,
@@ -60,6 +64,9 @@ export default class MediaService {
 		this.defaultClientPosition = defaultClientPosition;
 		this.loadThreshold = loadThreshold;
 		this.geoDistanceThreshold = geoDistanceThreshold;
+
+		this.bootstrapMediaNodeCountriesFromConfig();
+		this.resolveMediaNodeCountries();
 	}
 
 	public static create() {
@@ -99,6 +106,7 @@ export default class MediaService {
 		secret,
 		longitude,
 		latitude,
+		country,
 		turnHostname,
 		turnports
 	}: MediaNodeConfig) {
@@ -118,6 +126,16 @@ export default class MediaService {
 		this.kdTree.rebalance();
 
 		this.mediaNodes.push(mediaNode);
+
+		if (country) {
+			this.mediaNodeCountries.set(hostname, country.toUpperCase());
+			logger.debug(
+				{ hostname, country },
+				'addMediaNode() media node country from config'
+			);
+		} else {
+			this.resolveMediaNodeCountry(mediaNode);
+		}
 	}
 
 	@skipIfClosed
@@ -161,8 +179,9 @@ export default class MediaService {
 		try {
 			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
 
-			// Get sticky candidates
+			// Get sticky candidates and peer country
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
+			const peerCountry = this.getClientCountry(peer);
 
 			// Find the best (nearest) geo candidate distance under normal constraints.
 			// Used to decide whether it is worth breaking stickiness when sticky is too far.
@@ -213,13 +232,15 @@ export default class MediaService {
 					load: m.load,
 					distance,
 					eligible,
-					reasons
+					reasons,
+					nodeCountry: this.getNodeCountry(m)
 				};
 			});
 
 			logger.debug(
 				{
 					peerGeoPosition,
+					peerCountry,
 					defaultClientPosition: this.defaultClientPosition,
 					loadThreshold: this.loadThreshold,
 					geoDistanceThreshold: this.geoDistanceThreshold,
@@ -246,7 +267,7 @@ export default class MediaService {
 				})
 				.sort((a, b) => a.load - b.load);
 
-			// Get additional candidates from KDTree
+			// Get additional candidates from KDTree (any country)
 			const geoCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 
@@ -262,6 +283,124 @@ export default class MediaService {
 
 				return !m.draining && m.healthy;
 			});
+
+			// Same-country preference for initial node assignment:
+			// - only when room has no sticky nodes yet
+			// - and we know peerCountry
+			// We query same-country nodes separately to avoid 5 or more nodes in the same location, hiding other nodes.
+			const sameCountryDelta = 0.15;
+			let geoPreferred: MediaNode[] = [];
+			let geoFallback: MediaNode[] = [];
+
+			if (room.mediaNodes.length === 0 && peerCountry) {
+				const sameCountryNN = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
+					const m = point.appData.mediaNode as MediaNode;
+
+					if (candidates.includes(m)) return false;
+
+					const nodeCountry = this.getNodeCountry(m);
+
+					if (!nodeCountry || nodeCountry !== peerCountry) return false;
+
+					return !m.draining && m.healthy && m.load < this.loadThreshold;
+				});
+
+				const sameCountryMapped = (sameCountryNN ?? []).map(([ p, distance ]) => {
+					const m = p.appData.mediaNode as MediaNode;
+
+					return {
+						mediaNode: m,
+						distance,
+						nodeCountry: this.getNodeCountry(m)
+					};
+				});
+
+				const geoMapped = (geoCandidates ?? []).map(([ p, distance ]) => {
+					const m = p.appData.mediaNode as MediaNode;
+
+					return {
+						mediaNode: m,
+						distance,
+						nodeCountry: this.getNodeCountry(m)
+					};
+				});
+
+				const otherMapped = geoMapped.filter((c) => c.nodeCountry && c.nodeCountry !== peerCountry);
+
+				if (sameCountryMapped.length > 0 && otherMapped.length > 0) {
+					const bestOtherDistance = Math.min(...otherMapped.map((c) => c.distance));
+					const maxSameCountryDistance = bestOtherDistance * (1 + sameCountryDelta);
+
+					const preferredSameCountry = sameCountryMapped.filter((c) => {
+						if (!Number.isFinite(bestOtherDistance)) return true;
+
+						return c.distance <= maxSameCountryDistance;
+					});
+
+					if (preferredSameCountry.length > 0) {
+						geoPreferred = preferredSameCountry.map((c) => c.mediaNode);
+
+						const preferredSet = new Set(geoPreferred);
+
+						geoFallback = geoMapped
+							.filter((c) => !preferredSet.has(c.mediaNode))
+							.map((c) => c.mediaNode);
+
+						logger.debug(
+							{
+								peerCountry,
+								sameCountryDelta,
+								bestOtherDistance,
+								maxSameCountryDistance,
+								preferredSameCountry: preferredSameCountry.map((c) => ({
+									id: c.mediaNode.id,
+									hostname: c.mediaNode.hostname,
+									distance: c.distance,
+									nodeCountry: c.nodeCountry
+								})),
+								otherCandidates: otherMapped.map((c) => ({
+									id: c.mediaNode.id,
+									hostname: c.mediaNode.hostname,
+									distance: c.distance,
+									nodeCountry: c.nodeCountry
+								}))
+							},
+							'getCandidates() same-country preference applied'
+						);
+					}
+				} else if (sameCountryMapped.length > 0 && otherMapped.length === 0) {
+					// Only same-country nodes are known in the top list (or no other-country nodes).
+					geoPreferred = sameCountryMapped.map((c) => c.mediaNode);
+					geoFallback = geoMapped
+						.filter((c) => !geoPreferred.includes(c.mediaNode))
+						.map((c) => c.mediaNode);
+
+					logger.debug(
+						{
+							peerCountry,
+							sameCountryDelta,
+							preferredSameCountry: sameCountryMapped.map((c) => ({
+								id: c.mediaNode.id,
+								hostname: c.mediaNode.hostname,
+								distance: c.distance,
+								nodeCountry: c.nodeCountry
+							})),
+							otherCandidates: otherMapped.map((c) => ({
+								id: c.mediaNode.id,
+								hostname: c.mediaNode.hostname,
+								distance: c.distance,
+								nodeCountry: c.nodeCountry
+							}))
+						},
+						'getCandidates() same-country preference (no other-country candidates)'
+					);
+				}
+			}
+
+			// If no same-country preference applied, fall back to original geo order.
+			if (!geoPreferred.length && geoCandidates) {
+				geoPreferred = geoCandidates.map(([ p ]) => p.appData.mediaNode as MediaNode);
+			}
 
 			logger.debug(
 				{
@@ -282,7 +421,8 @@ export default class MediaService {
 							load: m.load,
 							distance,
 							eligible,
-							reasons
+							reasons,
+							nodeCountry: this.getNodeCountry(m)
 						};
 					}),
 					lastResortCandidates: (lastResortCandidates ?? []).map(([ p, distance ]) => {
@@ -302,16 +442,28 @@ export default class MediaService {
 							load: m.load,
 							distance,
 							eligible,
-							reasons
+							reasons,
+							nodeCountry: this.getNodeCountry(m)
 						};
 					})
 				},
 				'getCandidates() kd-tree evaluation'
 			);
 
-			// Merge candidates
-			geoCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
-			lastResortCandidates?.forEach(([ c ]) => candidates.push(c.appData.mediaNode as MediaNode));
+			// Merge candidates: sticky -> geoPreferred -> geoFallback -> lastResort
+			geoPreferred.forEach((m) => {
+				if (!candidates.includes(m)) candidates.push(m);
+			});
+
+			geoFallback.forEach((m) => {
+				if (!candidates.includes(m)) candidates.push(m);
+			});
+
+			lastResortCandidates?.forEach(([ c ]) => {
+				const m = c.appData.mediaNode as MediaNode;
+
+				if (!candidates.includes(m)) candidates.push(m);
+			});
 
 			logger.debug(
 				{
@@ -331,7 +483,8 @@ export default class MediaService {
 							load: m.load,
 							distance,
 							eligible,
-							reasons
+							reasons,
+							nodeCountry: this.getNodeCountry(m)
 						};
 					})
 				},
@@ -364,11 +517,83 @@ export default class MediaService {
 		} else return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
 	}
 
+	private getClientCountry(peer: Peer): string | undefined {
+		const { address, forwardedFor } = peer.getAddress();
+
+		let ip: string | undefined;
+
+		if (forwardedFor) {
+			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+			ip = ff.split(',')[0].trim();
+		} else ip = address;
+
+		if (!ip) return;
+
+		const geo = geoip.lookup(ip);
+
+		return geo?.country;
+	}
+
 	private createKDPointFromAddress(address: string): KDPoint | undefined {
 		logger.debug('createKDPointFromAddress() [address: %s]', address);
 
 		const geo = geoip.lookup(address);
 
 		if (geo) return new KDPoint([ ...geo.ll ]);
+	}
+
+	private bootstrapMediaNodeCountriesFromConfig(): void {
+		if (!config.mediaNodes) return;
+
+		for (const { hostname, country } of config.mediaNodes) {
+			if (!country) continue;
+
+			this.mediaNodeCountries.set(hostname, country.toUpperCase());
+			logger.debug(
+				{ hostname, country },
+				'bootstrapMediaNodeCountriesFromConfig() media node country from config'
+			);
+		}
+	}
+
+	private resolveMediaNodeCountries(): void {
+		for (const mediaNode of this.mediaNodes) {
+			if (!this.getNodeCountry(mediaNode)) this.resolveMediaNodeCountry(mediaNode);
+		}
+	}
+
+	private resolveMediaNodeCountry(mediaNode: MediaNode): void {
+		(async () => {
+			try {
+				const { address } = await dnsLookup(mediaNode.hostname, { family: 4 });
+
+				const geo = geoip.lookup(address);
+
+				if (!geo?.country) {
+					logger.debug(
+						{ hostname: mediaNode.hostname, address },
+						'resolveMediaNodeCountry() geoip lookup missing country'
+					);
+
+					return;
+				}
+
+				this.mediaNodeCountries.set(mediaNode.hostname, geo.country.toUpperCase());
+
+				logger.debug(
+					{ hostname: mediaNode.hostname, address, country: geo.country },
+					'resolveMediaNodeCountry() resolved'
+				);
+			} catch (error) {
+				logger.debug(
+					{ err: error, hostname: mediaNode.hostname },
+					'resolveMediaNodeCountry() failed'
+				);
+			}
+		})();
+	}
+
+	private getNodeCountry(mediaNode: MediaNode): string | undefined {
+		return this.mediaNodeCountries.get(mediaNode.hostname);
 	}
 }
