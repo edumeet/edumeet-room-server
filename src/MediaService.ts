@@ -9,7 +9,6 @@ import * as geoip from 'geoip-lite';
 import { lookup as dnsLookup } from 'dns/promises';
 
 const logger = new Logger('MediaService');
-
 const config = getConfig();
 
 export interface RouterData {
