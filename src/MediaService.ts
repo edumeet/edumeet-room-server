@@ -524,6 +524,7 @@ export default class MediaService {
 
 		if (forwardedFor) {
 			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+
 			ip = ff.split(',')[0].trim();
 		} else ip = address;
 
