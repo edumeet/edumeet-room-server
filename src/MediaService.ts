@@ -9,6 +9,7 @@ import * as geoip from 'geoip-lite';
 import { lookup as dnsLookup } from 'dns/promises';
 
 const logger = new Logger('MediaService');
+
 const config = getConfig();
 
 export interface RouterData {
@@ -36,7 +37,7 @@ export type MediaNodeConfig = {
 		protocol: string; // turn / turns
 		port: number;
 		transport: string;
-	}>
+	}>;
 };
 
 export default class MediaService {
@@ -75,6 +76,7 @@ export default class MediaService {
 		if (!config.mediaNodes) throw new Error('No media nodes configured');
 
 		const kdTree = new KDTree([]);
+
 		const mediaNodes: MediaNode[] = [];
 
 		for (const { hostname, port, secret, longitude, latitude, turnHostname, turnports } of config.mediaNodes) {
@@ -85,10 +87,11 @@ export default class MediaService {
 				secret,
 				turnHostname,
 				turnports,
-				kdPoint: new KDPoint([ latitude, longitude ])
+				kdPoint: new KDPoint([ latitude, longitude ]),
 			});
 
 			kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
+
 			mediaNodes.push(mediaNode);
 		}
 
@@ -108,9 +111,16 @@ export default class MediaService {
 		latitude,
 		country,
 		turnHostname,
-		turnports
+		turnports,
 	}: MediaNodeConfig) {
-		logger.debug('addMediaNode() [hostname: %s, port: %s, secret: %s, longitude: %s, latitude: %s]', hostname, port, secret, longitude, latitude);
+		logger.debug(
+			'addMediaNode() [hostname: %s, port: %s, secret: %s, longitude: %s, latitude: %s]',
+			hostname,
+			port,
+			secret,
+			longitude,
+			latitude
+		);
 
 		const mediaNode = new MediaNode({
 			id: randomUUID(),
@@ -129,6 +139,7 @@ export default class MediaService {
 
 		if (country) {
 			this.mediaNodeCountries.set(hostname, country.toUpperCase());
+
 			logger.debug(
 				{ hostname, country },
 				'addMediaNode() media node country from config'
@@ -162,7 +173,7 @@ export default class MediaService {
 				try {
 					const router = await mediaNode.getRouter({
 						roomId: room.sessionId,
-						appData: { pipePromises: new Map<string, Promise<void>>() }
+						appData: { pipePromises: new Map<string, Promise<void>>() },
 					});
 
 					return [ router, mediaNode ];
@@ -181,6 +192,7 @@ export default class MediaService {
 
 			// Get sticky candidates and peer country
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
+
 			const peerCountry = this.getClientCountry(peer);
 
 			// Find the best (nearest) geo candidate distance under normal constraints.
@@ -192,36 +204,19 @@ export default class MediaService {
 			});
 
 			const bestGeoDistance = bestGeoCandidate?.[0]?.[1] ?? Number.POSITIVE_INFINITY;
+
 			const geoGainRatio = 0.75; // >25% closer => split (new node)
 
-			const getReasons = (
-				m: MediaNode,
-				{
-					enforceGeoDistance = false,
-					enforceLoad = false,
-					duplicate = false
-				}: { enforceGeoDistance?: boolean; enforceLoad?: boolean; duplicate?: boolean } = {}
-			) => {
-				const reasons: string[] = [];
-				const distance = KDTree.getDistance(peerGeoPosition, m.kdPoint);
-
-				if (duplicate) reasons.push('DUPLICATE');
-				if (m.draining) reasons.push('DRAINING');
-				if (!m.healthy) reasons.push('UNHEALTHY');
-				if (enforceLoad && m.load >= this.loadThreshold) reasons.push('OVERLOAD');
-
-				// Sticky distance logic:
-				// - If within geoDistanceThreshold => OK
-				// - If farther, only mark TOO_FAR when the best geo node is >25% closer.
-				if (enforceGeoDistance && distance >= this.geoDistanceThreshold) {
-					if (bestGeoDistance < distance * geoGainRatio) reasons.push('TOO_FAR');
-				}
-
-				return { distance, reasons, eligible: reasons.length === 0 };
-			};
-
 			const stickyEvaluation = room.mediaNodes.items.map((m) => {
-				const { distance, reasons, eligible } = getReasons(m, { enforceGeoDistance: true, enforceLoad: true });
+				const { distance, reasons, eligible } = this.getSelectionReasons(
+					m,
+					peerGeoPosition,
+					bestGeoDistance,
+					{
+						enforceGeoDistance: true,
+						enforceLoad: true,
+					}
+				);
 
 				return {
 					id: m.id,
@@ -233,7 +228,7 @@ export default class MediaService {
 					distance,
 					eligible,
 					reasons,
-					nodeCountry: this.getNodeCountry(m)
+					nodeCountry: this.getNodeCountry(m),
 				};
 			});
 
@@ -246,7 +241,7 @@ export default class MediaService {
 					geoDistanceThreshold: this.geoDistanceThreshold,
 					bestGeoDistance,
 					geoGainRatio,
-					sticky: stickyEvaluation
+					sticky: stickyEvaluation,
 				},
 				'getCandidates() sticky evaluation'
 			);
@@ -289,113 +284,16 @@ export default class MediaService {
 			// - and we know peerCountry
 			// We query same-country nodes separately to avoid 5 or more nodes in the same location, hiding other nodes.
 			const sameCountryDelta = 0.15;
-			let geoPreferred: MediaNode[] = [];
-			let geoFallback: MediaNode[] = [];
 
-			if (room.mediaNodes.length === 0 && peerCountry) {
-				const sameCountryNN = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
-					const m = point.appData.mediaNode as MediaNode;
-
-					if (candidates.includes(m)) return false;
-
-					const nodeCountry = this.getNodeCountry(m);
-
-					if (!nodeCountry || nodeCountry !== peerCountry) return false;
-
-					return !m.draining && m.healthy && m.load < this.loadThreshold;
-				});
-
-				const sameCountryMapped = (sameCountryNN ?? []).map(([ p, distance ]) => {
-					const m = p.appData.mediaNode as MediaNode;
-
-					return {
-						mediaNode: m,
-						distance,
-						nodeCountry: this.getNodeCountry(m)
-					};
-				});
-
-				const geoMapped = (geoCandidates ?? []).map(([ p, distance ]) => {
-					const m = p.appData.mediaNode as MediaNode;
-
-					return {
-						mediaNode: m,
-						distance,
-						nodeCountry: this.getNodeCountry(m)
-					};
-				});
-
-				const otherMapped = geoMapped.filter((c) => c.nodeCountry && c.nodeCountry !== peerCountry);
-
-				if (sameCountryMapped.length > 0 && otherMapped.length > 0) {
-					const bestOtherDistance = Math.min(...otherMapped.map((c) => c.distance));
-					const maxSameCountryDistance = bestOtherDistance * (1 + sameCountryDelta);
-
-					const preferredSameCountry = sameCountryMapped.filter((c) => {
-						if (!Number.isFinite(bestOtherDistance)) return true;
-
-						return c.distance <= maxSameCountryDistance;
-					});
-
-					if (preferredSameCountry.length > 0) {
-						geoPreferred = preferredSameCountry.map((c) => c.mediaNode);
-
-						const preferredSet = new Set(geoPreferred);
-
-						geoFallback = geoMapped
-							.filter((c) => !preferredSet.has(c.mediaNode))
-							.map((c) => c.mediaNode);
-
-						logger.debug(
-							{
-								peerCountry,
-								sameCountryDelta,
-								bestOtherDistance,
-								maxSameCountryDistance,
-								preferredSameCountry: preferredSameCountry.map((c) => ({
-									id: c.mediaNode.id,
-									hostname: c.mediaNode.hostname,
-									distance: c.distance,
-									nodeCountry: c.nodeCountry
-								})),
-								otherCandidates: otherMapped.map((c) => ({
-									id: c.mediaNode.id,
-									hostname: c.mediaNode.hostname,
-									distance: c.distance,
-									nodeCountry: c.nodeCountry
-								}))
-							},
-							'getCandidates() same-country preference applied'
-						);
-					}
-				} else if (sameCountryMapped.length > 0 && otherMapped.length === 0) {
-					// Only same-country nodes are known in the top list (or no other-country nodes).
-					geoPreferred = sameCountryMapped.map((c) => c.mediaNode);
-					geoFallback = geoMapped
-						.filter((c) => !geoPreferred.includes(c.mediaNode))
-						.map((c) => c.mediaNode);
-
-					logger.debug(
-						{
-							peerCountry,
-							sameCountryDelta,
-							preferredSameCountry: sameCountryMapped.map((c) => ({
-								id: c.mediaNode.id,
-								hostname: c.mediaNode.hostname,
-								distance: c.distance,
-								nodeCountry: c.nodeCountry
-							})),
-							otherCandidates: otherMapped.map((c) => ({
-								id: c.mediaNode.id,
-								hostname: c.mediaNode.hostname,
-								distance: c.distance,
-								nodeCountry: c.nodeCountry
-							}))
-						},
-						'getCandidates() same-country preference (no other-country candidates)'
-					);
-				}
-			}
+			let { geoPreferred, geoFallback } = this.applySameCountryPreference({
+				room,
+				peerCountry,
+				peerGeoPosition,
+				kdTree,
+				candidates,
+				geoCandidates,
+				sameCountryDelta,
+			});
 
 			// If no same-country preference applied, fall back to original geo order.
 			if (!geoPreferred.length && geoCandidates) {
@@ -406,11 +304,17 @@ export default class MediaService {
 				{
 					geoCandidates: (geoCandidates ?? []).map(([ p, distance ]) => {
 						const m = p.appData.mediaNode as MediaNode;
-						const { reasons, eligible } = getReasons(m, {
-							enforceGeoDistance: false,
-							enforceLoad: true,
-							duplicate: candidates.includes(m)
-						});
+
+						const { reasons, eligible } = this.getSelectionReasons(
+							m,
+							peerGeoPosition,
+							bestGeoDistance,
+							{
+								enforceGeoDistance: false,
+								enforceLoad: true,
+								duplicate: candidates.includes(m),
+							}
+						);
 
 						return {
 							id: m.id,
@@ -422,16 +326,22 @@ export default class MediaService {
 							distance,
 							eligible,
 							reasons,
-							nodeCountry: this.getNodeCountry(m)
+							nodeCountry: this.getNodeCountry(m),
 						};
 					}),
 					lastResortCandidates: (lastResortCandidates ?? []).map(([ p, distance ]) => {
 						const m = p.appData.mediaNode as MediaNode;
-						const { reasons, eligible } = getReasons(m, {
-							enforceGeoDistance: false,
-							enforceLoad: false,
-							duplicate: candidates.includes(m)
-						});
+
+						const { reasons, eligible } = this.getSelectionReasons(
+							m,
+							peerGeoPosition,
+							bestGeoDistance,
+							{
+								enforceGeoDistance: false,
+								enforceLoad: false,
+								duplicate: candidates.includes(m),
+							}
+						);
 
 						return {
 							id: m.id,
@@ -443,9 +353,9 @@ export default class MediaService {
 							distance,
 							eligible,
 							reasons,
-							nodeCountry: this.getNodeCountry(m)
+							nodeCountry: this.getNodeCountry(m),
 						};
-					})
+					}),
 				},
 				'getCandidates() kd-tree evaluation'
 			);
@@ -468,11 +378,16 @@ export default class MediaService {
 			logger.debug(
 				{
 					finalCandidates: candidates.map((m) => {
-						const { distance, reasons, eligible } = getReasons(m, {
-							enforceGeoDistance: false,
-							enforceLoad: false,
-							duplicate: false
-						});
+						const { distance, reasons, eligible } = this.getSelectionReasons(
+							m,
+							peerGeoPosition,
+							bestGeoDistance,
+							{
+								enforceGeoDistance: false,
+								enforceLoad: false,
+								duplicate: false,
+							}
+						);
 
 						return {
 							id: m.id,
@@ -484,9 +399,9 @@ export default class MediaService {
 							distance,
 							eligible,
 							reasons,
-							nodeCountry: this.getNodeCountry(m)
+							nodeCountry: this.getNodeCountry(m),
 						};
-					})
+					}),
 				},
 				'getCandidates() final candidates'
 			);
@@ -511,10 +426,13 @@ export default class MediaService {
 
 		if (forwardedFor) {
 			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+
 			const ip = ff.split(',')[0].trim();
 
 			return this.createKDPointFromAddress(ip) ?? this.defaultClientPosition;
-		} else return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
+		}
+
+		return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
 	}
 
 	private getClientCountry(peer: Peer): string | undefined {
@@ -526,7 +444,9 @@ export default class MediaService {
 			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
 
 			ip = ff.split(',')[0].trim();
-		} else ip = address;
+		} else {
+			ip = address;
+		}
 
 		if (!ip) return;
 
@@ -550,6 +470,7 @@ export default class MediaService {
 			if (!country) continue;
 
 			this.mediaNodeCountries.set(hostname, country.toUpperCase());
+
 			logger.debug(
 				{ hostname, country },
 				'bootstrapMediaNodeCountriesFromConfig() media node country from config'
@@ -596,5 +517,174 @@ export default class MediaService {
 
 	private getNodeCountry(mediaNode: MediaNode): string | undefined {
 		return this.mediaNodeCountries.get(mediaNode.hostname);
+	}
+
+	private getSelectionReasons(
+		m: MediaNode,
+		peerGeoPosition: KDPoint,
+		bestGeoDistance: number,
+		{
+			enforceGeoDistance = false,
+			enforceLoad = false,
+			duplicate = false,
+		}: { enforceGeoDistance?: boolean; enforceLoad?: boolean; duplicate?: boolean } = {}
+	): { distance: number; reasons: string[]; eligible: boolean } {
+		const reasons: string[] = [];
+
+		const distance = KDTree.getDistance(peerGeoPosition, m.kdPoint);
+
+		if (duplicate) reasons.push('DUPLICATE');
+		if (m.draining) reasons.push('DRAINING');
+		if (!m.healthy) reasons.push('UNHEALTHY');
+		if (enforceLoad && m.load >= this.loadThreshold) reasons.push('OVERLOAD');
+
+		// Sticky distance logic:
+		// - If within geoDistanceThreshold => OK
+		// - If farther, only mark TOO_FAR when the best geo node is >25% closer.
+		if (enforceGeoDistance && distance >= this.geoDistanceThreshold) {
+			if (bestGeoDistance < distance * 0.75) reasons.push('TOO_FAR');
+		}
+
+		return { distance, reasons, eligible: reasons.length === 0 };
+	}
+
+	private applySameCountryPreference(params: {
+		room: Room;
+		peerCountry?: string;
+		peerGeoPosition: KDPoint;
+		kdTree: KDTree;
+		candidates: MediaNode[];
+		geoCandidates?: [KDPoint, number][];
+		sameCountryDelta: number;
+	}): { geoPreferred: MediaNode[]; geoFallback: MediaNode[] } {
+		const {
+			room,
+			peerCountry,
+			peerGeoPosition,
+			kdTree,
+			candidates,
+			geoCandidates,
+			sameCountryDelta,
+		} = params;
+
+		const geoPreferred: MediaNode[] = [];
+
+		const geoFallback: MediaNode[] = [];
+
+		// Only apply for initial node selection (no sticky nodes yet) and when we know peerCountry.
+		if (room.mediaNodes.length === 0 && peerCountry && geoCandidates && geoCandidates.length > 0) {
+			const sameCountryNN = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
+				const m = point.appData.mediaNode as MediaNode;
+
+				if (candidates.includes(m)) return false;
+
+				const nodeCountry = this.getNodeCountry(m);
+
+				if (!nodeCountry || nodeCountry !== peerCountry) return false;
+
+				return !m.draining && m.healthy && m.load < this.loadThreshold;
+			});
+
+			const sameCountryMapped = (sameCountryNN ?? []).map(([ p, distance ]) => {
+				const m = p.appData.mediaNode as MediaNode;
+
+				return {
+					mediaNode: m,
+					distance,
+					nodeCountry: this.getNodeCountry(m),
+				};
+			});
+
+			const geoMapped = (geoCandidates ?? []).map(([ p, distance ]) => {
+				const m = p.appData.mediaNode as MediaNode;
+
+				return {
+					mediaNode: m,
+					distance,
+					nodeCountry: this.getNodeCountry(m),
+				};
+			});
+
+			const otherMapped = geoMapped.filter((c) => c.nodeCountry && c.nodeCountry !== peerCountry);
+
+			if (sameCountryMapped.length > 0 && otherMapped.length > 0) {
+				const bestOtherDistance = Math.min(...otherMapped.map((c) => c.distance));
+
+				const maxSameCountryDistance = bestOtherDistance * (1 + sameCountryDelta);
+
+				const preferredSameCountry = sameCountryMapped.filter((c) => {
+					if (!Number.isFinite(bestOtherDistance)) return true;
+
+					return c.distance <= maxSameCountryDistance;
+				});
+
+				if (preferredSameCountry.length > 0) {
+					const preferred = preferredSameCountry.map((c) => c.mediaNode);
+
+					const preferredSet = new Set(preferred);
+
+					const fallback = geoMapped
+						.filter((c) => !preferredSet.has(c.mediaNode))
+						.map((c) => c.mediaNode);
+
+					logger.debug(
+						{
+							peerCountry,
+							sameCountryDelta,
+							bestOtherDistance,
+							maxSameCountryDistance,
+							preferredSameCountry: preferredSameCountry.map((c) => ({
+								id: c.mediaNode.id,
+								hostname: c.mediaNode.hostname,
+								distance: c.distance,
+								nodeCountry: c.nodeCountry,
+							})),
+							otherCandidates: otherMapped.map((c) => ({
+								id: c.mediaNode.id,
+								hostname: c.mediaNode.hostname,
+								distance: c.distance,
+								nodeCountry: c.nodeCountry,
+							})),
+						},
+						'getCandidates() same-country preference applied'
+					);
+
+					return { geoPreferred: preferred, geoFallback: fallback };
+				}
+			} else if (sameCountryMapped.length > 0 && otherMapped.length === 0) {
+				// Only same-country nodes known in the top list (or no other-country nodes).
+				const preferred = sameCountryMapped.map((c) => c.mediaNode);
+
+				const preferredSet = new Set(preferred);
+
+				const fallback = geoMapped
+					.filter((c) => !preferredSet.has(c.mediaNode))
+					.map((c) => c.mediaNode);
+
+				logger.debug(
+					{
+						peerCountry,
+						sameCountryDelta,
+						preferredSameCountry: sameCountryMapped.map((c) => ({
+							id: c.mediaNode.id,
+							hostname: c.mediaNode.hostname,
+							distance: c.distance,
+							nodeCountry: c.nodeCountry,
+						})),
+						otherCandidates: otherMapped.map((c) => ({
+							id: c.mediaNode.id,
+							hostname: c.mediaNode.hostname,
+							distance: c.distance,
+							nodeCountry: c.nodeCountry,
+						})),
+					},
+					'getCandidates() same-country preference (no other-country candidates)'
+				);
+
+				return { geoPreferred: preferred, geoFallback: fallback };
+			}
+		}
+
+		return { geoPreferred, geoFallback };
 	}
 }
