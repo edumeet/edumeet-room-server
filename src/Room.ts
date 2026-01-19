@@ -372,11 +372,11 @@ export default class Room extends EventEmitter {
 				if (this.closed || peer.closed) return;
 
 				// Now we can just do a normal assignment (sticky logic will apply).
-				return this.#doAssignRouter(peer);
+				return this.doAssignRouter(peer);
 			}
 
 			// We are the first peer to trigger router assignment for this room.
-			this.initialRouterAssignment = this.#doAssignRouter(peer);
+			this.initialRouterAssignment = this.doAssignRouter(peer);
 
 			try {
 				await this.initialRouterAssignment;
@@ -389,10 +389,10 @@ export default class Room extends EventEmitter {
 		}
 
 		// Normal case: room already has at least one media node, stickiness applies.
-		return this.#doAssignRouter(peer);
+		return this.doAssignRouter(peer);
 	}
 
-	private async #doAssignRouter(peer: Peer): Promise<void> {
+	private async doAssignRouter(peer: Peer): Promise<void> {
 		if (this.closed || peer.closed) return;
 
 		try {
