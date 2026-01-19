@@ -284,8 +284,7 @@ export default class MediaService {
 			// - and we know peerCountry
 			// We query same-country nodes separately to avoid 5 or more nodes in the same location, hiding other nodes.
 			const sameCountryDelta = 0.15;
-
-			let { geoPreferred, geoFallback } = this.applySameCountryPreference({
+			const sameCountryResult = this.applySameCountryPreference({
 				room,
 				peerCountry,
 				peerGeoPosition,
@@ -294,6 +293,10 @@ export default class MediaService {
 				geoCandidates,
 				sameCountryDelta,
 			});
+
+			const geoFallback = sameCountryResult.geoFallback;
+
+			let geoPreferred = sameCountryResult.geoPreferred;
 
 			// If no same-country preference applied, fall back to original geo order.
 			if (!geoPreferred.length && geoCandidates) {
