@@ -109,6 +109,7 @@ export default class Room extends EventEmitter {
 	public pendingPeers = List<Peer>();
 	public peers = List<Peer>();
 	public lobbyPeers = List<Peer>();
+	private initialRouterAssignment?: Promise<void>;
 
 	public chatHistory: ChatMessage[] = [];
 	public fileHistory: FileMessage[] = [];
@@ -358,6 +359,40 @@ export default class Room extends EventEmitter {
 	}
 
 	private async assignRouter(peer: Peer): Promise<void> {
+		if (this.closed || peer.closed) return;
+
+		// If there is no media node yet, ensure only one "first" assignment runs at a time.
+		if (this.mediaNodes.length === 0) {
+			if (this.initialRouterAssignment) {
+				// Another peer is currently performing the first assignment.
+				// Wait for it to finish so we can reuse the sticky media node.
+				await this.initialRouterAssignment;
+
+				// After waiting, if the room is now closed or the peer closed, stop.
+				if (this.closed || peer.closed) return;
+
+				// Now we can just do a normal assignment (sticky logic will apply).
+				return this.doAssignRouter(peer);
+			}
+
+			// We are the first peer to trigger router assignment for this room.
+			this.initialRouterAssignment = this.doAssignRouter(peer);
+
+			try {
+				await this.initialRouterAssignment;
+			} finally {
+				// Clear regardless of success or failure; retries use the same mechanism.
+				this.initialRouterAssignment = undefined;
+			}
+
+			return;
+		}
+
+		// Normal case: room already has at least one media node, stickiness applies.
+		return this.doAssignRouter(peer);
+	}
+
+	private async doAssignRouter(peer: Peer): Promise<void> {
 		if (this.closed || peer.closed) return;
 
 		try {
