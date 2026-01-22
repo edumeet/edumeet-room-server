@@ -451,9 +451,27 @@ export default class MediaService {
 	private getClientPosition(peer: Peer): KDPoint {
 		const ip = this.getClientIp(peer);
 
-		logger.debug({ ip }, 'getClientPosition() using IP');
+		logger.debug({ ip }, 'getClientPosition() resolved client IP');
 
-		return (ip && this.createKDPointFromAddress(ip)) ?? this.defaultClientPosition;
+		if (!ip) {
+			logger.debug(
+				{ defaultClientPosition: this.defaultClientPosition },
+				'getClientPosition() no IP, using default position'
+			);
+
+			return this.defaultClientPosition;
+		}
+
+		const point = this.createKDPointFromAddress(ip);
+
+		if (!point) {
+			logger.debug(
+				{ ip, defaultClientPosition: this.defaultClientPosition },
+				'getClientPosition() failed to create KDPoint, using default'
+			);
+		}
+
+		return point ?? this.defaultClientPosition;
 	}
 
 	/**
