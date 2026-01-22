@@ -628,7 +628,7 @@ export default class MediaService {
 		const geoFallback: MediaNode[] = [];
 
 		// Only apply for initial node selection (no sticky nodes yet) and when we know peerCountry.
-		if (room.mediaNodes.items.length === 0 && peerCountry && geoCandidates && geoCandidates.length > 0) {
+		if (room.mediaNodes.length === 0 && peerCountry && geoCandidates && geoCandidates.length > 0) {
 			const sameCountryNN = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 
