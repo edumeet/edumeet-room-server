@@ -142,7 +142,7 @@ export default class ServerManager {
 
 					if (managedRoom) {
 						// id = 0 is the virtual "fallback" room created in ManagementService
-						const isFallbackDefault = Number((managedRoom as any).id) === 0;
+						const isFallbackDefault = Number(managedRoom.id) === 0;
 
 						if (!isFallbackDefault) {
 							// === REAL MANAGED ROOM (from mgmt DB) ===
