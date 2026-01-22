@@ -274,6 +274,6 @@ export type Default = {
 	background: string,
 	logo: string,
 	defaultRoleId: string, // number,
-	defaultRole: ManagedRole, // number,
+	defaultRole: ManagedRole,
 	tenantPermissionLimitRole: string, // number,
 }
