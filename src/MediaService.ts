@@ -185,7 +185,7 @@ export default class MediaService {
 
 	public getCandidates(kdTree: KDTree, room: Room, peer: Peer): MediaNode[] {
 		try {
-			logger.debug({ roomId: room.id, peerId: peer.id, peer IP: this.getClientIp(peer) }, 'getCandidates()');
+			logger.debug({ roomId: room.id, peerId: peer.id, peerIP: this.getClientIp(peer) }, 'getCandidates()');
 
 			// Get sticky candidates and peer country
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
