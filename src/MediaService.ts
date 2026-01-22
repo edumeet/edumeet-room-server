@@ -185,7 +185,9 @@ export default class MediaService {
 
 	public getCandidates(kdTree: KDTree, room: Room, peer: Peer): MediaNode[] {
 		try {
-			logger.debug({ roomId: room.id, peerId: peer.id, peerIP: this.getClientIp(peer) }, 'getCandidates()');
+			logger.debug({ roomId: room.id, peerId: peer.id }, 'getCandidates()');
+
+			const peerIp = this.getClientIp(peer);
 
 			// Get sticky candidates and peer country
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
@@ -231,6 +233,10 @@ export default class MediaService {
 
 			logger.debug(
 				{
+					roomId: room.id,
+					peerId: peer.id,
+					peerIp,
+					peerDisplayName: peer.displayName,
 					peerGeoPosition,
 					peerCountry,
 					defaultClientPosition: this.defaultClientPosition,
@@ -302,6 +308,10 @@ export default class MediaService {
 
 			logger.debug(
 				{
+					roomId: room.id,
+					peerId: peer.id,
+					peerIp,
+					peerDisplayName: peer.displayName,
 					geoCandidates: (geoCandidates ?? []).map(([ p, distance ]) => {
 						const m = p.appData.mediaNode as MediaNode;
 						const { reasons, eligible } = this.getSelectionReasons(
@@ -375,6 +385,10 @@ export default class MediaService {
 
 			logger.debug(
 				{
+					roomId: room.id,
+					peerId: peer.id,
+					peerIp,
+					peerDisplayName: peer.displayName,
 					finalCandidates: candidates.map((m) => {
 						const { distance, reasons, eligible } = this.getSelectionReasons(
 							m,
@@ -422,7 +436,7 @@ export default class MediaService {
 		const { address, forwardedFor } = peer.getAddress();
 
 		logger.debug(
-			{ address, forwardedFor },
+			{ peerId: peer.id, address, forwardedFor },
 			'getClientIp() received peer addresses'
 		);
 
@@ -438,7 +452,7 @@ export default class MediaService {
 			ip = address;
 		}
 
-		logger.debug({ ip }, 'getClientIp() resolved client IP');
+		logger.debug({ peerId: peer.id, ip }, 'getClientIp() resolved client IP');
 
 		return ip || undefined;
 	}
@@ -451,11 +465,11 @@ export default class MediaService {
 	private getClientPosition(peer: Peer): KDPoint {
 		const ip = this.getClientIp(peer);
 
-		logger.debug({ ip }, 'getClientPosition() resolved client IP');
+		logger.debug({ peerId: peer.id, ip }, 'getClientPosition() resolved client IP');
 
 		if (!ip) {
 			logger.debug(
-				{ defaultClientPosition: this.defaultClientPosition },
+				{ peerId: peer.id, defaultClientPosition: this.defaultClientPosition },
 				'getClientPosition() no IP, using default position'
 			);
 
@@ -466,7 +480,7 @@ export default class MediaService {
 
 		if (!point) {
 			logger.debug(
-				{ ip, defaultClientPosition: this.defaultClientPosition },
+				{ peerId: peer.id, ip, defaultClientPosition: this.defaultClientPosition },
 				'getClientPosition() failed to create KDPoint, using default'
 			);
 		}
@@ -482,23 +496,23 @@ export default class MediaService {
 	private getClientCountry(peer: Peer): string | undefined {
 		const ip = this.getClientIp(peer);
 
-		logger.debug({ ip }, 'getClientCountry() using IP');
+		logger.debug({ peerId: peer.id, ip }, 'getClientCountry() using IP');
 
 		if (!ip) {
-			logger.debug('getClientCountry() no IP resolved, returning undefined');
+			logger.debug({ peerId: peer.id }, 'getClientCountry() no IP resolved, returning undefined');
 
 			return;
 		}
 
 		const geo = geoip.lookup(ip);
 
-		logger.debug({ ip, geo }, 'getClientCountry() geo lookup result');
+		logger.debug({ peerId: peer.id, ip, geo }, 'getClientCountry() geo lookup result');
 
 		return geo?.country;
 	}
 
 	private createKDPointFromAddress(address: string): KDPoint | undefined {
-		logger.debug('createKDPointFromAddress() [address: %s]', address);
+		logger.debug({ address }, 'createKDPointFromAddress()');
 
 		const geo = geoip.lookup(address);
 
