@@ -185,7 +185,7 @@ export default class MediaService {
 
 	public getCandidates(kdTree: KDTree, room: Room, peer: Peer): MediaNode[] {
 		try {
-			logger.debug('getCandidates() [room.id: %s, peer.id: %s]', room.id, peer.id);
+			logger.debug({ roomId: room.id, peerId: peer.id, peer IP: this.getClientIp(peer) }, 'getCandidates()');
 
 			// Get sticky candidates and peer country
 			const peerGeoPosition = this.getClientPosition(peer) ?? this.defaultClientPosition;
@@ -413,41 +413,68 @@ export default class MediaService {
 	}
 
 	/**
-	 * Get client position using
-	 * 1.) Client direct ipv4 address
-	 * 2.) Http header 'x-forwarded-for' from reverse proxy
+	 * Extract the best-guess client IP from the Peer.
+	 * Priority:
+	 * 1. First IP in the `x-forwarded-for` header (can be a list)
+	 * 2. Direct peer address
 	 */
-	private getClientPosition(peer: Peer): KDPoint {
+	private getClientIp(peer: Peer): string | undefined {
 		const { address, forwardedFor } = peer.getAddress();
 
-		logger.debug('getClientPosition() [address: %s, forwardedFor: %s]', address, forwardedFor);
-
-		if (forwardedFor) {
-			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-			const ip = ff.split(',')[0].trim();
-
-			return this.createKDPointFromAddress(ip) ?? this.defaultClientPosition;
-		}
-
-		return this.createKDPointFromAddress(address) ?? this.defaultClientPosition;
-	}
-
-	private getClientCountry(peer: Peer): string | undefined {
-		const { address, forwardedFor } = peer.getAddress();
+		logger.debug(
+			{ address, forwardedFor },
+			'getClientIp() received peer addresses'
+		);
 
 		let ip: string | undefined;
 
 		if (forwardedFor) {
 			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
 
-			ip = ff.split(',')[0].trim();
-		} else {
+			ip = ff.split(',')[0]?.trim();
+		}
+
+		if (!ip) {
 			ip = address;
 		}
 
-		if (!ip) return;
+		logger.debug({ ip }, 'getClientIp() resolved client IP');
+
+		return ip || undefined;
+	}
+
+	/**
+	 * Get client position using
+	 * 1.) Client direct ipv4 address
+	 * 2.) Http header 'x-forwarded-for' from reverse proxy
+	 */
+	private getClientPosition(peer: Peer): KDPoint {
+		const ip = this.getClientIp(peer);
+
+		logger.debug({ ip }, 'getClientPosition() using IP');
+
+		return (ip && this.createKDPointFromAddress(ip)) ?? this.defaultClientPosition;
+	}
+
+	/**
+	 * Get client country using
+	 * 1.) Client direct ipv4 address
+	 * 2.) Http header 'x-forwarded-for' from reverse proxy
+	 */
+	private getClientCountry(peer: Peer): string | undefined {
+		const ip = this.getClientIp(peer);
+
+		logger.debug({ ip }, 'getClientCountry() using IP');
+
+		if (!ip) {
+			logger.debug('getClientCountry() no IP resolved, returning undefined');
+
+			return;
+		}
 
 		const geo = geoip.lookup(ip);
+
+		logger.debug({ ip, geo }, 'getClientCountry() geo lookup result');
 
 		return geo?.country;
 	}
