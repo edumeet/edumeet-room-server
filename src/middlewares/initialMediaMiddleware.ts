@@ -116,8 +116,108 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 				if (!transport)
 					throw new Error(`transport with id "${transportId}" not found`);
 
-				response.iceParameters = await transport.restartIce();
+				// Make sure it's a WebRtcTransport
+				if ('restartIce' in transport) {
+					response.iceParameters = await transport.restartIce();
+					context.handled = true;
+				} else {
+					throw new Error('Transport does not support ICE restart');
+				}
+
+
+				break;
+			}
+
+			case 'createPlainTransport': {
+				const {
+					rtcpMux,
+					comedia,
+					enableSctp,
+					numSctpStreams,
+					enableSrtp,
+					srtpCryptoSuite,
+					producing,
+					consuming,
+				} = message.data;
+
+				if (producing && consuming) throw new Error('cannot create PlainTransport with both producing and consuming');
+				if (!producing && !consuming) throw new Error('cannot create PlainTransport with neither producing nor consuming');
+				if (consuming && peer.consumingTransport) throw new Error('cannot create more than one consuming PlainTransport');
+				if (producing && peer.producingTransport) throw new Error('cannot create more than one producing PlainTransport');
+
+				const [ error, router ] = await peer.routerReady;
+
+				if (error) throw error;
+
+				const transport = await router.createPlainTransport({
+					rtcpMux,
+					comedia,
+					enableSctp,
+					numSctpStreams,
+					enableSrtp,
+					srtpCryptoSuite,
+					appData: {
+						producing,
+						consuming,
+					}
+				});
+
+				if (producing) peer.producingTransport = transport;
+
+				if (consuming) {
+					peer.consumingTransport = transport;
+
+					if (room.peers.has(peer) && !peer.initialConsume) {
+						peer.initialConsume = true;
+
+						createConsumers(room, peer);
+					}
+				}
+
+				transport.once('close', () => {
+					if (producing) peer.producingTransport = undefined;
+
+					if (consuming) {
+						peer.consumingTransport = undefined;
+						peer.initialConsume = false;
+					}
+
+					peer.notify({
+						method: 'transportClosed',
+						data: { transportId: transport.id }
+					});
+				});
+
+				response.id = transport.id;
+				response.tuple = transport.tuple;
+				if (!rtcpMux) response.rtcpTuple = transport.rtcpTuple;
+				response.sctpParameters = transport.sctpParameters;
+				response.srtpParameters = transport.srtpParameters;
 				context.handled = true;
+
+				break;
+			}
+
+			case 'connectPlainTransport': {
+				const { transportId, ip, port, rtcpPort, srtpParameters } = message.data;
+
+				let transport;
+
+				if (transportId === peer.producingTransport?.id)
+					transport = peer.producingTransport;
+				else if (transportId === peer.consumingTransport?.id)
+					transport = peer.consumingTransport;
+
+				if (!transport)
+					throw new Error(`transport with id "${transportId}" not found`);
+
+				// Make sure it's a PlainTransport
+				if ('tuple' in transport) {
+					await transport.connect({ ip, port, rtcpPort, srtpParameters });
+					context.handled = true;
+				} else {
+					throw new Error('Transport is not a PlainTransport');
+				}
 
 				break;
 			}

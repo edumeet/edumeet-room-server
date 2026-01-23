@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { WebRtcTransport, WebRtcTransportOptions } from './WebRtcTransport';
+import { PlainTransport, PlainTransportOptions } from './PlainTransport';
 import { PipeTransport, PipeTransportOptions } from './PipeTransport';
 import { PipeProducer } from './PipeProducer';
 import { PipeConsumer } from './PipeConsumer';
@@ -38,6 +39,16 @@ interface CreateRecorderOptions {
 	appData?: Record<string, unknown>;
 }
 
+interface CreatePlainTransportOptions {
+	rtcpMux?: boolean;
+	comedia?: boolean;
+	enableSctp?: boolean;
+	numSctpStreams?: { OS: number; MIS: number };
+	enableSrtp?: boolean;
+	srtpCryptoSuite?: string;
+	appData?: Record<string, unknown>;
+}
+
 export interface RouterOptions {
 	id: string;
 	rtpCapabilities: RtpCapabilities;
@@ -71,6 +82,7 @@ export class Router extends EventEmitter {
 	public rtpCapabilities: RtpCapabilities;
 	public appData: Record<string, unknown>;
 	public webRtcTransports: Map<string, WebRtcTransport> = new Map();
+	public plainTransports: Map<string, PlainTransport> = new Map();
 	public pipeTransports: Map<string, PipeTransport> = new Map();
 	public producers: Map<string, Producer> = new Map();
 	public pipeProducers: Map<string, PipeProducer> = new Map();
@@ -120,6 +132,7 @@ export class Router extends EventEmitter {
 
 		this.webRtcTransports.forEach((transport) => transport.close(true));
 		this.pipeTransports.forEach((transport) => transport.close(true));
+		this.plainTransports.forEach((transport) => transport.close(true));
 
 		this.emit('close', remoteClose);
 	}
@@ -251,6 +264,56 @@ export class Router extends EventEmitter {
 
 		this.webRtcTransports.set(id, transport);
 		transport.once('close', () => this.webRtcTransports.delete(id));
+
+		return transport;
+	}
+
+	@skipIfClosed
+	public async createPlainTransport({
+		rtcpMux = true,
+		comedia = false,
+		enableSctp = false,
+		numSctpStreams,
+		enableSrtp = false,
+		srtpCryptoSuite,
+		appData = {}
+	}: CreatePlainTransportOptions = {}): Promise<PlainTransport> {
+		logger.debug('createPlainTransport()');
+
+		const {
+			id,
+			tuple,
+			rtcpTuple,
+			sctpParameters,
+			srtpParameters,
+		} = await this.mediaNode.request({
+			method: 'createPlainTransport',
+			data: {
+				routerId: this.id,
+				rtcpMux,
+				comedia,
+				enableSctp,
+				numSctpStreams,
+				enableSrtp,
+				srtpCryptoSuite,
+			}
+		}) as PlainTransportOptions;
+
+		const transport = new PlainTransport({
+			router: this,
+			mediaNode: this.mediaNode,
+			id,
+			tuple,
+			rtcpTuple,
+			sctpParameters,
+			rtcpMux,
+			comedia,
+			srtpParameters,
+			appData,
+		});
+
+		this.plainTransports.set(id, transport);
+		transport.once('close', () => this.plainTransports.delete(id));
 
 		return transport;
 	}
