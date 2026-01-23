@@ -77,6 +77,15 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 
 		shouldPromote = inLobby;
 		shouldGiveLobbyPeers = !hadPromotePermission;
+	} else if (!room.managedId && room.peers.empty) {
+		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
+		// as an admin could have disabled unmanaged rooms
+		peer.permissions = allPermissions.filter(
+			(p) => p !== Permission.BYPASS_ROOM_LOCK
+		);
+
+		shouldPromote = inLobby;
+		shouldGiveLobbyPeers = !hadPromotePermission;
 	} else {
 		// Find the user roles the peer has, and get the roles for those user roles
 		const userPermissions = room.userRoles
