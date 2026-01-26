@@ -129,11 +129,28 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			case 'moveToBreakoutRoom': {
 				const { roomSessionId, roomPeerId } = message.data;
 
-				const roomToBeMovedTo = room.breakoutRooms.get(roomSessionId);
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('Not authorized');
+
 				const peerToBeMoved = room.getPeerById(roomPeerId);
 
 				if (!peerToBeMoved)
 					throw new Error('Peer not found');
+
+				// Move back to main room
+				if (roomSessionId === room.sessionId) {
+					if (peerToBeMoved.sessionId === roomSessionId)
+						throw new Error('Already in session');
+
+					changeRoom(room, peerToBeMoved, true);
+
+					context.handled = true;
+
+					break;
+				}
+
+				// Move to breakout room
+				const roomToBeMovedTo = room.breakoutRooms.get(roomSessionId);
 
 				if (!roomToBeMovedTo)
 					throw new Error('Session not found');
