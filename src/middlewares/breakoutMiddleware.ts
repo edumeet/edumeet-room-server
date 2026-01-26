@@ -102,6 +102,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				response.chatHistory = roomToJoin.chatHistory;
 				response.fileHistory = roomToJoin.fileHistory;
+
 				context.handled = true;
 
 				break;
@@ -117,6 +118,9 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				changeRoom(room, peer);
 
 				response.sessionId = room.sessionId;
+				response.chatHistory = room.chatHistory;
+				response.fileHistory = room.fileHistory;
+
 				context.handled = true;
 
 				break;
@@ -133,7 +137,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				if (!roomToBeMovedTo)
 					throw new Error('Session not found');
-				
+
 				if (peerToBeMoved.sessionId === roomSessionId)
 					throw new Error('Already in session');
 
@@ -165,7 +169,14 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		peer.sessionId = roomToJoin.sessionId;
 
 		if (messagePeer)
-			peer.notify({ method: 'sessionIdChanged', data: { sessionId: roomToJoin.sessionId } });
+			peer.notify({
+				method: 'sessionIdChanged',
+				data: {
+					sessionId: roomToJoin.sessionId,
+					chatHistory: roomToJoin.chatHistory,
+					fileHistory: roomToJoin.fileHistory
+				}
+			});
 
 		// Create consumers for the peer in the new room
 		createConsumers(room, peer);
