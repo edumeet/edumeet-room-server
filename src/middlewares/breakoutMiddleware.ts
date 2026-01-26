@@ -141,8 +141,6 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				changeRoom(roomToBeMovedTo, peerToBeMoved, true);
 
-				response.chatHistory = roomToBeMovedTo.chatHistory;
-				response.fileHistory = roomToBeMovedTo.fileHistory;
 				context.handled = true;
 
 				break;
