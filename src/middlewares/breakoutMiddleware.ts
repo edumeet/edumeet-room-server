@@ -102,6 +102,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				response.chatHistory = roomToJoin.chatHistory;
 				response.fileHistory = roomToJoin.fileHistory;
+
 				context.handled = true;
 
 				break;
@@ -117,6 +118,9 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				changeRoom(room, peer);
 
 				response.sessionId = room.sessionId;
+				response.chatHistory = room.chatHistory;
+				response.fileHistory = room.fileHistory;
+
 				context.handled = true;
 
 				break;
@@ -125,15 +129,32 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			case 'moveToBreakoutRoom': {
 				const { roomSessionId, roomPeerId } = message.data;
 
-				const roomToBeMovedTo = room.breakoutRooms.get(roomSessionId);
+				if (!peer.hasPermission(Permission.MODERATE_ROOM))
+					throw new Error('Not authorized');
+
 				const peerToBeMoved = room.getPeerById(roomPeerId);
 
 				if (!peerToBeMoved)
 					throw new Error('Peer not found');
 
+				// Move back to main room
+				if (roomSessionId === room.sessionId) {
+					if (peerToBeMoved.sessionId === roomSessionId)
+						throw new Error('Already in session');
+
+					changeRoom(room, peerToBeMoved, true);
+
+					context.handled = true;
+
+					break;
+				}
+
+				// Move to breakout room
+				const roomToBeMovedTo = room.breakoutRooms.get(roomSessionId);
+
 				if (!roomToBeMovedTo)
 					throw new Error('Session not found');
-				
+
 				if (peerToBeMoved.sessionId === roomSessionId)
 					throw new Error('Already in session');
 
@@ -141,8 +162,6 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				changeRoom(roomToBeMovedTo, peerToBeMoved, true);
 
-				response.chatHistory = roomToBeMovedTo.chatHistory;
-				response.fileHistory = roomToBeMovedTo.fileHistory;
 				context.handled = true;
 
 				break;
@@ -167,7 +186,14 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		peer.sessionId = roomToJoin.sessionId;
 
 		if (messagePeer)
-			peer.notify({ method: 'sessionIdChanged', data: { sessionId: roomToJoin.sessionId } });
+			peer.notify({
+				method: 'sessionIdChanged',
+				data: {
+					sessionId: roomToJoin.sessionId,
+					chatHistory: roomToJoin.chatHistory,
+					fileHistory: roomToJoin.fileHistory
+				}
+			});
 
 		// Create consumers for the peer in the new room
 		createConsumers(room, peer);
