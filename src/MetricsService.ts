@@ -14,6 +14,7 @@ class CustomMetrics {
 	private statsUpdate = 0;
 	private serverManager: ServerManager;
 	private mPeers: client.Gauge;
+	private mRoomsMediaNode: client.Gauge;
 
 	constructor(serverManager: ServerManager) {
 		this.serverManager = serverManager;
@@ -27,7 +28,8 @@ class CustomMetrics {
 
 		// generic  metrics
 		[
-			{ name: 'rooms', statName: 'rooms', help: '- count of all existing rooms', statValue: 'sum' }
+			{ name: 'rooms', statName: 'rooms', help: '- count of all existing rooms', statValue: 'sum' },
+			{ name: 'peers', statName: 'peers', help: '- count of all existing peers', statValue: 'sum' }
 		].forEach(({ name, statName, help, statValue }) => {
 			// eslint-disable-next-line no-new
 			new client.Gauge({
@@ -46,8 +48,11 @@ class CustomMetrics {
 				}
 			});
 		});
-		
-		this.mPeers = new client.Gauge({ name: 'edumeet_peers', help: '#peers', labelNames: [ 'room_id' ], registers: [ this.register ] });
+
+		// user/peer count for a roomId
+		this.mPeers = new client.Gauge({ name: 'edumeet_peers', help: 'user/peer count for a roomId', labelNames: [ 'roomId' ], registers: [ this.register ] });
+		// roomId and mediaNode pair (if set it is used)
+		this.mRoomsMediaNode = new client.Gauge({ name: 'edumeet_rooms_media_node', help: 'roomId and mediaNode pair (if set it is used)', labelNames: [ 'roomId', 'hostname' ], registers: [ this.register ] });
 
 	}
 
@@ -88,10 +93,25 @@ class CustomMetrics {
 			return;
 		}
 		this.statsUpdate = now;
-		
+
 		this.mPeers.reset();
+		this.mRoomsMediaNode.reset();
+
 		for (const [ roomId, room ] of this.serverManager.rooms) {
 			this.mPeers.labels(roomId).set(room.peers.length);
+			
+			if (room.mediaNodes && Array.isArray(room.mediaNodes.items)) {
+				const items = room.mediaNodes.items;
+
+				for (const item of items) {
+					const hostname = item.hostname || item.id;
+
+					this.mRoomsMediaNode.set(
+						{ roomId, hostname },
+						1
+					);
+				}
+			}
 		}
 
 		Object.assign(this.genricStats, {
