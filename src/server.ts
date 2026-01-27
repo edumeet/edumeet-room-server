@@ -13,6 +13,7 @@ import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
 import { getConfig } from './Config';
+import CustomMetricsService from './MetricsService';
 
 const logger = new Logger('Server');
 const config = getConfig();
@@ -34,6 +35,9 @@ if (config.managementService)
 const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
 
 interactiveServer(serverManager, managementService);
+const customMetricsService = new CustomMetricsService(serverManager);
+
+customMetricsService.startServer();
 
 let webServer: http.Server | https.Server;
 
@@ -80,6 +84,7 @@ const close = () => {
 	logger.debug('close()');
 
 	serverManager.close();
+	customMetricsService.close();
 	webServer.close();
 
 	process.exit(0);
