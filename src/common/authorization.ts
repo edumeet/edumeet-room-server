@@ -73,49 +73,52 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 	let shouldPromote = false;
 	let shouldGiveLobbyPeers = false;
 
-	if (room.owners.find((o) => o.userId === peer.managedId)) { // Owner gets everything
-		peer.permissions = allPermissions;
+	if (room.managedId) { // managed rooms
+		if (room.owners.find((o) => o.userId === peer.managedId)) { // Owner gets everything
+			peer.permissions = allPermissions;
 
-		shouldPromote = inLobby;
-		shouldGiveLobbyPeers = !hadPromotePermission;
-	} else if (!room.managedId && room.peers.empty) {
-		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
-		// as an admin could have disabled unmanaged rooms
-		const unmanagedAdminPermissions = allPermissions.filter(
-			(p) => p !== Permission.BYPASS_ROOM_LOCK
-		);
+			shouldPromote = inLobby;
+			shouldGiveLobbyPeers = !hadPromotePermission;
+		} else {
+			// Find the user roles the peer has, and get the roles for those user roles
+			const userPermissions = room.userRoles
+				.filter((ur) => ur.userId === peer.managedId)
+				.map((ur) => ur.role.permissions.map((p) => p.name))
+				.flat();
+			// Find the groups the peer is in, and get the roles for those groups
+			const groupPermissions = room.groupRoles
+				.filter((gr) => peer.groupIds.includes(gr.groupId))
+				.map((gr) => gr.role.permissions.map((p) => p.name))
+				.flat();
 
-		// Combine and remove duplicates
-		peer.permissions = [ ...new Set([ ...unmanagedAdminPermissions, ...defaultPermissions ]) ];
+			// Combine and remove duplicates
+			peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
 
-		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
-		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
-	} else if (!room.managedId) {
-		// changes to permission while in unmanaged room or its lobby
-		// user has logged in, etc.
+			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+		}
+	} else { // unmanaged rooms
+		if (room.peers.empty) {
+			// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
+			// as an admin could have disabled unmanaged rooms
+			const unmanagedAdminPermissions = allPermissions.filter(
+				(p) => p !== Permission.BYPASS_ROOM_LOCK
+			);
 
-		// Combine defaultPermissions with current permissions
-		peer.permissions = [ ...new Set([ ...peer.permissions, ...defaultPermissions ]) ];
+			// Combine and remove duplicates.
+			// We combine as in default permissions BYPASS_ROOM_LOCK might be added
+			peer.permissions = [ ...new Set([ ...unmanagedAdminPermissions, ...defaultPermissions ]) ];
 
-		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
-		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
-	} else {
-		// Find the user roles the peer has, and get the roles for those user roles
-		const userPermissions = room.userRoles
-			.filter((ur) => ur.userId === peer.managedId)
-			.map((ur) => ur.role.permissions.map((p) => p.name))
-			.flat();
-		// Find the groups the peer is in, and get the roles for those groups
-		const groupPermissions = room.groupRoles
-			.filter((gr) => peer.groupIds.includes(gr.groupId))
-			.map((gr) => gr.role.permissions.map((p) => p.name))
-			.flat();
+			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+		} else {
+			// Combine defaultPermissions with current permissions
+			// We combine as user might logged in while in room, so if he is unmanaged admin from if above, he has to keep the permissions
+			peer.permissions = [ ...new Set([ ...peer.permissions, ...defaultPermissions ]) ];
 
-		// Combine and remove duplicates
-		peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
-
-		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
-		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+		}
 	}
 
 	if (shouldPromote) return room.promotePeer(peer); // We return here because the peer will get the lobbyPeers when it joins
