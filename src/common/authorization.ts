@@ -69,6 +69,7 @@ export const permittedProducer = (source: MediaSourceType, room: Room, peer: Pee
 
 export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): void => {
 	const hadPromotePermission = peer.hasPermission(Permission.PROMOTE_PEER);
+	const defaultPermissions = room.defaultRole?.permissions.map((p) => p.name) ?? [];
 	let shouldPromote = false;
 	let shouldGiveLobbyPeers = false;
 
@@ -80,12 +81,24 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 	} else if (!room.managedId && room.peers.empty) {
 		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
 		// as an admin could have disabled unmanaged rooms
-		peer.permissions = allPermissions.filter(
+		const unmanagedAdminPermissions = allPermissions.filter(
 			(p) => p !== Permission.BYPASS_ROOM_LOCK
 		);
 
-		shouldPromote = inLobby;
-		shouldGiveLobbyPeers = !hadPromotePermission;
+		// Combine and remove duplicates
+		peer.permissions = [ ...new Set([ ...unmanagedAdminPermissions, ...defaultPermissions ]) ];
+
+		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+	} else if (!room.managedId) {
+		// changes to permission while in unmanaged room or its lobby
+		// user has logged in, etc.
+
+		// Combine defaultPermissions with current permissions
+		peer.permissions = [ ...new Set([ ...peer.permissions, ...defaultPermissions ]) ];
+
+		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 	} else {
 		// Find the user roles the peer has, and get the roles for those user roles
 		const userPermissions = room.userRoles
@@ -97,7 +110,6 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 			.filter((gr) => peer.groupIds.includes(gr.groupId))
 			.map((gr) => gr.role.permissions.map((p) => p.name))
 			.flat();
-		const defaultPermissions = room.defaultRole?.permissions.map((p) => p.name) ?? [];
 
 		// Combine and remove duplicates
 		peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
