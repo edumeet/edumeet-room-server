@@ -35,6 +35,13 @@ export const createConsumersMiddleware = ({
 
 		switch (method) {
 			case 'consumerClosed': {
+				logger.debug({
+					routerId,
+					consumerId,
+					kind: consumer.kind,
+					producerId: consumer.producerId
+				}, 'MediaNode -> consumerClosed');
+
 				consumer.close(true);
 				context.handled = true;
 
@@ -42,6 +49,13 @@ export const createConsumersMiddleware = ({
 			}
 
 			case 'consumerProducerPaused': {
+				logger.debug({
+					routerId,
+					consumerId,
+					kind: consumer.kind,
+					producerId: consumer.producerId
+				}, 'MediaNode -> consumerProducerPaused');
+
 				consumer.setProducerPaused();
 				context.handled = true;
 
@@ -49,6 +63,13 @@ export const createConsumersMiddleware = ({
 			}
 
 			case 'consumerProducerResumed': {
+				logger.debug({
+					routerId,
+					consumerId,
+					kind: consumer.kind,
+					producerId: consumer.producerId
+				}, 'MediaNode -> consumerProducerResumed');
+
 				consumer.setProducerResumed();
 				context.handled = true;
 
@@ -56,6 +77,12 @@ export const createConsumersMiddleware = ({
 			}
 
 			case 'consumerScore': {
+				logger.debug({
+					routerId,
+					consumerId,
+					score
+				}, 'MediaNode -> consumerScore');
+
 				consumer.setScore(score);
 				context.handled = true;
 
@@ -63,6 +90,12 @@ export const createConsumersMiddleware = ({
 			}
 
 			case 'consumerLayersChanged': {
+				logger.debug({
+					routerId,
+					consumerId,
+					layers
+				}, 'MediaNode -> consumerLayersChanged');
+
 				consumer.setLayers(layers);
 				context.handled = true;
 
