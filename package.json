@@ -18,7 +18,7 @@
 		"test:watch": "jest --watch"
 	},
 	"devDependencies": {
-		"@tsconfig/node20": "^20.1.8",
+		"@tsconfig/node24": "^24.0.4",
 		"@types/debug": "^4.1.12",
 		"@types/geoip-lite": "^1.4.4",
 		"@types/jest": "^30.0.0",
