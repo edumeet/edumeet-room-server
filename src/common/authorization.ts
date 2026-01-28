@@ -97,28 +97,26 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 		}
-	} else { // unmanaged rooms
-		if (room.peers.empty) {
-			// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
-			// as an admin could have disabled unmanaged rooms
-			const unmanagedAdminPermissions = allPermissions.filter(
-				(p) => p !== Permission.BYPASS_ROOM_LOCK
-			);
+	} else if (room.peers.empty) { // unmanaged rooms - fake admin
+		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
+		// as an admin could have disabled unmanaged rooms
+		const unmanagedAdminPermissions = allPermissions.filter(
+			(p) => p !== Permission.BYPASS_ROOM_LOCK
+		);
 
-			// Combine and remove duplicates.
-			// We combine as in default permissions BYPASS_ROOM_LOCK might be added
-			peer.permissions = [ ...new Set([ ...unmanagedAdminPermissions, ...defaultPermissions ]) ];
+		// Combine and remove duplicates.
+		// We combine as in default permissions BYPASS_ROOM_LOCK might be added
+		peer.permissions = [ ...new Set([ ...unmanagedAdminPermissions, ...defaultPermissions ]) ];
 
-			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
-			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
-		} else {
-			// Combine defaultPermissions with current permissions
-			// We combine as user might logged in while in room, so if he is unmanaged admin from if above, he has to keep the permissions
-			peer.permissions = [ ...new Set([ ...peer.permissions, ...defaultPermissions ]) ];
+		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+	} else { // unmanaged rooms - default
+		// Combine defaultPermissions with current permissions
+		// We combine as user might logged in while in room, so if he is unmanaged admin from if above, he has to keep the permissions
+		peer.permissions = [ ...new Set([ ...peer.permissions, ...defaultPermissions ]) ];
 
-			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
-			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
-		}
+		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
+		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 	}
 
 	if (shouldPromote) return room.promotePeer(peer); // We return here because the peer will get the lobbyPeers when it joins
