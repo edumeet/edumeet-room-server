@@ -31,7 +31,7 @@ export const AppConfigSchema = z.object({
 			.positive()),
 	listenHost: ipString,
 	tls: z.object({
-		cer: z.string(),
+		cert: z.string(),
 		key: z.string()
 	}).optional(),
 	defaultRoomSettings: z.object({

@@ -40,7 +40,7 @@ import { ConfigLoader } from './common/configLoader';
 import chokidar from 'chokidar';
 
 // TODO handle no file error
-const configFile = process.env.CONFIG_FILE || './config/pconfig.json';
+const configFile = process.env.CONFIG_FILE || './config/config.json';
 const loader = new ConfigLoader(configFile, 150);
 const watcher = chokidar.watch(configFile, { ignoreInitial: true });
 
