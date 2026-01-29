@@ -1,10 +1,14 @@
 import { Logger } from 'edumeet-common';
 import http from 'http';
+import https from 'https';
+import crypto from 'crypto';
 
+import fs from 'fs';
 import ServerManager from './ServerManager';
 import { Stats } from 'fast-stats';
 
 import * as client from 'prom-client';
+import { canUsePort } from './common/ports';
 
 class CustomMetrics {
 	private register: client.Registry;
@@ -15,6 +19,7 @@ class CustomMetrics {
 	private serverManager: ServerManager;
 	private mPeers: client.Gauge;
 	private mRoomsMediaNode: client.Gauge;
+	private period:number = 10;
 
 	constructor(serverManager: ServerManager) {
 		this.serverManager = serverManager;
@@ -59,6 +64,13 @@ class CustomMetrics {
 	contentType() {
 		return this.register.contentType;
 	}
+	
+	getPeriod() {
+		return this.period;
+	}
+	updatePeriod(period: number) {
+		this.period = period;
+	}
 
 	async metrics() {
 		// log start 
@@ -85,9 +97,7 @@ class CustomMetrics {
 
 	collectStats() {
 		const now = Date.now();
-		// TODO add to config prom_period 
-		// Prometheus metrics exporter update period 
-		const period = 15;
+		const period = this.period;
 
 		if (now - this.statsUpdate < period * 1000) {
 			return;
@@ -128,29 +138,164 @@ export default class CustomMetricsService {
 	private customMetrics: CustomMetrics;
 	// private servers = new Map<string, http.Server>();
 	private serverManager: ServerManager | undefined;
-	private server: http.Server | undefined;
+	private servers = new Map<string, http.Server>();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private liveConfig:any;
 
-	constructor(serverManager: ServerManager/* ,  managementService */) {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	constructor(serverManager: ServerManager, newConfig: any | null) {
 		// start metric 
 		this.customMetrics = new CustomMetrics(serverManager);
-		// start timer/interval
-		// start server?
+
+		if (newConfig) {
+			this.createServer(newConfig);
+		}
+	}
+
+	loadPrivateKey(path:string) {
+		try {
+			const pem = fs.readFileSync(path, 'utf8');
+
+			crypto.createPrivateKey(pem);
+			
+			return pem;
+		} catch {
+			throw new Error(`Invalid private key: ${path}`);
+		}
+	}
+
+	loadCertificate(path:string) {
+		try {
+			const pem = fs.readFileSync(path, 'utf8');
+
+			const c = new crypto.X509Certificate(pem);
+			
+			logger.debug('loadCertificate() [cert: %s]', c);
+
+			return pem;
+			
+		} catch (error) {
+			logger.error(error);
+			throw new Error(`loadCertificate() failed: ${path}`);
+		}
+	}
+
+	getOptionsWithValidCerts(key:string, cert:string) {
+		let options = {};
+		
+		try {
+			const k = this.loadPrivateKey(key);
+			const c = this.loadCertificate(cert);
+		
+			options = {
+				key: k,
+				cert: c
+			};	
+		} catch (error) {
+			logger.error(error);
+		} finally {
+			return options;
+		}
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	async createServer(newConfig: any) {
+		const currentlyUsed = this.servers; // servers keys?
+		let current:string;
+
+		const started: string[] = [];
+
+		if (newConfig) {
+			if (newConfig.prometheus.period != this.customMetrics.getPeriod())
+				this.customMetrics.updatePeriod(newConfig.prometheus.period);
+			await newConfig.prometheus.listener.forEach((srv: { ip: string; port: number; protocol: string; cert?: { key: string, cert: string } }) => {
+				
+				const { ip, port, protocol, cert } = srv;
+				const mode = (cert)?'https':'http';
+				
+				// if currently used and part of the config stop server and relaunch 
+				current	= `${ip}-${port}-${mode}`;
+
+				if (currentlyUsed.has(current)) {
+					const oldServer = this.servers.get(current);
+
+					oldServer?.close();
+					currentlyUsed.delete(current);
+				} else if (protocol === 'http') {
+					this._createHTTPServer(ip, port);
+					started.push(current);
+				} else if (protocol === 'https' && cert) {
+					const options = this.getOptionsWithValidCerts(cert.key, cert.cert);
+
+					if (options) {
+						this._createHTTPSServer(ip, port, options);
+						started.push(current);
+					} else {
+						logger.error(`Invalid cert for https(${current})!`);
+					}
+				} else {
+					logger.error(`No cert for https(${current})!`);
+				}
+			});
+			// if not used anymore stop 
+			currentlyUsed.forEach(function(value, key) {
+				if (!started.includes(key)) {
+					const oldServer = currentlyUsed.get(key);
+
+					oldServer?.close();
+					currentlyUsed.delete(current);
+				}
+
+			});
+
+			this.liveConfig = newConfig;
+
+		}
+	}
+
+	private async _createHTTPServer(ip: string, port: number) {
+		if (await canUsePort(port, ip)) {
+				
+			const newServer = http.createServer(async (req, res) => {
+				res.writeHead(200, { 'Content-Type': this.customMetrics.contentType() });
+				res.end(await this.customMetrics.metrics());
+			});
+
+			newServer.listen(port, () => {
+				logger.debug(`Server listening to ${port}, metrics exposed on /metrics endpoint`,);
+
+			});
+
+			this.servers.set(`${ip}-${port}-http`, newServer);
+		} else {
+			logger.debug(`Port (${port}) is in use or invalid!`);
+		}
+
+	}
+	
+	private async _createHTTPSServer(ip: string, port: number, options:object) {
+		if (await canUsePort(port, ip)) {
+			
+			const newServer = https.createServer(options, async (req, res) => {
+				res.writeHead(200, { 'Content-Type': this.customMetrics.contentType() });
+				res.end(await this.customMetrics.metrics());
+			});
+
+			newServer.listen(port, () => {
+				logger.debug(`Server listening to ${port}, metrics exposed on /metrics endpoint`,);
+
+			});
+
+			this.servers.set(`${ip}-${port}-http`, newServer);
+		} else {
+			logger.debug(`Port (${port}) is in use or invalid!`);
+		}
 
 	}
 
-	startServer() {
-		this.server = http.createServer(async (req, res) => {
-			res.writeHead(200, { 'Content-Type': this.customMetrics.contentType() });
-			res.end(await this.customMetrics.metrics());
-		});
-
-		const port = 3000;
-
-		this.server.listen(port, () => {
-			logger.debug(`Server listening to ${port}, metrics exposed on /metrics endpoint`,);
-		});
-	}
 	close() {
-		this.server?.close();
+		this.servers.forEach((server) => {
+			server?.close();
+		});
 	}
 }
