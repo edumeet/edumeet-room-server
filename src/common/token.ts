@@ -23,9 +23,10 @@ export const verifyPeer = (token: string): VerifyPeerResult => {
 			const expiresAtMs = typeof exp === 'number' ? exp * 1000 : undefined;
 
 			return { ok: true, managedId: sub, expiresAtMs };
-		} catch (error) {
-			if (error?.name === 'TokenExpiredError')
+		} catch (error: unknown) {
+			if (error instanceof jwt.TokenExpiredError) {
 				sawExpired = true;
+			}
 		}
 	}
 
