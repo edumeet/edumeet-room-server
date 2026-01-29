@@ -51,26 +51,19 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				break;
 			}
 
-			case 'updateToken':
-			{
+			case 'updateToken': {
 				const { token } = message.data as { token?: string };
 
 				let newManagedId: string | undefined;
 
-				if (typeof token === 'undefined')
-				{
+				if (typeof token === 'undefined') {
 					newManagedId = undefined;
-				}
-				else
-				{
+				} else {
 					const res = verifyPeer(token);
 
-					if (!res.ok)
-					{
+					if (!res.ok) {
 						throw new Error(res.reason === 'expired' ? 'Token expired' : 'Invalid token');
-					}
-					else
-					{
+					} else {
 						newManagedId = res.managedId;
 					}
 				}
@@ -80,6 +73,7 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				updatePeerPermissions(room, peer, true);
 
 				context.handled = true;
+
 				break;
 			}
 

@@ -114,27 +114,20 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				break;
 			}
 
-			case 'updateToken':
-			{
+			case 'updateToken': {
 				const { token } = message.data as { token?: string };
 
 				let newManagedId: string | undefined;
 
-				if (typeof token === 'undefined')
-				{
+				if (typeof token === 'undefined') {
 					// Logout path
 					newManagedId = undefined;
-				}
-				else
-				{
+				} else {
 					const res = verifyPeer(token);
 
-					if (!res.ok)
-					{
+					if (!res.ok) {
 						throw new Error(res.reason === 'expired' ? 'Token expired' : 'Invalid token');
-					}
-					else
-					{
+					} else {
 						newManagedId = res.managedId;
 					}
 				}
@@ -144,6 +137,7 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				updatePeerPermissions(room, peer);
 
 				context.handled = true;
+
 				break;
 			}
 

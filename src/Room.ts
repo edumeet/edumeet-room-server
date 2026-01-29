@@ -466,8 +466,7 @@ export default class Room extends EventEmitter {
 		return this.peers.items.find((p) => p.id === peerId);
 	}
 
-	public setPeerManagedId(peer: Peer, newManagedId: string | undefined): void
-	{
+	public setPeerManagedId(peer: Peer, newManagedId: string | undefined): void {
 		this.#serverManager.setPeerManagedId(peer, newManagedId);
 	}
 }

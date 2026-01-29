@@ -8,14 +8,11 @@ export type VerifyPeerResult =
 	| { ok: true; managedId: string; expiresAtMs?: number }
 	| { ok: false; reason: 'expired' | 'invalid' };
 
-export const verifyPeer = (token: string): VerifyPeerResult =>
-{
+export const verifyPeer = (token: string): VerifyPeerResult => {
 	let sawExpired = false;
 
-	for (const key of signingKeys)
-	{
-		try
-		{
+	for (const key of signingKeys) {
+		try {
 			const payload = jwt.verify(token, key) as JwtPayload;
 			const sub = payload?.sub;
 
@@ -26,10 +23,8 @@ export const verifyPeer = (token: string): VerifyPeerResult =>
 			const expiresAtMs = typeof exp === 'number' ? exp * 1000 : undefined;
 
 			return { ok: true, managedId: sub, expiresAtMs };
-		}
-		catch (err: any)
-		{
-			if (err?.name === 'TokenExpiredError')
+		} catch (error) {
+			if (error?.name === 'TokenExpiredError')
 				sawExpired = true;
 		}
 	}

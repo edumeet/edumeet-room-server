@@ -40,8 +40,7 @@ export default class ServerManager {
 		this.managementService = managementService;
 	}
 
-	public setPeerManagedId(peer: Peer, newManagedId: string | undefined): void
-	{
+	public setPeerManagedId(peer: Peer, newManagedId: string | undefined): void {
 		const oldManagedId = peer.managedId;
 
 		// No change -> do nothing
@@ -102,7 +101,7 @@ export default class ServerManager {
 			const res = verifyPeer(token);
 
 			if (!res.ok) {
-				throw new Error(res.reason === "expired" ? "Token expired" : "Invalid token");
+				throw new Error(res.reason === 'expired' ? 'Token expired' : 'Invalid token');
 			}
 
 			managedId = res.managedId;
