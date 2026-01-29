@@ -221,7 +221,8 @@ export default class CustomMetricsService {
 
 					oldServer?.close();
 					currentlyUsed.delete(current);
-				} else if (protocol === 'http') {
+				}
+				if (protocol === 'http') {
 					this._createHTTPServer(ip, port);
 					started.push(current);
 				} else if (protocol === 'https' && cert) {
@@ -247,6 +248,7 @@ export default class CustomMetricsService {
 				}
 
 			});
+			this.servers = currentlyUsed;
 
 			this.liveConfig = newConfig;
 
@@ -286,7 +288,7 @@ export default class CustomMetricsService {
 
 			});
 
-			this.servers.set(`${ip}-${port}-http`, newServer);
+			this.servers.set(`${ip}-${port}-https`, newServer);
 		} else {
 			logger.debug(`Port (${port}) is in use or invalid!`);
 		}
