@@ -2,13 +2,14 @@ import { Logger } from 'edumeet-common';
 import http from 'http';
 import https from 'https';
 import crypto from 'crypto';
-
 import fs from 'fs';
 import ServerManager from './ServerManager';
 import { Stats } from 'fast-stats';
-
 import * as client from 'prom-client';
 import { canUsePort } from './common/ports';
+import { AppConfigParsed } from './common/schema';
+
+const logger = new Logger('MetricsService');
 
 class CustomMetrics {
 	private register: client.Registry;
@@ -48,7 +49,7 @@ class CustomMetrics {
 					if (self.genricStats[statName] !== undefined && self.genricStats[statName][statValue] !== undefined) {
 						this.set({}, self.genricStats[statName][statValue]);
 					} else {
-						// logger.warn(`${statName}.${statValue} not found`);
+						logger.warn(`${statName}.${statValue} not found`);
 					}
 				}
 			});
@@ -73,11 +74,7 @@ class CustomMetrics {
 	}
 
 	async metrics() {
-		// log start 
-		// last run check HERE 
-		// this.collectStats()
 		const metrics = await this.register.metrics();
-		// log end 
 
 		return metrics;
 	}
@@ -132,18 +129,12 @@ class CustomMetrics {
 
 }
 
-const logger = new Logger('MetricsService');
-
 export default class CustomMetricsService {
 	private customMetrics: CustomMetrics;
-	// private servers = new Map<string, http.Server>();
-	private serverManager: ServerManager | undefined;
+	// private serverManager: ServerManager | undefined;
 	private servers = new Map<string, http.Server>();
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private liveConfig:any;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	constructor(serverManager: ServerManager, newConfig: any | null) {
+	constructor(serverManager: ServerManager, newConfig: AppConfigParsed) {
 		// start metric 
 		this.customMetrics = new CustomMetrics(serverManager);
 
@@ -198,23 +189,21 @@ export default class CustomMetricsService {
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	async createServer(newConfig: any) {
+	async createServer(newConfig: AppConfigParsed) {
 		const currentlyUsed = this.servers; // servers keys?
 		let current:string;
 
 		const started: string[] = [];
 
 		if (newConfig) {
-			if (newConfig.prometheus.period != this.customMetrics.getPeriod())
-				this.customMetrics.updatePeriod(newConfig.prometheus.period);
-			await newConfig.prometheus.listener.forEach((srv: { ip: string; port: number; protocol: string; cert?: { key: string, cert: string } }) => {
-				
+			if (newConfig.prometheus?.period && newConfig.prometheus?.period != this.customMetrics.getPeriod())
+				this.customMetrics.updatePeriod(newConfig.prometheus?.period);
+			newConfig.prometheus?.listener.forEach((srv: { ip: string; port: number; protocol: string; cert?: { key: string; cert: string; }; }) => {
+
 				const { ip, port, protocol, cert } = srv;
-				const mode = (cert)?'https':'http';
-				
+
 				// if currently used and part of the config stop server and relaunch 
-				current	= `${ip}-${port}-${mode}`;
+				current = `${ip}-${port}-${protocol}`;
 
 				if (currentlyUsed.has(current)) {
 					const oldServer = this.servers.get(current);
@@ -224,12 +213,14 @@ export default class CustomMetricsService {
 				}
 				if (protocol === 'http') {
 					this._createHTTPServer(ip, port);
+					logger.info(`Prometheus started listening on ${current}`);
 					started.push(current);
 				} else if (protocol === 'https' && cert) {
 					const options = this.getOptionsWithValidCerts(cert.key, cert.cert);
 
 					if (options) {
 						this._createHTTPSServer(ip, port, options);
+						logger.info(`Prometheus started listening on ${current}`);
 						started.push(current);
 					} else {
 						logger.error(`Invalid cert for https(${current})!`);
@@ -246,11 +237,8 @@ export default class CustomMetricsService {
 					oldServer?.close();
 					currentlyUsed.delete(current);
 				}
-
 			});
 			this.servers = currentlyUsed;
-
-			this.liveConfig = newConfig;
 
 		}
 	}
