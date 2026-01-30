@@ -56,6 +56,7 @@ if (loader.config) {
 		});
 		// react to reloads
 		loader.on('reloaded', async (newConfig) => {
+			logger.info('Config reloaded.');
 			logger.debug('Config reloaded:', newConfig);
 			if (newConfig.prometheus?.enabled === true && customMetricsService == undefined) {
 				customMetricsService = new CustomMetricsService(serverManager, newConfig);
