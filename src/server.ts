@@ -71,10 +71,9 @@ if (loader.config) {
 		loader.on('error', (err) => {
 			logger.error('Config load error (keeping previous if exists):', err.message || err);
 		});
-	} else {
+	} else if (loader.config.prometheus?.enabled === true) {
 		customMetricsService = new CustomMetricsService(serverManager, loader.config);
 	}
-
 }
 
 let webServer: http.Server | https.Server;
