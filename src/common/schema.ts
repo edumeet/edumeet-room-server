@@ -14,6 +14,7 @@ const ipString = z
 	});
 
 export const AppConfigSchema = z.object({
+	liveReload: z.boolean().optional(), // TODO add default true after other getConfig is replaced?
 	prometheus: z.object({
 		enabled: z.boolean().optional(),
 		period: z.number().optional(),
