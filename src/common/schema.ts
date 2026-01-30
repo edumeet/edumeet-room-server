@@ -60,7 +60,7 @@ export const AppConfigSchema = z.object({
 	}).optional(),
 	managementService: z.object({
 		host: z.string(),
-		jwtPublicKeys: z.string()
+		jwtPublicKeys: z.array(z.string())
 	}).optional(),
 	mediaNodes: z.array(z.object(
 		{
