@@ -66,6 +66,7 @@ export const AppConfigSchema = z.object({
 			latitude: z.float64(),
 			longitude: z.float64(),
 			turnHostname: z.string(),
+			country: z.string().optional(),
 			turnports: z.array(z.object(
 				{
 					protocol: turnSchema,
