@@ -14,6 +14,8 @@ import Room from './Room';
 import ManagementService from './ManagementService';
 import { getConfig } from './Config';
 import CustomMetricsService from './MetricsService';
+import { ConfigLoader } from './common/configLoader';
+import chokidar from 'chokidar';
 
 const logger = new Logger('Server');
 const config = getConfig();
@@ -35,9 +37,6 @@ if (config.managementService)
 const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
 
 interactiveServer(serverManager, managementService);
-
-import { ConfigLoader } from './common/configLoader';
-import chokidar from 'chokidar';
 
 // TODO handle no file error
 const configFile = process.env.CONFIG_FILE || './config/config.json';
