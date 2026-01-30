@@ -5,9 +5,13 @@ const httpSchema = z.union([ z.literal('http'), z.literal('https') ]);
 const turnSchema = z.union([ z.literal('turn'), z.literal('turns') ]);
 const protocolSchema = z.union([ z.literal('tcp'), z.literal('udp') ]);
 
-const ipString = z.string().refine((val) => net.isIP(val) !== 0, {
-	message: 'Invalid IP address (must be IPv4 or IPv6)',
-});
+const ipString = z
+	.string()
+	.nullable()
+	.transform((val) => val ?? '0.0.0.0')
+	.refine((val) => net.isIP(val) !== 0, {
+		message: 'Invalid IP address (must be IPv4 or IPv6)',
+	});
 
 export const AppConfigSchema = z.object({
 	prometheus: z.object({
@@ -25,7 +29,7 @@ export const AppConfigSchema = z.object({
 		})),
 	}).optional(),
 	version: z.string().optional(),
-	listenPort: z.string()
+	listenPort: z.string().default('8334')
 		.transform((val) => parseInt(val))
 		.pipe(z.number().int()
 			.positive()),

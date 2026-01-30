@@ -1,4 +1,4 @@
-import fs from 'fs/promises';
+import fs from 'fs';
 import { EventEmitter } from 'events';
 import path from 'path';
 import { AppConfigParsed, AppConfigSchema } from './schema';
@@ -21,9 +21,9 @@ export class ConfigLoader extends EventEmitter {
 		return this.current;
 	}
 
-	async loadOnce() {
+	loadOnce() {
 		try {
-			const raw = await fs.readFile(this.configPath, 'utf-8');
+			const raw = fs.readFileSync(this.configPath, 'utf-8');
 			const parsed = JSON.parse(raw);
 			const validated = AppConfigSchema.parse(parsed);
 
@@ -38,9 +38,9 @@ export class ConfigLoader extends EventEmitter {
 		}
 	}
 
-	async reload() {
+	reload() {
 		try {
-			const raw = await fs.readFile(this.configPath, 'utf-8');
+			const raw = fs.readFileSync(this.configPath, 'utf-8');
 			const parsed = JSON.parse(raw);
 			const validated = AppConfigSchema.parse(parsed);
 			const changed = JSON.stringify(validated) !== JSON.stringify(this.current);
@@ -61,7 +61,7 @@ export class ConfigLoader extends EventEmitter {
 			clearTimeout(this.reloadTimer);
 		}
 		this.reloadTimer = setTimeout(() => {
-			this.reload().catch(() => {});
+			this.reload();
 		}, this.debounceMs);
 	}
 }

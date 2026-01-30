@@ -46,34 +46,27 @@ const watcher = chokidar.watch(configFile, { ignoreInitial: true });
 
 let customMetricsService:CustomMetricsService| undefined = undefined;
 
-async function startMetricServer(): Promise<void> {
-	return new Promise(async (resolve) => {
-		await loader.loadOnce();
-		// initial load
-		if (loader.config) {
-			logger.debug('Initial config: %o', loader.config);
-			if (loader.config.prometheus?.enabled === true) {
-				customMetricsService = new CustomMetricsService(serverManager, loader.config);
+loader.loadOnce();
+// initial load
+if (loader.config) {
+	logger.debug('Initial config: %o', loader.config);
+	if (loader.config.prometheus?.enabled === true) {
+		customMetricsService = new CustomMetricsService(serverManager, loader.config);
 
-				watcher.on('all', (event) => {
-					logger.debug(`Detected config file event: ${event}, scheduling reload`);
-					loader.scheduleReload();
-				});
-				// react to reloads
-				loader.on('reloaded', async (newConfig) => {
-					logger.debug('Config reloaded:', newConfig);
-					customMetricsService?.createServer(newConfig);
-				});
-				loader.on('error', (err) => {
-					logger.error('Config load error (keeping previous if exists):', err.message || err);
-				});
-			}
-		}
-
-		resolve();
-	});
+		watcher.on('all', (event) => {
+			logger.debug(`Detected config file event: ${event}, scheduling reload`);
+			loader.scheduleReload();
+		});
+		// react to reloads
+		loader.on('reloaded', async (newConfig) => {
+			logger.debug('Config reloaded:', newConfig);
+			customMetricsService?.createServer(newConfig);
+		});
+		loader.on('error', (err) => {
+			logger.error('Config load error (keeping previous if exists):', err.message || err);
+		});
+	}
 }
-startMetricServer();
 
 let webServer: http.Server | https.Server;
 
