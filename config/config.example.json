@@ -47,6 +47,7 @@
 		"secret": "secret-shared-with-media-node",
 		"latitude": 63.430481,
 		"longitude": 10.394964,
+		"country": "NO",
 		"turnHostname": "localhost",
 		"turnports" :  [
 			{

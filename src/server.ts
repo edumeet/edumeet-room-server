@@ -13,6 +13,9 @@ import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
 import { getConfig } from './Config';
+import CustomMetricsService from './MetricsService';
+import { ConfigLoader } from './common/configLoader';
+import chokidar from 'chokidar';
 
 const logger = new Logger('Server');
 const config = getConfig();
@@ -34,6 +37,44 @@ if (config.managementService)
 const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
 
 interactiveServer(serverManager, managementService);
+
+// TODO handle no file error
+const configFile = process.env.CONFIG_FILE || './config/config.json';
+const loader = new ConfigLoader(configFile, 150);
+const watcher = chokidar.watch(configFile, { ignoreInitial: true });
+
+let customMetricsService: CustomMetricsService | undefined = undefined;
+
+loader.loadOnce();
+// initial load
+if (loader.config) {
+	logger.debug('Initial config: %o', loader.config);
+	if (loader.config.liveReload===true) {
+		watcher.on('all', (event) => {
+			logger.debug(`Detected config file event: ${event}, scheduling reload`);
+			loader.scheduleReload();
+		});
+		// react to reloads
+		loader.on('reloaded', async (newConfig) => {
+			logger.info('Config reloaded.');
+			logger.debug('Config reloaded:', newConfig);
+			if (newConfig.prometheus?.enabled === true && customMetricsService == undefined) {
+				customMetricsService = new CustomMetricsService(serverManager, newConfig);
+			}
+			customMetricsService?.createServer(newConfig);
+		});
+		loader.on('unchanged', async () => {
+			logger.debug('Config unchanged');
+		
+		});
+	
+		loader.on('error', (err) => {
+			logger.error('Config load error (keeping previous if exists):', err.message || err);
+		});
+	} else if (loader.config.prometheus?.enabled === true) {
+		customMetricsService = new CustomMetricsService(serverManager, loader.config);
+	}
+}
 
 let webServer: http.Server | https.Server;
 
@@ -81,7 +122,8 @@ const close = () => {
 
 	serverManager.close();
 	webServer.close();
-
+	customMetricsService?.close();
+	watcher.close();
 	process.exit(0);
 };
 
