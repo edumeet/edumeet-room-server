@@ -48,8 +48,13 @@ let customMetricsService: CustomMetricsService | undefined = undefined;
 loader.loadOnce();
 // initial load
 if (loader.config) {
+	logger.info('Config live reload is enabled.');
 	logger.debug('Initial config: %o', loader.config);
 	if (loader.config.liveReload===true) {
+		// init if enabled
+		if (loader.config.prometheus?.enabled === true && customMetricsService == undefined) {
+			customMetricsService = new CustomMetricsService(serverManager, loader.config);
+		}
 		watcher.on('all', (event) => {
 			logger.debug(`Detected config file event: ${event}, scheduling reload`);
 			loader.scheduleReload();
@@ -59,13 +64,13 @@ if (loader.config) {
 			logger.info('Config reloaded.');
 			logger.debug('Config reloaded:', newConfig);
 			if (newConfig.prometheus?.enabled === true && customMetricsService == undefined) {
+				// init here if was not enabled before
 				customMetricsService = new CustomMetricsService(serverManager, newConfig);
 			}
 			customMetricsService?.createServer(newConfig);
 		});
 		loader.on('unchanged', async () => {
 			logger.debug('Config unchanged');
-		
 		});
 	
 		loader.on('error', (err) => {
@@ -74,6 +79,8 @@ if (loader.config) {
 	} else if (loader.config.prometheus?.enabled === true) {
 		customMetricsService = new CustomMetricsService(serverManager, loader.config);
 	}
+} else {
+	logger.info('Config live reload disabled.');
 }
 
 let webServer: http.Server | https.Server;
