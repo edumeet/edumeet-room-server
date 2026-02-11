@@ -21,6 +21,13 @@ class CustomMetrics {
 	private mPeers: client.Gauge;
 	private mRoomsMediaNode: client.Gauge;
 	private period:number = 10;
+	mClosedMediaNode: client.Gauge<'hostname' >;
+	mHealthyMediaNode: client.Gauge<'hostname' >;
+	mDrainingMediaNode: client.Gauge<'hostname' >;
+	mLoadMediaNode: client.Gauge<'hostname' >;
+	mWebRtcTotalMediaNode: client.Gauge<'hostname' >;
+	mPipeTotalMediaNode: client.Gauge<'hostname' >;
+	mMediaNodeInUse: client.Gauge<'hostname'>;
 
 	constructor(serverManager: ServerManager) {
 		this.serverManager = serverManager;
@@ -58,8 +65,17 @@ class CustomMetrics {
 		// user/peer count for a roomId
 		this.mPeers = new client.Gauge({ name: 'edumeet_peers', help: 'user/peer count for a roomId', labelNames: [ 'roomId' ], registers: [ this.register ] });
 		// roomId and mediaNode pair (if set it is used)
-		this.mRoomsMediaNode = new client.Gauge({ name: 'edumeet_rooms_media_node', help: 'roomId and mediaNode pair (if set it is used)', labelNames: [ 'roomId', 'hostname' ], registers: [ this.register ] });
+		this.mRoomsMediaNode = new client.Gauge({ name: 'edumeet_room_media_nodes', help: 'roomId and mediaNode pair (if set it is used)', labelNames: [ 'roomId', 'hostname' ], registers: [ this.register ] });
 
+		this.mMediaNodeInUse = new client.Gauge({ name: 'edumeet_media_nodes_in_use', help: 'MediaNodes in use', labelNames: [ 'hostname' ], registers: [ this.register ] });
+
+		this.mClosedMediaNode = new client.Gauge({ name: 'edumeet_media_node_closed', help: 'Is MediaNode closed', labelNames: [ 'hostname' ], registers: [ this.register ] });
+		this.mHealthyMediaNode = new client.Gauge({ name: 'edumeet_media_node_healthy', help: 'Is MediaNode healthy', labelNames: [ 'hostname' ], registers: [ this.register ] });
+		this.mDrainingMediaNode = new client.Gauge({ name: 'edumeet_media_node_draining', help: 'Is MediaNode draining', labelNames: [ 'hostname' ], registers: [ this.register ] });
+		this.mLoadMediaNode = new client.Gauge({ name: 'edumeet_media_node_load', help: 'Load of MediaNode', labelNames: [ 'hostname' ], registers: [ this.register ] });
+		this.mWebRtcTotalMediaNode = new client.Gauge({ name: 'edumeet_media_node_webRtcTotal', help: 'Total WebRtc connections for MediaNode', labelNames: [ 'hostname' ], registers: [ this.register ] });
+		this.mPipeTotalMediaNode = new client.Gauge({ name: 'edumeet_media_node_pipeTotal', help: 'Pipe transports with MediaNode', labelNames: [ 'hostname' ], registers: [ this.register ] });
+	
 	}
 
 	contentType() {
@@ -93,6 +109,7 @@ class CustomMetrics {
 	}
 
 	collectStats() {
+
 		const now = Date.now();
 		const period = this.period;
 
@@ -100,6 +117,62 @@ class CustomMetrics {
 			return;
 		}
 		this.statsUpdate = now;
+
+		this.mMediaNodeInUse.reset();
+		(this.serverManager.mediaService.mediaNodes ?? []).filter(
+			(n) => (n.routers?.size ?? 0) > 0 && [ ...(n.routers?.values?.() ?? []) ].some((r) => (r.webRtcTransports?.size ?? 0) > 0 || (r.pipeTransports?.size ?? 0) > 0)).map(
+			(n) => {
+				const hostname = n.hostname;
+
+				this.mMediaNodeInUse.set({ hostname }, 1);
+			}
+		);
+
+		this.mClosedMediaNode.reset();
+		this.mHealthyMediaNode.reset();
+		this.mDrainingMediaNode.reset();
+		this.mLoadMediaNode.reset();
+		this.mWebRtcTotalMediaNode.reset();
+		this.mPipeTotalMediaNode.reset();
+
+		// media node status 
+		for (const n of this.serverManager.mediaService.mediaNodes) {
+			const routers = n.routers?.values?.() ? Array.from(n.routers.values()) : [];
+			const webRtcTotal = routers.reduce((a, r) => a + (r.webRtcTransports?.size ?? 0), 0); 
+			const pipeTotal = routers.reduce((a, r) => a + (r.pipeTransports?.size ?? 0), 0); 
+
+			const hostname = n.hostname;
+			const closed = n.closed? 1 : 0;
+			const healthy = n.healthy? 1 : 0;
+			const draining = n.draining? 1 : 0;
+			const load = n.load;
+
+			this.mClosedMediaNode.set(						
+				{ hostname },
+				closed
+			);
+
+			this.mHealthyMediaNode.set(						
+				{ hostname },
+				healthy
+			);
+			this.mDrainingMediaNode.set(						
+				{ hostname },
+				draining
+			);
+			this.mLoadMediaNode.set(						
+				{ hostname },
+				load
+			);
+			this.mWebRtcTotalMediaNode.set(						
+				{ hostname },
+				webRtcTotal
+			);
+			this.mPipeTotalMediaNode.set(						
+				{ hostname },
+				pipeTotal
+			);
+		}
 
 		this.mPeers.reset();
 		this.mRoomsMediaNode.reset();
