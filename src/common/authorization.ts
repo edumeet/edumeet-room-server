@@ -100,7 +100,7 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 	} else if (room.peers.empty) { // unmanaged rooms - fake admin
 		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
 		// as an tenant admin could have disabled unmanaged rooms
-		const unmanagedAdminPermissions = allPermissions.filter(
+		const unmanagedAdminPermissions: Permission[] = allPermissions.filter(
 			(p) => p !== Permission.BYPASS_ROOM_LOCK
 		);
 
