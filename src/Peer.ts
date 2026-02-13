@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { MediaSourceType, Role } from './common/types';
 import { Router } from './media/Router';
 import { WebRtcTransport } from './media/WebRtcTransport';
+import { PlainTransport } from './media/PlainTransport';
 import { Consumer } from './media/Consumer';
 import { Producer } from './media/Producer';
 import {
@@ -67,6 +68,8 @@ export declare interface Peer {
 }
 /* eslint-enable no-unused-vars */
 
+type Transport = WebRtcTransport | PlainTransport;
+
 export class Peer extends EventEmitter {
 	public closed = false;
 
@@ -96,8 +99,8 @@ export class Peer extends EventEmitter {
 
 	private turnCredentialsInterval?: NodeJS.Timeout;
 
-	public consumingTransport?: WebRtcTransport;
-	public producingTransport?: WebRtcTransport;
+	public consumingTransport?: Transport;
+	public producingTransport?: Transport;
 	public consumers = new Map<string, Consumer>();
 	public producers = new Map<string, Producer>();
 	public dataConsumers = new Map<string, DataConsumer>();
