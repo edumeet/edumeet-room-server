@@ -64,14 +64,16 @@ export default class ServerManager {
 		token?: string,
 	): void {
 		logger.debug(
-			'handleConnection() [peerId: %s, displayName: %s, roomId: %s, tenantId: %s]',
-			peerId,
-			displayName,
-			roomId,
-			tenantId
+			{ peerId: peerId, displayName: displayName, roomId: roomId, tenantId: tenantId, token: token },
+			'handleConnection() init params'
 		);
 
 		const managedId = token ? verifyPeer(token) : undefined;
+
+		logger.debug(
+			{ peerManagedId: managedId },
+			'handleConnection() peerManagedId'
+		);
 
 		let peer = this.peers.get(peerId);
 
