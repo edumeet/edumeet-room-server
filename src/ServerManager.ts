@@ -64,7 +64,7 @@ export default class ServerManager {
 		token?: string,
 	): void {
 		logger.debug(
-			{ peerId: peerId, displayName: displayName, roomId: roomId, tenantId: tenantId, token: token },
+			{ peerId: peerId, displayName: displayName, roomId: roomId, tenantId: tenantId },
 			'handleConnection() init params'
 		);
 

@@ -8,7 +8,7 @@ const config = getConfig();
 const signingKeys = config.managementService?.jwtPublicKeys || [];
 
 export const verifyPeer = (token: string): string | undefined => {
-	logger.debug({ token: token, signingKeys: signingKeys }, 'verifyPeer() - init params');
+	logger.debug('verifyPeer()');
 
 	for (const key of signingKeys) {
 		try {
@@ -17,7 +17,7 @@ export const verifyPeer = (token: string): string | undefined => {
 			logger.debug({ sub }, 'verifyPeer() - OK');
 
 			return sub;
-		// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+
 		} catch (err) {
 			logger.debug({ err }, 'verifyPeer() - error');
 		}
