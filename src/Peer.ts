@@ -121,7 +121,7 @@ export class Peer extends EventEmitter {
 		sessionId,
 		connection,
 	}: PeerOptions) {
-		logger.debug('constructor() [id: %s]', id);
+		logger.debug({ id, managedId, displayName, sessionId }, 'Peer constructor()');
 
 		super();
 
