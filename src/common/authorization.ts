@@ -1,6 +1,9 @@
 import { Peer } from '../Peer';
 import Room from '../Room';
 import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, MediaSourceType, RoomSettings } from './types';
+import { Logger } from 'edumeet-common';
+
+const logger = new Logger('authorization');
 
 /* eslint-disable no-unused-vars */
 export enum Permission {
@@ -74,6 +77,8 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 	let shouldGiveLobbyPeers = false;
 
 	if (room.managedId) { // managed rooms
+		logger.debug({ roomManagedId: room.managedId }, 'Is managed room');
+
 		if (room.owners.find((o) => o.userId === peer.managedId)) { // Owner gets everything
 			peer.permissions = allPermissions;
 
@@ -98,6 +103,8 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 		}
 	} else if (room.peers.empty) { // unmanaged rooms - fake admin
+		logger.debug('Is unmanaged room - first peer');
+
 		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
 		// as an tenant admin could have disabled unmanaged rooms
 		const unmanagedAdminPermissions: Permission[] = allPermissions.filter(
@@ -107,7 +114,10 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 		// If the peer is authorized he should have BYPASS_ROOM_LOCK
 		// TODO in future add an flag in menagment to turn this on or off
 		if (peer.managedId) {
+			logger.debug('Is auth peer - adding Permission.BYPASS_ROOM_LOCK');
 			unmanagedAdminPermissions.push(Permission.BYPASS_ROOM_LOCK);
+		} else {
+			logger.debug('Is not auth peer.');
 		}
 
 		// Combine and remove duplicates.
@@ -117,6 +127,8 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 	} else { // unmanaged rooms - default
+		logger.debug('Is unmanaged room - further peer');
+	
 		// Combine defaultPermissions with current permissions
 		// We combine as user might logged in while in room, so if he is unmanaged admin from if above, he has to keep the permissions
 		peer.permissions = [ ...new Set([ ...peer.permissions, ...defaultPermissions ]) ];
@@ -124,6 +136,8 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 	}
+
+	logger.debug({ peerPermissions: peer.permissions }, 'Final peer permissions');
 
 	if (shouldPromote) return room.promotePeer(peer); // We return here because the peer will get the lobbyPeers when it joins
 	if (shouldGiveLobbyPeers) peer.notify({ method: 'parkedPeers', data: { lobbyPeers: room.lobbyPeers.items.map((p) => (p.peerInfo)) } });
