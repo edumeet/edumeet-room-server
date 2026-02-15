@@ -62,6 +62,7 @@ export declare interface Peer {
 	on(event: 'gotRole', listener: (newRole: Role) => void): this;
 	on(event: 'lostRole', listener: (oldRole: Role) => void): this;
 	on(event: 'sessionIdChanged', listener: (sessionId: string) => void): this;
+	on(event: 'managedIdChanged', listener: (oldId?: string, newId?: string) => void): this;
 
 	on(event: 'lostRouter', listener: () => void): this;
 }

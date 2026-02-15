@@ -1,5 +1,6 @@
 import { MediaNodeConfig } from './MediaService';
 import { RoomRole } from './common/types';
+import type jwt from 'jsonwebtoken';
 import fs from 'fs';
 
 let config: Config;
@@ -57,7 +58,7 @@ export interface Config {
 		jwtVerifyOptions?: {
 			audience?: string | string[];
 			issuer?: string | string[];
-			algorithms?: string[];
+			algorithms?: jwt.Algorithm[];
 		};
 	};
 	defaultRoomSettings?: {
