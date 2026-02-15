@@ -71,7 +71,7 @@ export class Peer extends EventEmitter {
 	public closed = false;
 
 	public id: string;
-	public managedId?: string;
+	#managedId?: string;
 	public groupIds: string[] = [];
 	#permissions: string[] = [];
 
@@ -122,7 +122,7 @@ export class Peer extends EventEmitter {
 		connection,
 	}: PeerOptions) {
 		logger.debug(
-			{ id: id, managedId: managedId, displayName: displayName, sessionId: sessionId },
+			{ id, managedId, displayName, sessionId },
 			'Peer constructor()'
 		);
 
@@ -132,7 +132,7 @@ export class Peer extends EventEmitter {
 		this.#sessionId = sessionId;
 		this.displayName = displayName ?? 'Guest';
 		this.picture = picture;
-		this.managedId = managedId;
+		this.#managedId = managedId;
 
 		this.routerReset(true);
 
@@ -225,6 +225,21 @@ export class Peer extends EventEmitter {
 
 	public get sessionId(): string {
 		return this.#sessionId;
+	}
+
+	public get managedId(): string | undefined {
+		return this.#managedId;
+	}
+
+	public setManagedId(managedId?: string): void {
+		const oldManagedId = this.#managedId;
+
+		if (oldManagedId === managedId)
+			return;
+
+		this.#managedId = managedId;
+
+		this.emit('managedIdChanged', oldManagedId, managedId);
 	}
 
 	public get permissions(): string[] {

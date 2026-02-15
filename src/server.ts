@@ -22,7 +22,7 @@ const config = getConfig();
 
 const peers = new Map<string, Peer>();
 const rooms = new Map<string, Room>();
-const managedPeers = new Map<string, Peer>();
+const managedPeers = new Map<string, Set<Peer>>();
 const managedRooms = new Map<string, Room>();
 
 logger.debug('Starting... [config: %o]', config);

@@ -40,7 +40,7 @@ const logger = new Logger('ManagementService');
 
 interface ManagementServiceOptions {
 	managedRooms: Map<string, Room>;
-	managedPeers: Map<string, Peer>;
+	managedPeers: Map<string, Set<Peer>>;
 	mediaService: MediaService;
 }
 
@@ -69,7 +69,7 @@ export default class ManagementService {
 	public closed = false;
 
 	#managedRooms: Map<string, Room>;
-	#managedPeers: Map<string, Peer>;
+	#managedPeers: Map<string, Set<Peer>>;
 	#mediaService: MediaService;
 
 	public resolveReady!: () => void;
@@ -402,7 +402,14 @@ export default class ManagementService {
 			.on('removed', (user: ManagedUser) => {
 				logger.debug('usersService "removed" event [userId: %s]', user.id);
 
-				this.#managedPeers.get(String(user.id))?.close();
+				const key = String(user.id);
+				const set = this.#managedPeers.get(key);
+
+				if (set) {
+					for (const peer of set) {
+						peer.close();
+					}
+				}
 			});
 	}
 

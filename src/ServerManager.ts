@@ -14,7 +14,7 @@ interface ServerManagerOptions {
 	mediaService: MediaService;
 	peers: Map<string, Peer>;
 	rooms: Map<string, Room>;
-	managedPeers: Map<string, Peer>;
+	managedPeers: Map<string, Set<Peer>>;
 	managedRooms: Map<string, Room>;
 	managementService?: ManagementService;
 }
@@ -24,7 +24,7 @@ export default class ServerManager {
 	public peers: Map<string, Peer>;
 	public rooms: Map<string, Room>;
 	public managedRooms: Map<string, Room>; // Mapped by ID from management service
-	public managedPeers: Map<string, Peer>; // Mapped by ID from management service
+	public managedPeers: Map<string, Set<Peer>>; // Mapped by ID from management service
 	public mediaService: MediaService;
 	public managementService?: ManagementService;
 
@@ -64,7 +64,7 @@ export default class ServerManager {
 		token?: string,
 	): void {
 		logger.debug(
-			{ peerId: peerId, displayName: displayName, roomId: roomId, tenantId: tenantId },
+			{ peerId, displayName, roomId, tenantId },
 			'handleConnection() init params'
 		);
 
@@ -293,14 +293,61 @@ export default class ServerManager {
 
 		this.peers.set(peerId, peer);
 
-		if (managedId) this.managedPeers.set(String(managedId), peer);
+		if (managedId) {
+			let set = this.managedPeers.get(managedId);
+
+			if (!set) {
+				set = new Set<Peer>();
+				this.managedPeers.set(managedId, set);
+			}
+
+			set.add(peer);
+		}
+
+		peer.on('managedIdChanged', (oldId?: string, newId?: string) => {
+			if (oldId) {
+				const oldSet = this.managedPeers.get(oldId);
+
+				if (oldSet) {
+					oldSet.delete(peer);
+
+					if (oldSet.size === 0) {
+						this.managedPeers.delete(oldId);
+					}
+				}
+			}
+
+			if (newId) {
+				let newSet = this.managedPeers.get(newId);
+
+				if (!newSet) {
+					const newSet = new Set();
+
+					this.managedPeers.set(newId, newSet);
+				}
+
+				newSet.add(peer);
+			}
+		});
 
 		peer.once('close', () => {
 			logger.debug('handleConnection() peer closed [peerId: %s]', peerId);
-			this.peers.delete(peerId);
 
-			if (peer?.managedId)
-				this.managedPeers.delete(peer.managedId);
+			const managedId = peer.managedId;
+
+			if (managedId) {
+				const set = this.managedPeers.get(managedId);
+
+				if (set) {
+					set.delete(peer);
+
+					if (set.size === 0) {
+						this.managedPeers.delete(managedId);
+					}
+				}
+			}
+
+			this.peers.delete(peerId);
 		});
 
 		room.addPeer(peer);
