@@ -54,6 +54,11 @@ export interface Config {
 	managementService?: {
 		host: string;
 		jwtPublicKeys: string[];
+		jwtVerifyOptions?: {
+			audience?: string | string[];
+			issuer?: string | string[];
+			algorithms?: string[];
+		};
 	};
 	defaultRoomSettings?: {
 		defaultRole?: RoomRole;
