@@ -321,7 +321,7 @@ export default class ServerManager {
 				let newSet = this.managedPeers.get(newId);
 
 				if (!newSet) {
-					const newSet = new Set();
+					newSet = new Set<Peer>();
 
 					this.managedPeers.set(newId, newSet);
 				}
@@ -333,16 +333,16 @@ export default class ServerManager {
 		peer.once('close', () => {
 			logger.debug('handleConnection() peer closed [peerId: %s]', peerId);
 
-			const managedId = peer.managedId;
+			const peerManagedId = peer.managedId;
 
-			if (managedId) {
-				const set = this.managedPeers.get(managedId);
+			if (peerManagedId) {
+				const set = this.managedPeers.get(peerManagedId);
 
 				if (set) {
 					set.delete(peer);
 
 					if (set.size === 0) {
-						this.managedPeers.delete(managedId);
+						this.managedPeers.delete(peerManagedId);
 					}
 				}
 			}
