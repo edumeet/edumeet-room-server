@@ -11,8 +11,49 @@ const logger = new Logger('token');
 
 const config = getConfig();
 const signingKeys = config.managementService?.jwtPublicKeys || [];
-const verifyOptions: jwt.VerifyOptions =
-	config.managementService?.jwtVerifyOptions || {};
+const raw = config.managementService?.jwtVerifyOptions;
+
+const toAudience = (
+	aud?: string | string[]
+): jwt.VerifyOptions['audience'] => {
+	if (!aud) {
+		return undefined;
+	}
+
+	if (typeof aud === 'string') {
+		return aud;
+	}
+
+	if (aud.length === 0) {
+		return undefined;
+	}
+
+	return aud as [string, ...string[]];
+};
+
+const toIssuer = (
+	iss?: string | string[]
+): jwt.VerifyOptions['issuer'] => {
+	if (!iss) {
+		return undefined;
+	}
+
+	if (typeof iss === 'string') {
+		return iss;
+	}
+
+	if (iss.length === 0) {
+		return undefined;
+	}
+
+	return iss as [string, ...string[]];
+};
+
+const verifyOptions: jwt.VerifyOptions = {
+	audience: toAudience(raw?.audience),
+	issuer: toIssuer(raw?.issuer),
+	algorithms: raw?.algorithms
+};
 
 export const verifyPeer = (token?: string): string | undefined => {
 	logger.debug('verifyPeer()');
