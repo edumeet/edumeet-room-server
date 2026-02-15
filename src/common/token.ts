@@ -14,7 +14,6 @@ const signingKeys = config.managementService?.jwtPublicKeys || [];
 const verifyOptions: jwt.VerifyOptions =
 	config.managementService?.jwtVerifyOptions || {};
 
-
 export const verifyPeer = (token?: string): string | undefined => {
 	logger.debug('verifyPeer()');
 
