@@ -64,6 +64,12 @@ export const verifyPeer = (token?: string): string | undefined => {
 		return undefined;
 	}
 
+	if (signingKeys.length === 0){
+		logger.debug('verifyPeer() - no keys configured');
+
+		return undefined;
+	}
+
 	for (const key of signingKeys) {
 		try {
 			const payload = jwt.verify(token, key, verifyOptions) as JwtPayload;

@@ -305,6 +305,8 @@ export default class ManagementService {
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
 		});
+
+		await this.#client.reAuthenticate();
 	}
 
 	@skipIfClosed
