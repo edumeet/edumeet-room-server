@@ -59,6 +59,8 @@ export const verifyPeer = (token?: string): string | undefined => {
 	logger.debug('verifyPeer()');
 
 	if (!token) {
+		logger.debug('verifyPeer() - not token given');
+
 		return undefined;
 	}
 
@@ -108,6 +110,8 @@ export const verifyPeer = (token?: string): string | undefined => {
 			logger.debug({ err }, 'verifyPeer() - error');
 		}
 	}
+
+	logger.debug('verifyPeer() - token verification failed');
 
 	return undefined;
 };
