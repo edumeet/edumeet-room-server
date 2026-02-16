@@ -310,6 +310,7 @@ export default class ManagementService {
 
 		if (typeof accessToken === 'string' && accessToken.length > 0) {
 			await this.#client.authentication.setAccessToken(accessToken);
+			await this.#client.authentication.reAuthenticate(true, 'jwt');
 
 			return;
 		}
