@@ -305,6 +305,16 @@ export default class ManagementService {
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
 		});
+
+		const accessToken = (result as { accessToken?: unknown })?.accessToken;
+
+		if (typeof accessToken === 'string' && accessToken.length > 0) {
+			await this.#client.authentication.setAccessToken(accessToken);
+
+			return;
+		}
+
+		throw new Error('authenticateLocal() did not return an accessToken');
 	}
 
 	@skipIfClosed
