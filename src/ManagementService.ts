@@ -300,7 +300,7 @@ export default class ManagementService {
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
 
-		await this.#client.authenticate({
+		const result = await this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
