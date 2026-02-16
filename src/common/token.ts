@@ -64,7 +64,7 @@ export const verifyPeer = (token?: string): string | undefined => {
 		return undefined;
 	}
 
-	if (signingKeys.length === 0){
+	if (signingKeys.length === 0) {
 		logger.debug('verifyPeer() - no keys configured');
 
 		return undefined;
