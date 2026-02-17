@@ -284,7 +284,7 @@ export default class ManagementService {
 
 			return;
 		} catch (err) {
-			logger.debug({ err }, 'authenticate({ strategy: 'jwt', refresh: true }) failed, falling back to local auth: %o');
+			logger.debug({ err }, 'authenticate({ strategy: jwt, refresh: true }) failed, falling back to local auth: %o');
 		}
 
 		try {
@@ -368,7 +368,7 @@ export default class ManagementService {
 				logger.warn('refreshAuth() - no access token returned');
 			}
 		} catch (error) {
-			logger.debug({ error }, 'refreshAuth() - authenticate({ strategy: 'jwt', refresh: true }) failed, doing local login');
+			logger.debug({ error }, 'refreshAuth() - authenticate({ strategy: jwt, refresh: true }) failed, doing local login');
 
 			await this.authenticateLocal();
 		}
