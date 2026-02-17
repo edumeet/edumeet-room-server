@@ -267,7 +267,7 @@ export default class ManagementService {
 		logger.debug('ensureAuthenticated()');
 
 		try {
-			const authResult = await this.#client.reAuthenticate({ strategy: 'jwt', refresh: true });
+			const authResult = await this.#client.authenticate({ strategy: 'jwt', refresh: true });
 			const accessToken = authResult?.accessToken;
 
 			logger.debug('reAuthenticate() OK');
@@ -284,7 +284,7 @@ export default class ManagementService {
 
 			return;
 		} catch (err) {
-			logger.debug({ err }, 'reAuthenticate({ strategy: 'jwt', refresh: true }) failed, falling back to local auth: %o');
+			logger.debug({ err }, 'authenticate({ strategy: 'jwt', refresh: true }) failed, falling back to local auth: %o');
 		}
 
 		try {
@@ -355,7 +355,7 @@ export default class ManagementService {
 		logger.debug('refreshAuth()');
 
 		try {
-			const authResult = await this.#client.reAuthenticate({ strategy: 'jwt', refresh: true });
+			const authResult = await this.#client.authenticate({ strategy: 'jwt', refresh: true });
 			const accessToken = authResult?.accessToken;
 
 			logger.debug('refreshAuth() - refreshAuth({ strategy: 'jwt', refresh: true }) OK');
@@ -368,7 +368,7 @@ export default class ManagementService {
 				logger.warn('refreshAuth() - no access token returned');
 			}
 		} catch (error) {
-			logger.debug({ error }, 'refreshAuth() - reAuthenticate({ strategy: 'jwt', refresh: true }) failed, doing local login');
+			logger.debug({ error }, 'refreshAuth() - authenticate({ strategy: 'jwt', refresh: true }) failed, doing local login');
 
 			await this.authenticateLocal();
 		}
