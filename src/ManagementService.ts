@@ -2,7 +2,6 @@ import io, { Socket } from 'socket.io-client';
 import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
 import authentication from '@feathersjs/authentication-client';
-import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Logger, skipIfClosed } from 'edumeet-common';
 import { Peer } from './Peer';
 import Room from './Room';
@@ -84,7 +83,6 @@ export default class ManagementService {
 
 	#client: Application;
 	#socket: Socket;
-	#refreshTimer?: NodeJS.Timeout;
 
 	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
@@ -142,9 +140,6 @@ export default class ManagementService {
 		logger.debug('close()');
 
 		this.closed = true;
-
-		if (this.#refreshTimer)
-			clearTimeout(this.#refreshTimer);
 
 		this.#client.logout();
 		this.#socket.disconnect();
@@ -267,29 +262,20 @@ export default class ManagementService {
 		logger.debug('ensureAuthenticated()');
 
 		try {
-			const authResult = await this.#client.reAuthenticate(true);
-			const accessToken = authResult?.accessToken;
+			await this.#client.reAuthenticate(true);
 
 			logger.debug('ensureAuthenticated() - reAuthenticate(true) OK');
-
-			if (accessToken) {
-				logger.debug('ensureAuthenticated() - scheduling token refresh');
-
-				this.scheduleRefresh(accessToken);
-			} else {
-				logger.warn('ensureAuthenticated() - no access token returned');
-			}
 
 			this.resolveReady();
 
 			return;
 		} catch (err) {
-			logger.debug({ err }, 'authenticate({ strategy: jwt, refresh: true }) failed, falling back to local auth: %o');
+			logger.debug({ err }, 'reAuthenticate(true) failed, falling back to local auth: %o');
 		}
 
 		try {
 			await this.authenticateLocal();
-			logger.debug('authenticateLocal() OK');
+			logger.debug('ensureAuthenticated() - authenticateLocal OK');
 			this.resolveReady();
 		} catch (err) {
 			// Reject only on failures that will not heal by reconnecting/retrying.
@@ -308,70 +294,13 @@ export default class ManagementService {
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
 
-		const authResult = await this.#client.authenticate({
+		await this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
 		});
 
-		const accessToken = authResult?.accessToken;
-
 		logger.debug('authenticateLocal() - OK');
-
-		if (accessToken) {
-			logger.debug('authenticateLocal() - scheduling token refresh');
-
-			this.scheduleRefresh(accessToken);
-		} else {
-			logger.warn('authenticateLocal() - no access token returned');
-		}
-	}
-
-	private scheduleRefresh(accessToken: string): void {
-		if (this.#refreshTimer)
-			clearTimeout(this.#refreshTimer);
-
-		const decoded = jwt.decode(accessToken) as JwtPayload | null;
-		const expMs = decoded?.exp ? decoded.exp * 1000 : undefined;
-
-		const fallbackMs = 10 * 60 * 1000;
-		const now = Date.now();
-		const refreshSkewMs = 60 * 1000;
-
-		const delayMs = expMs
-			? Math.max(5000, expMs - now - refreshSkewMs)
-			: fallbackMs;
-
-		logger.debug({ tokenExpiersIn: (delayMs + refreshSkewMs), tokenRefreshIn: delayMs }, 'scheduleRefresh() - Scheduling refresh');
-
-		this.#refreshTimer = setTimeout(() => {
-			this.refreshAuth(accessToken).catch((error) =>
-				logger.warn({ error }, 'scheduleRefresh() - call of refreshAuth() failed: %o')
-			);
-		}, delayMs);
-	}
-
-	private async refreshAuth(currentAccessToken: string): Promise<void> {
-		logger.debug('refreshAuth()');
-
-		try {
-			const authResult = await this.#client.authenticate({ strategy: 'jwt', accessToken: currentAccessToken, refresh: true });
-			const accessToken = authResult?.accessToken;
-
-			logger.debug('refreshAuth() - authenticate({ strategy: jwt, accessToken, refresh: true }) OK');
-
-			if (accessToken) {
-				logger.debug('refreshAuth() - scheduling token refresh');
-
-				this.scheduleRefresh(accessToken);
-			} else {
-				logger.warn('refreshAuth() - no access token returned');
-			}
-		} catch (error) {
-			logger.debug({ error }, 'refreshAuth() - authenticate({ strategy: jwt, accessToken, refresh: true }) failed, doing local login');
-
-			await this.authenticateLocal();
-		}
 	}
 
 	@skipIfClosed

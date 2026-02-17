@@ -60,12 +60,7 @@ export const AppConfigSchema = z.object({
 	}).optional(),
 	managementService: z.object({
 		host: z.string(),
-		jwtPublicKeys: z.array(z.string()),
-		jwtVerifyOptions: z.object({
-			audience: z.union([ z.string(), z.array(z.string()) ]).optional(),
-			issuer: z.union([ z.string(), z.array(z.string()) ]).optional(),
-			algorithms: z.array(z.string()).optional()
-		}).optional()
+		jwtPublicKeys: z.array(z.string())
 	}).optional(),
 	mediaNodes: z.array(z.object(
 		{

@@ -11,49 +11,6 @@ const logger = new Logger('token');
 
 const config = getConfig();
 const signingKeys = config.managementService?.jwtPublicKeys || [];
-const raw = config.managementService?.jwtVerifyOptions;
-
-const toAudience = (
-	aud?: string | string[]
-): jwt.VerifyOptions['audience'] => {
-	if (!aud) {
-		return undefined;
-	}
-
-	if (typeof aud === 'string') {
-		return aud;
-	}
-
-	if (aud.length === 0) {
-		return undefined;
-	}
-
-	return aud as [string, ...string[]];
-};
-
-const toIssuer = (
-	iss?: string | string[]
-): jwt.VerifyOptions['issuer'] => {
-	if (!iss) {
-		return undefined;
-	}
-
-	if (typeof iss === 'string') {
-		return iss;
-	}
-
-	if (iss.length === 0) {
-		return undefined;
-	}
-
-	return iss as [string, ...string[]];
-};
-
-const verifyOptions: jwt.VerifyOptions = {
-	audience: toAudience(raw?.audience),
-	issuer: toIssuer(raw?.issuer),
-	algorithms: raw?.algorithms
-};
 
 export const verifyPeer = (token?: string): string | undefined => {
 	logger.debug('verifyPeer()');
@@ -72,8 +29,7 @@ export const verifyPeer = (token?: string): string | undefined => {
 
 	for (const key of signingKeys) {
 		try {
-			const payload = jwt.verify(token, key, verifyOptions) as JwtPayload;
-
+			const payload = jwt.verify(token, key) as JwtPayload;
 			const sub = payload?.sub;
 
 			if (typeof sub !== 'string' || sub.length === 0) {
