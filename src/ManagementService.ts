@@ -267,11 +267,10 @@ export default class ManagementService {
 		logger.debug('ensureAuthenticated()');
 
 		try {
-			const currentAccessToken = await this.#client.get('authentication').accessToken;
-			const authResult = await this.#client.authenticate({ strategy: 'jwt', accessToken: currentAccessToken, refresh: true });
+			const authResult = await this.#client.reAuthenticate(true);
 			const accessToken = authResult?.accessToken;
 
-			logger.debug('reAuthenticate() OK');
+			logger.debug('ensureAuthenticated() - reAuthenticate(true) OK');
 
 			if (accessToken) {
 				logger.debug('ensureAuthenticated() - scheduling token refresh');
@@ -346,17 +345,16 @@ export default class ManagementService {
 		logger.debug({ tokenExpiersIn: (delayMs + refreshSkewMs), tokenRefreshIn: delayMs }, 'scheduleRefresh() - Scheduling refresh');
 
 		this.#refreshTimer = setTimeout(() => {
-			this.refreshAuth().catch((error) =>
+			this.refreshAuth(accessToken).catch((error) =>
 				logger.warn({ error }, 'scheduleRefresh() - call of refreshAuth() failed: %o')
 			);
 		}, delayMs);
 	}
 
-	private async refreshAuth(): Promise<void> {
+	private async refreshAuth(currentAccessToken: string): Promise<void> {
 		logger.debug('refreshAuth()');
 
 		try {
-			const currentAccessToken = await this.#client.get('authentication').accessToken;
 			const authResult = await this.#client.authenticate({ strategy: 'jwt', accessToken: currentAccessToken, refresh: true });
 			const accessToken = authResult?.accessToken;
 
