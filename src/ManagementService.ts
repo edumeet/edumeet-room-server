@@ -358,7 +358,7 @@ export default class ManagementService {
 			const authResult = await this.#client.authenticate({ strategy: 'jwt', refresh: true });
 			const accessToken = authResult?.accessToken;
 
-			logger.debug('refreshAuth() - refreshAuth({ strategy: 'jwt', refresh: true }) OK');
+			logger.debug('refreshAuth() - authenticate({ strategy: jwt, refresh: true }) OK');
 
 			if (accessToken) {
 				logger.debug('refreshAuth() - scheduling token refresh');
