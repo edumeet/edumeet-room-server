@@ -267,7 +267,8 @@ export default class ManagementService {
 		logger.debug('ensureAuthenticated()');
 
 		try {
-			const authResult = await this.#client.authenticate({ strategy: 'jwt', refresh: true });
+			const { accessToken } = await this.#client.get('authentication');
+			const authResult = await this.#client.authenticate({ strategy: 'jwt', accessToken, refresh: true });
 			const accessToken = authResult?.accessToken;
 
 			logger.debug('reAuthenticate() OK');
@@ -355,7 +356,8 @@ export default class ManagementService {
 		logger.debug('refreshAuth()');
 
 		try {
-			const authResult = await this.#client.authenticate({ strategy: 'jwt', refresh: true });
+			const { accessToken } = await this.#client.get('authentication');
+			const authResult = await this.#client.authenticate({ strategy: 'jwt', accessToken, refresh: true });
 			const accessToken = authResult?.accessToken;
 
 			logger.debug('refreshAuth() - authenticate({ strategy: jwt, refresh: true }) OK');
