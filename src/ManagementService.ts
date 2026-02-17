@@ -342,7 +342,7 @@ export default class ManagementService {
 			? Math.max(5000, expMs - now - refreshSkewMs)
 			: fallbackMs;
 
-		logger.debug({ tokenExpiersIn: (expMs - now), tokenRefreshIn: delayMs }, 'scheduleRefresh() - Scheduling refresh');
+		logger.debug({ tokenExpiersIn: (delayMs + refreshSkewMs), tokenRefreshIn: delayMs }, 'scheduleRefresh() - Scheduling refresh');
 
 		this.#refreshTimer = setTimeout(() => {
 			this.refreshAuth().catch((error) =>
