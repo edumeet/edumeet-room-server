@@ -235,7 +235,20 @@ export default class ManagementService {
 
 		this.#socket.on('disconnect', (reason) => {
 			logger.debug('Socket connection disconnected: %s', reason);
-			// TODO: handle explicit disconnect
+
+			if (this.closed) return;
+
+			if (reason === 'io server disconnect') {
+				try {
+					await this.ensureAuthenticated();
+				} catch (e) {
+					logger.warn('Re-auth failed after server disconnect: %o', e);
+
+					return;
+				}
+
+				this.#socket.connect();
+			}
 		});
 
 		this.#socket.on('connect', () => {
