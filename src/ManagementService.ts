@@ -251,14 +251,18 @@ export default class ManagementService {
 
 		if (!clientHost) return 0;
 
-		const { total, data } = await this.#tenantFQDNsService.find({ query: { clientHost, $limit: 1 } });
+		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn: clientHost, $limit: 1 } });
 
 		logger.debug({ total, data }, 'getTenantFromFqdn() - tenantFQDNsService.find');
 
 		let tenantId = 0;
 
-		if (total === 1) {
-			tenantId = data[0] as number;
+		if (total === 1 && data[0].tenantId) {
+			tenantId = Number(data[0].tenantId);
+
+			logger.debug({ tenantId }, 'getTenantFromFqdn() - got tenantId from management');
+		} else {
+			logger.debug('getTenantFromFqdn() - no tenantId from management');
 		}
 
 		logger.debug({ tenantId }, 'getTenantFromFqdn() - return');
