@@ -85,6 +85,8 @@ export default class ManagementService {
 	#socket: Socket;
 	#reAuthTimer: NodeJS.Timeout;
 
+	#tenantFQDNsService: FeathersService;
+
 	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
@@ -118,8 +120,9 @@ export default class ManagementService {
 			.configure(socketio(this.#socket))
 			.configure(authentication());
 
-		this.#roomsService = this.#client.service('rooms');
 		this.#tenantFQDNsService = this.#client.service('tenantFQDNs');
+
+		this.#roomsService = this.#client.service('rooms');
 		this.#roomOwnersService = this.#client.service('roomOwners');
 		this.#roomUserRolesService = this.#client.service('roomUserRoles');
 		this.#roomGroupRolesService = this.#client.service('roomGroupRoles');
@@ -240,7 +243,7 @@ export default class ManagementService {
 
 	@skipIfClosed
 	public async getTenantFromFqdn(clientHost: string): Promise<number> {
-		logger.debug({ clientHost }, 'getTenantFromFqdn()' - parmas);
+		logger.debug({ clientHost }, 'getTenantFromFqdn() - parmas');
 
 		const [ error ] = await this.ready;
 
@@ -248,7 +251,7 @@ export default class ManagementService {
 
 		if (!clientHost) return 0;
 
-		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn, $limit: 1 } });
+		const { total, data } = await this.#tenantFQDNsService.find({ query: { clientHost, $limit: 1 } });
 
 		logger.debug({ total, data }, 'getTenantFromFqdn() - tenantFQDNsService.find');
 
