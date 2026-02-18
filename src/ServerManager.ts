@@ -59,19 +59,19 @@ export default class ServerManager {
 		connection: BaseConnection,
 		peerId: string,
 		roomId: string,
-		clientHost: string,
+		tenantFqdn: string,
 		displayName?: string,
 		token?: string,
 	):Promise<void> {
 		logger.debug(
-			{ peerId, displayName, roomId, clientHost },
+			{ peerId, displayName, roomId, tenantFqdn },
 			'handleConnection() init params'
 		);
 
 		let tenantId = 0;
 
 		if (this.managementService) {
-			tenantId = await this.managementService.getTenantFromFqdn(clientHost);
+			tenantId = await this.managementService.getTenantFromFqdn(tenantFqdn);
 		}
 
 		logger.debug(
