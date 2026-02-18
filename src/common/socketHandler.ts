@@ -27,30 +27,30 @@ export const socketHandler = (socket: Socket) => {
 		return socket.disconnect(true);
 	}
 
-	let tenantFqdn = '';
+	let tenantFqdnParsed = '';
 
 	//	1) Prefer explicit client-provided hostname (from query)
-	if (typeof clientHostname === 'string' && clientHostname.length) {
-		tenantFqdn = clientHostname;
+	if (typeof tenantFqdn === 'string' && tenantFqdn.length) {
+		tenantFqdnParsed = tenantFqdn;
 	} else {
 		//	2) Reverse-proxy header (can be a comma-separated list)
 		const xfHost = socket.handshake.headers['x-forwarded-host'];
 
 		if (typeof xfHost === 'string' && xfHost.length) {
-			tenantFqdn = xfHost.split(',')[0].trim().split(':')[0];
+			tenantFqdnParsed = xfHost.split(',')[0].trim().split(':')[0];
 		} else {
 			//	3) Host header
 			const host = socket.handshake.headers.host;
 
 			if (typeof host === 'string' && host.length) {
-				tenantFqdn = host.split(':')[0];
+				tenantFqdnParsed = host.split(':')[0];
 			} else {
 				//	4) Origin header fallback
 				const origin = socket.handshake.headers.origin;
 
 				if (typeof origin === 'string' && origin.length) {
 					try {
-						tenantFqdn = new URL(origin).hostname;
+						tenantFqdnParsed = new URL(origin).hostname;
 					} catch {
 						logger.warn('socketHandler() - socket error parsing origin');
 
@@ -61,9 +61,9 @@ export const socketHandler = (socket: Socket) => {
 		}
 	}
 
-	if (!tenantFQDN) {
+	if (!tenantFqdnParsed) {
 		logger.warn(
-			{ queryClientHostname: socket.handshake.query.clientHostname, headers: socket.handshake.headers },
+			{ queryClientHostname: socket.handshake.query.tenantFqdn, headers: socket.handshake.headers },
 			'socketHandler() - cannot determine clientHost'
 		);
 
