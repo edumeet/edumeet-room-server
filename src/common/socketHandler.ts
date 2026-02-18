@@ -8,21 +8,37 @@ export const socketHandler = (socket: Socket) => {
 	const {
 		roomId,
 		peerId,
-		tenantId,
 		displayName,
 		token,
 	} = socket.handshake.query;
 
 	logger.debug(
-		'socket connection [socketId: %s, roomId: %s, peerId: %s, tenantId: %s]',
+		'socketHandler() - socket connection [socketId: %s, roomId: %s, peerId: %s]',
 		socket.id,
 		roomId,
-		peerId,
-		tenantId,
+		peerId
 	);
 
 	if (!roomId || !peerId) {
-		logger.warn('socket invalid roomId or peerId');
+		logger.warn('socketHandler() - socket invalid roomId or peerId');
+
+		return socket.disconnect(true);
+	}
+
+	const origin = socket.handshake.headers.origin;
+
+	if (!origin) {
+		logger.warn('socketHandler() - socket no origin');
+
+		return socket.disconnect(true);
+	}
+
+	let clientHost = '';
+
+	try {
+		clientHost = new URL(origin).hostname;
+	} catch {
+		logger.warn('socketHandler() - socket error parsing origin');
 
 		return socket.disconnect(true);
 	}
@@ -34,12 +50,12 @@ export const socketHandler = (socket: Socket) => {
 			socketConnection,
 			peerId as string,
 			roomId as string,
-			tenantId as number | undefined,
+			clientHost as string,
 			displayName as string,
 			token as string,
 		);
 	} catch (error) {
-		logger.warn({ err: error }, 'handleConnection() [error: %o]');
+		logger.warn({ err: error }, 'socketHandler() - handleConnection() [error: %o]');
 
 		socketConnection.close();
 	}

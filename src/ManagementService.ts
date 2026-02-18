@@ -119,6 +119,7 @@ export default class ManagementService {
 			.configure(authentication());
 
 		this.#roomsService = this.#client.service('rooms');
+		this.#tenantFQDNsService = this.#client.service('tenantFQDNs');
 		this.#roomOwnersService = this.#client.service('roomOwners');
 		this.#roomUserRolesService = this.#client.service('roomUserRoles');
 		this.#roomGroupRolesService = this.#client.service('roomGroupRoles');
@@ -235,6 +236,31 @@ export default class ManagementService {
 		}
 
 		return room;
+	}
+
+	@skipIfClosed
+	public async getTenantFromFqdn(clientHost: string): Promise<number> {
+		logger.debug({ clientHost }, 'getTenantFromFqdn()' - parmas);
+
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
+
+		if (!clientHost) return 0;
+
+		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn, $limit: 1 } });
+
+		logger.debug({ total, data }, 'getTenantFromFqdn() - tenantFQDNsService.find');
+
+		let tenantId = 0;
+
+		if (total === 1) {
+			tenantId = data[0] as number;
+		}
+
+		logger.debug({ tenantId }, 'getTenantFromFqdn() - return');
+
+		return tenantId;
 	}
 
 	@skipIfClosed

@@ -59,13 +59,24 @@ export default class ServerManager {
 		connection: BaseConnection,
 		peerId: string,
 		roomId: string,
-		tenantId = 0,
+		clientHost: string,
 		displayName?: string,
 		token?: string,
 	): void {
 		logger.debug(
-			{ peerId: peerId, displayName: displayName, roomId: roomId, tenantId: tenantId },
+			{ peerId, displayName, roomId, clientHost },
 			'handleConnection() init params'
+		);
+
+		let tenantId = 0;
+
+		if (this.managementService) {
+			tenantId = await this.managementService.getTenantFromFqdn(clientHost);
+		}
+
+		logger.debug(
+			{ tenantId },
+			'handleConnection() tenantId'
 		);
 
 		const managedId = token ? verifyPeer(token) : undefined;
