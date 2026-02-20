@@ -279,7 +279,7 @@ export default class ManagementService {
 			if (this.closed) return;
 
 			if (reason === 'io server disconnect') {
-				this.#client.logout().catch((err) => logger.warn({ err },'ensureAuthenticated - io server disconnect.'));
+				this.#client.logout().catch((err) => logger.warn({ err }, 'ensureAuthenticated - io server disconnect.'));
 				this.#socket.connect();
 			}
 		});
@@ -293,7 +293,7 @@ export default class ManagementService {
 		this.#socket.io.on('reconnect', () => {
 			logger.debug('Socket reconnected.');
 			this.ensureAuthenticated()
-				.catch((err) => logger.warn({ err },'ensureAuthenticated failed on reconnect.'));
+				.catch((err) => logger.warn({ err }, 'ensureAuthenticated failed on reconnect.'));
 		});
 
 		this.#socket.io.on('reconnect_attempt', (attempt) => {

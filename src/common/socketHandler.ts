@@ -73,12 +73,12 @@ export const socketHandler = (socket: Socket) => {
 	const socketConnection = new IOServerConnection(socket);
 
 	void serverManager.handleConnection(
-			socketConnection,
-			peerId as string,
-			roomId as string,
+		socketConnection,
+		peerId as string,
+		roomId as string,
 		tenantFqdnParsed as string,
-			displayName as string,
-			token as string,
+		displayName as string,
+		token as string,
 	).catch((error) => {
 		logger.warn({ err: error }, 'socketHandler() - handleConnection()');
 
