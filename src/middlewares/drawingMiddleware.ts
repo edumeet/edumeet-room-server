@@ -1,5 +1,4 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
