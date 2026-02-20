@@ -85,6 +85,8 @@ export default class ManagementService {
 	#socket: Socket;
 	#reAuthTimer: NodeJS.Timeout;
 
+	#tenantFQDNsService: FeathersService;
+
 	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
@@ -117,6 +119,8 @@ export default class ManagementService {
 		this.#client = feathers()
 			.configure(socketio(this.#socket))
 			.configure(authentication());
+
+		this.#tenantFQDNsService = this.#client.service('tenantFQDNs');
 
 		this.#roomsService = this.#client.service('rooms');
 		this.#roomOwnersService = this.#client.service('roomOwners');
@@ -235,6 +239,35 @@ export default class ManagementService {
 		}
 
 		return room;
+	}
+
+	@skipIfClosed
+	public async getTenantFromFqdn(clientHost: string): Promise<number> {
+		logger.debug({ clientHost }, 'getTenantFromFqdn() - parmas');
+
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
+
+		if (!clientHost) return 0;
+
+		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn: clientHost, $limit: 1 } });
+
+		logger.debug({ total, data }, 'getTenantFromFqdn() - tenantFQDNsService.find');
+
+		let tenantId = 0;
+
+		if (total === 1 && data[0].tenantId) {
+			tenantId = Number(data[0].tenantId);
+
+			logger.debug({ tenantId }, 'getTenantFromFqdn() - got tenantId from management');
+		} else {
+			logger.debug('getTenantFromFqdn() - no tenantId from management');
+		}
+
+		logger.debug({ tenantId }, 'getTenantFromFqdn() - return');
+
+		return tenantId;
 	}
 
 	@skipIfClosed

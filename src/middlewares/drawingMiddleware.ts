@@ -1,5 +1,4 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
@@ -28,40 +27,41 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 
 			case 'enableDrawing':
 			{
+				// we don't have a permission for drawing, so no chcecking here
+				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
+				// 	throw new Error('peer not authorized');
 
-				if (!peer.hasPermission(Permission.MODERATE_ROOM))
-					throw new Error('peer not authorized');
-				
 				room.drawing.isEnabled = true;
 	
 				room.notifyPeers('moderator:enabledDrawing', {}, peer);
 		
-				context.handled = true;				
+				context.handled = true;
 		
 				break;
 			}
 
 			case 'disableDrawing':
 			{
-				if (!peer.hasPermission(Permission.MODERATE_ROOM))
-					throw new Error('peer not authorized');
+				// we don't have a permission for drawing, so no chcecking here
+				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
+				// 	throw new Error('peer not authorized');
 		
 				room.drawing.isEnabled = false;
 				room.drawing.canvasState = [];
 		
 				room.notifyPeers('disabledDrawing', {}, peer);
 			
-				context.handled = true;				
+				context.handled = true;
 			
 				break;
 			}
-				
+
 			case 'setDrawingBgColor':
 			{
+				// we don't have a permission for drawing, so no chcecking here
+				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
+				// 	throw new Error('peer not authorized');
 
-				if (!peer.hasPermission(Permission.MODERATE_ROOM))
-					throw new Error('peer not authorized');
-			
 				const bgColor = message.data;
 				
 				response.bgColor = bgColor;
@@ -71,7 +71,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 					bgColor: room.drawing.bgColor
 				}, peer);
 				
-				context.handled = true;				
+				context.handled = true;
 				
 				break;
 			}
