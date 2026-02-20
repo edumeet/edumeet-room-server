@@ -84,6 +84,10 @@ export default class ManagementService {
 	#client: Application;
 	#socket: Socket;
 
+	#authRefreshTimer: NodeJS.Timeout | null = null;
+
+	#tenantFQDNsService: FeathersService;
+
 	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
@@ -117,6 +121,8 @@ export default class ManagementService {
 			.configure(socketio(this.#socket))
 			.configure(authentication());
 
+		this.#tenantFQDNsService = this.#client.service('tenantFQDNs');
+
 		this.#roomsService = this.#client.service('rooms');
 		this.#roomOwnersService = this.#client.service('roomOwners');
 		this.#roomUserRolesService = this.#client.service('roomUserRoles');
@@ -141,7 +147,12 @@ export default class ManagementService {
 
 		this.closed = true;
 
-		this.#client.logout();
+		if (this.#authRefreshTimer) {
+			clearTimeout(this.#authRefreshTimer);
+			this.#authRefreshTimer = null;
+		}
+
+		this.#client.logout().catch((err) => logger.warn({ err }, 'logout failed on close'));
 		this.#socket.disconnect();
 	}
 
@@ -230,6 +241,35 @@ export default class ManagementService {
 	}
 
 	@skipIfClosed
+	public async getTenantFromFqdn(clientHost: string): Promise<number> {
+		logger.debug({ clientHost }, 'getTenantFromFqdn() - parmas');
+
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
+
+		if (!clientHost) return 0;
+
+		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn: clientHost, $limit: 1 } });
+
+		logger.debug({ total, data }, 'getTenantFromFqdn() - tenantFQDNsService.find');
+
+		let tenantId = 0;
+
+		if (total === 1 && data[0].tenantId) {
+			tenantId = Number(data[0].tenantId);
+
+			logger.debug({ tenantId }, 'getTenantFromFqdn() - got tenantId from management');
+		} else {
+			logger.debug('getTenantFromFqdn() - no tenantId from management');
+		}
+
+		logger.debug({ tenantId }, 'getTenantFromFqdn() - return');
+
+		return tenantId;
+	}
+
+	@skipIfClosed
 	private setupSocketLifecycle(): void {
 		logger.debug('setupSocketLifecycle()');
 
@@ -239,14 +279,7 @@ export default class ManagementService {
 			if (this.closed) return;
 
 			if (reason === 'io server disconnect') {
-				try {
-					await this.ensureAuthenticated();
-				} catch (e) {
-					logger.warn('Re-auth failed after server disconnect: %o', e);
-
-					return;
-				}
-
+				this.#client.logout().catch((err) => logger.warn({ err },'ensureAuthenticated - io server disconnect.'));
 				this.#socket.connect();
 			}
 		});
@@ -254,11 +287,13 @@ export default class ManagementService {
 		this.#socket.on('connect', () => {
 			logger.debug('Socket connected -> ensureAuthenticated()');
 			this.ensureAuthenticated()
-				.catch((e) => logger.warn('ensureAuthenticated failed on connect: %o', e));
+				.catch((err) => logger.warn({ err }, 'ensureAuthenticated failed on connect.'));
 		});
 
 		this.#socket.io.on('reconnect', () => {
 			logger.debug('Socket reconnected.');
+			this.ensureAuthenticated()
+				.catch((err) => logger.warn({ err },'ensureAuthenticated failed on reconnect.'));
 		});
 
 		this.#socket.io.on('reconnect_attempt', (attempt) => {
@@ -266,8 +301,40 @@ export default class ManagementService {
 		});
 
 		this.#socket.io.on('reconnect_error', (err) => {
-			logger.debug({ err }, 'Socket reconnect error: %o');
+			logger.debug({ err }, 'Socket reconnect error.');
 		});
+	}
+
+	@skipIfClosed
+	private scheduleTokenRefresh(payload?: { exp?: number; iat?: number }): void {
+		if (this.#authRefreshTimer) {
+			clearTimeout(this.#authRefreshTimer);
+			this.#authRefreshTimer = null;
+		}
+
+		if (!payload?.exp)
+			return;
+
+		const nowSec = Math.floor(Date.now() / 1000);
+		const expSec = payload.exp;
+		const iatSec = payload.iat ?? nowSec;
+
+		const lifetimeSec = expSec - iatSec;
+		const refreshAtSec = iatSec + Math.floor(lifetimeSec * 0.8);
+
+		let delayMs = (refreshAtSec - nowSec) * 1000;
+
+		if (delayMs <= 0)
+			delayMs = 1000;
+
+		this.#authRefreshTimer = setTimeout(() => {
+			if (this.closed) return;
+
+			this.authenticateLocal()
+				.catch((err) =>
+					logger.warn({ err }, 'Token refresh authenticateLocal() failed')
+				);
+		}, delayMs);
 	}
 
 	@skipIfClosed
@@ -275,9 +342,15 @@ export default class ManagementService {
 		logger.debug('ensureAuthenticated()');
 
 		try {
-			await this.#client.reAuthenticate(true);
+			const authResult = await this.#client.reAuthenticate(true);
 
 			logger.debug('ensureAuthenticated() - reAuthenticate(true) OK');
+
+			const payload = authResult?.authentication?.payload as
+				| { exp?: number; iat?: number }
+				| undefined;
+
+			this.scheduleTokenRefresh(payload);
 
 			this.resolveReady();
 
@@ -307,13 +380,19 @@ export default class ManagementService {
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
 
-		await this.#client.authenticate({
+		const authResult = await this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
 		});
 
 		logger.debug('authenticateLocal() - OK');
+
+		const payload = authResult?.authentication?.payload as
+			| { exp?: number; iat?: number }
+			| undefined;
+
+		this.scheduleTokenRefresh(payload);
 	}
 
 	@skipIfClosed

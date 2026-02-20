@@ -55,17 +55,28 @@ export default class ServerManager {
 	}
 
 	@skipIfClosed
-	public handleConnection(
+	public async handleConnection(
 		connection: BaseConnection,
 		peerId: string,
 		roomId: string,
-		tenantId = 0,
+		tenantFqdn: string,
 		displayName?: string,
 		token?: string,
-	): void {
+	): Promise<void> {
 		logger.debug(
-			{ peerId, displayName, roomId, tenantId },
+			{ peerId, displayName, roomId, tenantFqdn },
 			'handleConnection() init params'
+		);
+
+		let tenantId = 0;
+
+		if (this.managementService) {
+			tenantId = await this.managementService.getTenantFromFqdn(tenantFqdn);
+		}
+
+		logger.debug(
+			{ tenantId },
+			'handleConnection() tenantId'
 		);
 
 		const managedId = token ? verifyPeer(token) : undefined;
@@ -136,157 +147,7 @@ export default class ServerManager {
 				room.localRecordingEnabled = localRecordingEnabled;
 			}
 
-			(async () => {
-				try {
-					const managedRoom = await this.managementService?.getRoom(roomId, tenantId);
-
-					if (room.closed) return;
-
-					if (managedRoom) {
-						// id = 0 is the virtual "fallback" room created in ManagementService
-						const isFallbackDefault = Number(managedRoom.id) === 0;
-
-						if (!isFallbackDefault) {
-							// === REAL MANAGED ROOM (from mgmt DB) ===
-							logger.debug(
-								'handleConnection() room is managed [roomId: %s, tenantId: %s, managedId: %s]',
-								roomId,
-								tenantId,
-								managedRoom.id
-							);
-
-							room.managedId = String(managedRoom.id);
-
-							// copy everything as before
-							room.name = managedRoom.name;
-							room.description = managedRoom.description;
-							room.owners = managedRoom.owners;
-							room.groupRoles = managedRoom.groupRoles;
-							room.userRoles = managedRoom.userRoles;
-							room.defaultRole = managedRoom.defaultRole;
-
-							room.maxActiveVideos = managedRoom.maxActiveVideos;
-							room.locked = managedRoom.locked;
-							if (managedRoom.maxFileSize)
-								room.maxFileSize = managedRoom.maxFileSize;
-							// TODO remove after it is part of mgmt service
-							if (managedRoom.tracker)
-								room.tracker = managedRoom.tracker;
-
-							room.breakoutsEnabled = managedRoom.breakoutsEnabled;
-							room.chatEnabled = managedRoom.chatEnabled;
-							room.raiseHandEnabled = managedRoom.raiseHandEnabled;
-							room.reactionsEnabled = managedRoom.reactionsEnabled;
-							room.filesharingEnabled = managedRoom.filesharingEnabled;
-							room.localRecordingEnabled = managedRoom.localRecordingEnabled;
-
-							const managedSettings: RoomSettings = {
-								logo: managedRoom.logo,
-								background: managedRoom.background,
-
-								// Video settings
-								videoCodec: managedRoom.videoCodec,
-								simulcast: managedRoom.simulcast,
-								videoResolution: managedRoom.videoResolution,
-								videoFramerate: managedRoom.videoFramerate,
-
-								// Audio settings
-								audioCodec: managedRoom.audioCodec,
-								autoGainControl: managedRoom.autoGainControl,
-								echoCancellation: managedRoom.echoCancellation,
-								noiseSuppression: managedRoom.noiseSuppression,
-								sampleRate: managedRoom.sampleRate,
-								channelCount: managedRoom.channelCount,
-								sampleSize: managedRoom.sampleSize,
-								opusStereo: managedRoom.opusStereo,
-								opusDtx: managedRoom.opusDtx,
-								opusFec: managedRoom.opusFec,
-								opusPtime: managedRoom.opusPtime,
-								opusMaxPlaybackRate: managedRoom.opusMaxPlaybackRate,
-
-								// Screen sharing settings
-								screenSharingCodec: managedRoom.screenSharingCodec,
-								screenSharingSimulcast: managedRoom.screenSharingSimulcast,
-								screenSharingResolution: managedRoom.screenSharingResolution,
-								screenSharingFramerate: managedRoom.screenSharingFramerate
-							};
-
-							room.settings = managedSettings;
-
-							this.managedRooms.set(String(managedRoom.id), room);
-						} else {
-							// === FALLBACK VIRTUAL ROOM (defaults) ===
-							// There is no real room in mgmt DB; only tenant/room defaults.
-							// Treat this as UNMANAGED: do NOT set room.managedId or managedRooms,
-							// and only override fields that are actually configured in fallback.
-							logger.debug(
-								'handleConnection() room has management defaults only (fallback), treating as UNMANAGED [roomId: %s, tenantId: %s]',
-								roomId,
-								tenantId
-							);
-
-							// Don't touch name / description / owners / roles unless present.
-							if (managedRoom.defaultRole)
-								room.defaultRole = managedRoom.defaultRole;
-
-							// numbers / booleans: only override if explicitly defined
-							if (typeof managedRoom.maxActiveVideos === 'number')
-								room.maxActiveVideos = managedRoom.maxActiveVideos;
-
-							if (typeof managedRoom.locked === 'boolean')
-								room.locked = managedRoom.locked;
-
-							if (managedRoom.maxFileSize)
-								room.maxFileSize = managedRoom.maxFileSize;
-
-							// TODO remove after it is part of mgmt service
-							if (managedRoom.tracker)
-								room.tracker = managedRoom.tracker;
-
-							if (typeof managedRoom.breakoutsEnabled === 'boolean')
-								room.breakoutsEnabled = managedRoom.breakoutsEnabled;
-
-							if (typeof managedRoom.chatEnabled === 'boolean')
-								room.chatEnabled = managedRoom.chatEnabled;
-
-							if (typeof managedRoom.raiseHandEnabled === 'boolean')
-								room.raiseHandEnabled = managedRoom.raiseHandEnabled;
-
-							if (typeof managedRoom.reactionsEnabled === 'boolean')
-								room.reactionsEnabled = managedRoom.reactionsEnabled;
-
-							if (typeof managedRoom.filesharingEnabled === 'boolean')
-								room.filesharingEnabled = managedRoom.filesharingEnabled;
-
-							if (typeof managedRoom.localRecordingEnabled === 'boolean')
-								room.localRecordingEnabled = managedRoom.localRecordingEnabled;
-
-							// Settings: only override logo/background if they are non-empty.
-							const currentSettings: RoomSettings = room.settings ?? {} as RoomSettings;
-
-							if (managedRoom.logo)
-								currentSettings.logo = managedRoom.logo;
-
-							if (managedRoom.background)
-								currentSettings.background = managedRoom.background;
-
-							// Do NOT touch codec/audio/screen sharing settings here:
-							// constructor + config.defaultRoomSettings already set sane defaults.
-
-							room.settings = currentSettings;
-						}
-					}
-
-					room.resolveRoomReady();
-				} catch (error) {
-					logger.error(
-						{ roomId, tenantId, err: error },
-						'handleConnection() error while getting room'
-					);
-
-					room.rejectRoomReady(error as Error);
-				}
-			})();
+			void this.initializeManagedRoom(room, roomId, tenantId);
 		}
 
 		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection });
@@ -351,5 +212,159 @@ export default class ServerManager {
 		});
 
 		room.addPeer(peer);
+	}
+
+	private async initializeManagedRoom(room: Room, roomId: string, tenantId: number): Promise<void> {
+		try {
+			if (this.closed) return;
+
+			const managedRoom = await this.managementService?.getRoom(roomId, tenantId);
+
+			if (room.closed) return;
+
+			if (managedRoom) {
+				// id = 0 is the virtual "fallback" room created in ManagementService
+				const isFallbackDefault = Number(managedRoom.id) === 0;
+
+				if (!isFallbackDefault) {
+					// === REAL MANAGED ROOM (from mgmt DB) ===
+					logger.debug(
+						'handleConnection() room is managed [roomId: %s, tenantId: %s, managedId: %s]',
+						roomId,
+						tenantId,
+						managedRoom.id
+					);
+
+					room.managedId = String(managedRoom.id);
+
+					// copy everything as before
+					room.name = managedRoom.name;
+					room.description = managedRoom.description;
+					room.owners = managedRoom.owners;
+					room.groupRoles = managedRoom.groupRoles;
+					room.userRoles = managedRoom.userRoles;
+					room.defaultRole = managedRoom.defaultRole;
+
+					room.maxActiveVideos = managedRoom.maxActiveVideos;
+					room.locked = managedRoom.locked;
+					if (managedRoom.maxFileSize)
+						room.maxFileSize = managedRoom.maxFileSize;
+					// TODO remove after it is part of mgmt service
+					if (managedRoom.tracker)
+						room.tracker = managedRoom.tracker;
+
+					room.breakoutsEnabled = managedRoom.breakoutsEnabled;
+					room.chatEnabled = managedRoom.chatEnabled;
+					room.raiseHandEnabled = managedRoom.raiseHandEnabled;
+					room.reactionsEnabled = managedRoom.reactionsEnabled;
+					room.filesharingEnabled = managedRoom.filesharingEnabled;
+					room.localRecordingEnabled = managedRoom.localRecordingEnabled;
+
+					const managedSettings: RoomSettings = {
+						logo: managedRoom.logo,
+						background: managedRoom.background,
+
+						// Video settings
+						videoCodec: managedRoom.videoCodec,
+						simulcast: managedRoom.simulcast,
+						videoResolution: managedRoom.videoResolution,
+						videoFramerate: managedRoom.videoFramerate,
+
+						// Audio settings
+						audioCodec: managedRoom.audioCodec,
+						autoGainControl: managedRoom.autoGainControl,
+						echoCancellation: managedRoom.echoCancellation,
+						noiseSuppression: managedRoom.noiseSuppression,
+						sampleRate: managedRoom.sampleRate,
+						channelCount: managedRoom.channelCount,
+						sampleSize: managedRoom.sampleSize,
+						opusStereo: managedRoom.opusStereo,
+						opusDtx: managedRoom.opusDtx,
+						opusFec: managedRoom.opusFec,
+						opusPtime: managedRoom.opusPtime,
+						opusMaxPlaybackRate: managedRoom.opusMaxPlaybackRate,
+
+						// Screen sharing settings
+						screenSharingCodec: managedRoom.screenSharingCodec,
+						screenSharingSimulcast: managedRoom.screenSharingSimulcast,
+						screenSharingResolution: managedRoom.screenSharingResolution,
+						screenSharingFramerate: managedRoom.screenSharingFramerate
+					};
+
+					room.settings = managedSettings;
+
+					this.managedRooms.set(String(managedRoom.id), room);
+				} else {
+					// === FALLBACK VIRTUAL ROOM (defaults) ===
+					// There is no real room in mgmt DB; only tenant/room defaults.
+					// Treat this as UNMANAGED: do NOT set room.managedId or managedRooms,
+					// and only override fields that are actually configured in fallback.
+					logger.debug(
+						'handleConnection() room has management defaults only (fallback), treating as UNMANAGED [roomId: %s, tenantId: %s]',
+						roomId,
+						tenantId
+					);
+
+					// Don't touch name / description / owners / roles unless present.
+					if (managedRoom.defaultRole)
+						room.defaultRole = managedRoom.defaultRole;
+
+					// numbers / booleans: only override if explicitly defined
+					if (typeof managedRoom.maxActiveVideos === 'number')
+						room.maxActiveVideos = managedRoom.maxActiveVideos;
+
+					if (typeof managedRoom.locked === 'boolean')
+						room.locked = managedRoom.locked;
+
+					if (managedRoom.maxFileSize)
+						room.maxFileSize = managedRoom.maxFileSize;
+
+					// TODO remove after it is part of mgmt service
+					if (managedRoom.tracker)
+						room.tracker = managedRoom.tracker;
+
+					if (typeof managedRoom.breakoutsEnabled === 'boolean')
+						room.breakoutsEnabled = managedRoom.breakoutsEnabled;
+
+					if (typeof managedRoom.chatEnabled === 'boolean')
+						room.chatEnabled = managedRoom.chatEnabled;
+
+					if (typeof managedRoom.raiseHandEnabled === 'boolean')
+						room.raiseHandEnabled = managedRoom.raiseHandEnabled;
+
+					if (typeof managedRoom.reactionsEnabled === 'boolean')
+						room.reactionsEnabled = managedRoom.reactionsEnabled;
+
+					if (typeof managedRoom.filesharingEnabled === 'boolean')
+						room.filesharingEnabled = managedRoom.filesharingEnabled;
+
+					if (typeof managedRoom.localRecordingEnabled === 'boolean')
+						room.localRecordingEnabled = managedRoom.localRecordingEnabled;
+
+					// Settings: only override logo/background if they are non-empty.
+					const currentSettings: RoomSettings = room.settings ?? {} as RoomSettings;
+
+					if (managedRoom.logo)
+						currentSettings.logo = managedRoom.logo;
+
+					if (managedRoom.background)
+						currentSettings.background = managedRoom.background;
+
+					// Do NOT touch codec/audio/screen sharing settings here:
+					// constructor + config.defaultRoomSettings already set sane defaults.
+
+					room.settings = currentSettings;
+				}
+			}
+
+			room.resolveRoomReady();
+		} catch (error) {
+			logger.error(
+				{ roomId, tenantId, err: error },
+				'handleConnection() error while getting room'
+			);
+
+			room.rejectRoomReady(error as Error);
+		}
 	}
 }
