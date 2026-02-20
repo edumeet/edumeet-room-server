@@ -29,39 +29,39 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 			case 'enableDrawing':
 			{
 
-				if (!peer.hasPermission(Permission.MODERATE_ROOM))
-					throw new Error('peer not authorized');
-				
+				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
+				// 	throw new Error('peer not authorized');
+
 				room.drawing.isEnabled = true;
 	
 				room.notifyPeers('moderator:enabledDrawing', {}, peer);
 		
-				context.handled = true;				
+				context.handled = true;
 		
 				break;
 			}
 
 			case 'disableDrawing':
 			{
-				if (!peer.hasPermission(Permission.MODERATE_ROOM))
-					throw new Error('peer not authorized');
+				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
+				// 	throw new Error('peer not authorized');
 		
 				room.drawing.isEnabled = false;
 				room.drawing.canvasState = [];
 		
 				room.notifyPeers('disabledDrawing', {}, peer);
 			
-				context.handled = true;				
+				context.handled = true;
 			
 				break;
 			}
-				
+
 			case 'setDrawingBgColor':
 			{
 
-				if (!peer.hasPermission(Permission.MODERATE_ROOM))
-					throw new Error('peer not authorized');
-			
+				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
+				// 	throw new Error('peer not authorized');
+
 				const bgColor = message.data;
 				
 				response.bgColor = bgColor;
@@ -71,7 +71,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 					bgColor: room.drawing.bgColor
 				}, peer);
 				
-				context.handled = true;				
+				context.handled = true;
 				
 				break;
 			}
