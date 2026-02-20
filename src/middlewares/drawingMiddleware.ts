@@ -28,7 +28,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 
 			case 'enableDrawing':
 			{
-
+				// we don't have a permission for drawing, so no chcecking here
 				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 
@@ -43,6 +43,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 
 			case 'disableDrawing':
 			{
+				// we don't have a permission for drawing, so no chcecking here
 				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 		
@@ -58,7 +59,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 
 			case 'setDrawingBgColor':
 			{
-
+				// we don't have a permission for drawing, so no chcecking here
 				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 
