@@ -62,9 +62,10 @@ export default class ServerManager {
 		tenantFqdn: string,
 		displayName?: string,
 		token?: string,
+		reconnectKey: string,
 	): Promise<void> {
 		logger.debug(
-			{ peerId, displayName, roomId, tenantFqdn },
+			{ peerId, displayName, roomId, tenantFqdn, reconnectKey },
 			'handleConnection() init params'
 		);
 
@@ -91,14 +92,14 @@ export default class ServerManager {
 		if (peer) {
 			logger.debug('handleConnection() there is already a Peer with same peerId [peerId: %s]', peerId);
 
-			// If we already have a Peer and the new connection does not have a token
-			// then we must close the new connection.
-			// As long as the token is correct for the Peer, we can accept the new
-			// connection and close the old one.
-			if (managedId && managedId === peer.managedId)
+			// if reconnectKey equal is a reconnect, else do not accept new connection
+			if (reconnectKey === peer.reconnectKey) {
+				logger.debug('handleConnection() reconnectKey equal, closing old peer [peerId: %s]', peerId);
 				peer.close();
-			else
-				throw new Error('Invalid token');
+			} else {
+				logger.debug('handleConnection() reconnectKey not equal, rejecting new connection [peerId: %s]', peerId);
+				throw new Error('Invalid reconnectKey');
+			}
 		}
 
 		let room = this.rooms.get(`${tenantId}/${roomId}`);
@@ -150,7 +151,7 @@ export default class ServerManager {
 			void this.initializeManagedRoom(room, roomId, tenantId);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection });
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey });
 
 		this.peers.set(peerId, peer);
 
