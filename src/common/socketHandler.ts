@@ -79,9 +79,9 @@ export const socketHandler = (socket: Socket) => {
 		peerId as string,
 		roomId as string,
 		tenantFqdnParsed as string,
+		reconnectKey as string,
 		displayName as string,
 		token as string,
-		reconnectKey as string,
 	).catch((error) => {
 		logger.warn({ err: error }, 'socketHandler() - handleConnection()');
 

@@ -60,9 +60,9 @@ export default class ServerManager {
 		peerId: string,
 		roomId: string,
 		tenantFqdn: string,
+		reconnectKey: string,
 		displayName?: string,
 		token?: string,
-		reconnectKey: string,
 	): Promise<void> {
 		logger.debug(
 			{ peerId, displayName, roomId, tenantFqdn, reconnectKey },
