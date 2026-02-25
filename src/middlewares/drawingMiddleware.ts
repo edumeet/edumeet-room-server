@@ -35,7 +35,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 	
 				room.notifyPeers('moderator:enabledDrawing', {}, peer);
 		
-				context.handled = true;				
+				context.handled = true;
 		
 				break;
 			}
@@ -51,11 +51,11 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 		
 				room.notifyPeers('disabledDrawing', {}, peer);
 			
-				context.handled = true;				
+				context.handled = true;
 			
 				break;
 			}
-				
+
 			case 'setDrawingBgColor':
 			{
 				// we don't have a permission for drawing, so no chcecking here
@@ -71,7 +71,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 					bgColor: room.drawing.bgColor
 				}, peer);
 				
-				context.handled = true;				
+				context.handled = true;
 				
 				break;
 			}

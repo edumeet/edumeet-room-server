@@ -88,6 +88,8 @@ export default class ManagementService {
 
 	#tenantFQDNsService: FeathersService;
 
+	#tenantFQDNsService: FeathersService;
+
 	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
