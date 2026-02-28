@@ -14,7 +14,7 @@ interface ServerManagerOptions {
 	mediaService: MediaService;
 	peers: Map<string, Peer>;
 	rooms: Map<string, Room>;
-	managedPeers: Map<string, Peer>;
+	managedPeers: Map<string, Set<Peer>>;
 	managedRooms: Map<string, Room>;
 	managementService?: ManagementService;
 }
@@ -24,7 +24,7 @@ export default class ServerManager {
 	public peers: Map<string, Peer>;
 	public rooms: Map<string, Room>;
 	public managedRooms: Map<string, Room>; // Mapped by ID from management service
-	public managedPeers: Map<string, Peer>; // Mapped by ID from management service
+	public managedPeers: Map<string, Set<Peer>>; // Mapped by ID from management service
 	public mediaService: MediaService;
 	public managementService?: ManagementService;
 
@@ -60,11 +60,12 @@ export default class ServerManager {
 		peerId: string,
 		roomId: string,
 		tenantFqdn: string,
+		reconnectKey: string,
 		displayName?: string,
 		token?: string,
 	): Promise<void> {
 		logger.debug(
-			{ peerId, displayName, roomId, tenantFqdn },
+			{ peerId, displayName, roomId, tenantFqdn, reconnectKey },
 			'handleConnection() init params'
 		);
 
@@ -91,14 +92,14 @@ export default class ServerManager {
 		if (peer) {
 			logger.debug('handleConnection() there is already a Peer with same peerId [peerId: %s]', peerId);
 
-			// If we already have a Peer and the new connection does not have a token
-			// then we must close the new connection.
-			// As long as the token is correct for the Peer, we can accept the new
-			// connection and close the old one.
-			if (managedId && managedId === peer.managedId)
+			// if reconnectKey equal is a reconnect, else do not accept new connection
+			if (reconnectKey === peer.reconnectKey) {
+				logger.debug('handleConnection() reconnectKey equal, closing old peer [peerId: %s]', peerId);
 				peer.close();
-			else
-				throw new Error('Invalid token');
+			} else {
+				logger.debug('handleConnection() reconnectKey not equal, rejecting new connection [peerId: %s]', peerId);
+				throw new Error('Invalid reconnectKey');
+			}
 		}
 
 		let room = this.rooms.get(`${tenantId}/${roomId}`);
@@ -150,18 +151,65 @@ export default class ServerManager {
 			void this.initializeManagedRoom(room, roomId, tenantId);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection });
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey });
 
 		this.peers.set(peerId, peer);
 
-		if (managedId) this.managedPeers.set(String(managedId), peer);
+		if (managedId) {
+			let set = this.managedPeers.get(managedId);
+
+			if (!set) {
+				set = new Set<Peer>();
+				this.managedPeers.set(managedId, set);
+			}
+
+			set.add(peer);
+		}
+
+		peer.on('managedIdChanged', (oldId?: string, newId?: string) => {
+			if (oldId) {
+				const oldSet = this.managedPeers.get(oldId);
+
+				if (oldSet) {
+					oldSet.delete(peer);
+
+					if (oldSet.size === 0) {
+						this.managedPeers.delete(oldId);
+					}
+				}
+			}
+
+			if (newId) {
+				let newSet = this.managedPeers.get(newId);
+
+				if (!newSet) {
+					newSet = new Set<Peer>();
+
+					this.managedPeers.set(newId, newSet);
+				}
+
+				newSet.add(peer);
+			}
+		});
 
 		peer.once('close', () => {
 			logger.debug('handleConnection() peer closed [peerId: %s]', peerId);
-			this.peers.delete(peerId);
 
-			if (peer?.managedId)
-				this.managedPeers.delete(peer.managedId);
+			const peerManagedId = peer.managedId;
+
+			if (peerManagedId) {
+				const set = this.managedPeers.get(peerManagedId);
+
+				if (set) {
+					set.delete(peer);
+
+					if (set.size === 0) {
+						this.managedPeers.delete(peerManagedId);
+					}
+				}
+			}
+
+			this.peers.delete(peerId);
 		});
 
 		room.addPeer(peer);

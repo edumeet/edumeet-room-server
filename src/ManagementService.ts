@@ -40,7 +40,7 @@ const logger = new Logger('ManagementService');
 
 interface ManagementServiceOptions {
 	managedRooms: Map<string, Room>;
-	managedPeers: Map<string, Peer>;
+	managedPeers: Map<string, Set<Peer>>;
 	mediaService: MediaService;
 }
 
@@ -69,7 +69,7 @@ export default class ManagementService {
 	public closed = false;
 
 	#managedRooms: Map<string, Room>;
-	#managedPeers: Map<string, Peer>;
+	#managedPeers: Map<string, Set<Peer>>;
 	#mediaService: MediaService;
 
 	public resolveReady!: () => void;
@@ -83,7 +83,8 @@ export default class ManagementService {
 
 	#client: Application;
 	#socket: Socket;
-	#reAuthTimer: NodeJS.Timeout;
+
+	#authRefreshTimer: NodeJS.Timeout | null = null;
 
 	#tenantFQDNsService: FeathersService;
 
@@ -137,13 +138,6 @@ export default class ManagementService {
 
 		this.setupSocketLifecycle();
 
-		// we run authenticateLocal() to get a new token every hour
-		this.#reAuthTimer = setInterval(() => {
-			this.authenticateLocal()
-				.then(() => logger.debug('Hourly authenticateLocal() OK'))
-				.catch((e) => logger.warn('Hourly authenticateLocal() failed: %o', e));
-		}, 60 * 60 * 1000);
-
 		this.setupListeners();
 	}
 
@@ -152,8 +146,13 @@ export default class ManagementService {
 		logger.debug('close()');
 
 		this.closed = true;
-		clearInterval(this.#reAuthTimer);
-		this.#client.logout();
+
+		if (this.#authRefreshTimer) {
+			clearTimeout(this.#authRefreshTimer);
+			this.#authRefreshTimer = null;
+		}
+
+		this.#client.logout().catch((err) => logger.warn({ err }, 'logout failed on close'));
 		this.#socket.disconnect();
 	}
 
@@ -276,17 +275,25 @@ export default class ManagementService {
 
 		this.#socket.on('disconnect', (reason) => {
 			logger.debug('Socket connection disconnected: %s', reason);
-			// TODO: handle explicit disconnect
+
+			if (this.closed) return;
+
+			if (reason === 'io server disconnect') {
+				this.#client.logout().catch((err) => logger.warn({ err }, 'ensureAuthenticated - io server disconnect.'));
+				this.#socket.connect();
+			}
 		});
 
 		this.#socket.on('connect', () => {
 			logger.debug('Socket connected -> ensureAuthenticated()');
 			this.ensureAuthenticated()
-				.catch((e) => logger.warn('ensureAuthenticated failed on connect: %o', e));
+				.catch((err) => logger.warn({ err }, 'ensureAuthenticated failed on connect.'));
 		});
 
 		this.#socket.io.on('reconnect', () => {
 			logger.debug('Socket reconnected.');
+			this.ensureAuthenticated()
+				.catch((err) => logger.warn({ err }, 'ensureAuthenticated failed on reconnect.'));
 		});
 
 		this.#socket.io.on('reconnect_attempt', (attempt) => {
@@ -294,8 +301,40 @@ export default class ManagementService {
 		});
 
 		this.#socket.io.on('reconnect_error', (err) => {
-			logger.debug({ err }, 'Socket reconnect error: %o');
+			logger.debug({ err }, 'Socket reconnect error.');
 		});
+	}
+
+	@skipIfClosed
+	private scheduleTokenRefresh(payload?: { exp?: number; iat?: number }): void {
+		if (this.#authRefreshTimer) {
+			clearTimeout(this.#authRefreshTimer);
+			this.#authRefreshTimer = null;
+		}
+
+		if (!payload?.exp)
+			return;
+
+		const nowSec = Math.floor(Date.now() / 1000);
+		const expSec = payload.exp;
+		const iatSec = payload.iat ?? nowSec;
+
+		const lifetimeSec = expSec - iatSec;
+		const refreshAtSec = iatSec + Math.floor(lifetimeSec * 0.8);
+
+		let delayMs = (refreshAtSec - nowSec) * 1000;
+
+		if (delayMs <= 0)
+			delayMs = 1000;
+
+		this.#authRefreshTimer = setTimeout(() => {
+			if (this.closed) return;
+
+			this.authenticateLocal()
+				.catch((err) =>
+					logger.warn({ err }, 'Token refresh authenticateLocal() failed')
+				);
+		}, delayMs);
 	}
 
 	@skipIfClosed
@@ -303,18 +342,26 @@ export default class ManagementService {
 		logger.debug('ensureAuthenticated()');
 
 		try {
-			await this.#client.reAuthenticate();
-			logger.debug('reAuthenticate() OK');
+			const authResult = await this.#client.reAuthenticate(true);
+
+			logger.debug('ensureAuthenticated() - reAuthenticate(true) OK');
+
+			const payload = authResult?.authentication?.payload as
+				| { exp?: number; iat?: number }
+				| undefined;
+
+			this.scheduleTokenRefresh(payload);
+
 			this.resolveReady();
 
 			return;
 		} catch (err) {
-			logger.debug({ err }, 'reAuthenticate() failed, falling back to local auth: %o');
+			logger.debug({ err }, 'reAuthenticate(true) failed, falling back to local auth: %o');
 		}
 
 		try {
 			await this.authenticateLocal();
-			logger.debug('authenticateLocal() OK');
+			logger.debug('ensureAuthenticated() - authenticateLocal OK');
 			this.resolveReady();
 		} catch (err) {
 			// Reject only on failures that will not heal by reconnecting/retrying.
@@ -333,11 +380,19 @@ export default class ManagementService {
 		if (!process.env.MANAGEMENT_USERNAME || !process.env.MANAGEMENT_PASSWORD)
 			throw new Error('Management service credentials not configured');
 
-		await this.#client.authenticate({
+		const authResult = await this.#client.authenticate({
 			strategy: 'local',
 			email: process.env.MANAGEMENT_USERNAME,
 			password: process.env.MANAGEMENT_PASSWORD
 		});
+
+		logger.debug('authenticateLocal() - OK');
+
+		const payload = authResult?.authentication?.payload as
+			| { exp?: number; iat?: number }
+			| undefined;
+
+		this.scheduleTokenRefresh(payload);
 	}
 
 	@skipIfClosed
@@ -435,7 +490,14 @@ export default class ManagementService {
 			.on('removed', (user: ManagedUser) => {
 				logger.debug('usersService "removed" event [userId: %s]', user.id);
 
-				this.#managedPeers.get(String(user.id))?.close();
+				const key = String(user.id);
+				const set = this.#managedPeers.get(key);
+
+				if (set) {
+					for (const peer of set) {
+						peer.close();
+					}
+				}
 			});
 	}
 

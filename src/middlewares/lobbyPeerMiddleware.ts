@@ -55,7 +55,8 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 				const { token } = message.data;
 				const managedId = token ? verifyPeer(token) : undefined;
 
-				peer.managedId = managedId;
+				peer.setManagedId(managedId);
+
 				updatePeerPermissions(room, peer, true);
 
 				context.handled = true;

@@ -11,18 +11,20 @@ export const socketHandler = (socket: Socket) => {
 		tenantFqdn,
 		displayName,
 		token,
+		reconnectKey,
 	} = socket.handshake.query;
 
 	logger.debug(
-		'socketHandler() - socket connection [socketId: %s, roomId: %s, peerId: %s, tenantFqdn: %s]',
+		'socketHandler() - socket connection [socketId: %s, roomId: %s, peerId: %s, tenantFqdn: %s, reconnectKey: %s]',
 		socket.id,
 		roomId,
 		peerId,
-		tenantFqdn
+		tenantFqdn,
+		reconnectKey
 	);
 
-	if (!roomId || !peerId) {
-		logger.warn('socketHandler() - socket invalid roomId or peerId');
+	if (!roomId || !peerId || !reconnectKey) {
+		logger.warn('socketHandler() - socket invalid roomId or peerId or reconnectKey');
 
 		return socket.disconnect(true);
 	}
@@ -77,6 +79,7 @@ export const socketHandler = (socket: Socket) => {
 		peerId as string,
 		roomId as string,
 		tenantFqdnParsed as string,
+		reconnectKey as string,
 		displayName as string,
 		token as string,
 	).catch((error) => {

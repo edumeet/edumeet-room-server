@@ -32,6 +32,7 @@ interface PeerOptions {
 	sessionId: string;
 	connection?: BaseConnection;
 	managedId?: string;
+	reconnectKey: string;
 }
 
 export interface PeerInfo {
@@ -62,6 +63,7 @@ export declare interface Peer {
 	on(event: 'gotRole', listener: (newRole: Role) => void): this;
 	on(event: 'lostRole', listener: (oldRole: Role) => void): this;
 	on(event: 'sessionIdChanged', listener: (sessionId: string) => void): this;
+	on(event: 'managedIdChanged', listener: (oldId?: string, newId?: string) => void): this;
 
 	on(event: 'lostRouter', listener: () => void): this;
 }
@@ -71,7 +73,8 @@ export class Peer extends EventEmitter {
 	public closed = false;
 
 	public id: string;
-	public managedId?: string;
+	#managedId?: string;
+	#reconnectKey: string;
 	public groupIds: string[] = [];
 	#permissions: string[] = [];
 
@@ -120,9 +123,10 @@ export class Peer extends EventEmitter {
 		picture,
 		sessionId,
 		connection,
+		reconnectKey,
 	}: PeerOptions) {
 		logger.debug(
-			{ id: id, managedId: managedId, displayName: displayName, sessionId: sessionId },
+			{ id, managedId, displayName, sessionId, reconnectKey },
 			'Peer constructor()'
 		);
 
@@ -132,7 +136,8 @@ export class Peer extends EventEmitter {
 		this.#sessionId = sessionId;
 		this.displayName = displayName ?? 'Guest';
 		this.picture = picture;
-		this.managedId = managedId;
+		this.#managedId = managedId;
+		this.#reconnectKey = reconnectKey;
 
 		this.routerReset(true);
 
@@ -225,6 +230,25 @@ export class Peer extends EventEmitter {
 
 	public get sessionId(): string {
 		return this.#sessionId;
+	}
+
+	public get managedId(): string | undefined {
+		return this.#managedId;
+	}
+
+	public setManagedId(managedId?: string): void {
+		const oldManagedId = this.#managedId;
+
+		if (oldManagedId === managedId)
+			return;
+
+		this.#managedId = managedId;
+
+		this.emit('managedIdChanged', oldManagedId, managedId);
+	}
+
+	public get reconnectKey(): string {
+		return this.#reconnectKey;
 	}
 
 	public get permissions(): string[] {
