@@ -20,7 +20,6 @@ export const createConsumersMiddleware = ({
 			},
 		} = context;
 
-
 		if (!consumerId)
 			return next();
 
