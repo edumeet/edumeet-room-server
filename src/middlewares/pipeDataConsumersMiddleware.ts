@@ -25,16 +25,34 @@ export const createPipeDataConsumersMiddleware = ({
 
 		const router = routers.get(routerId);
 
-		if (!router)
+		if (!router) {
+			if (method === 'pipeDataConsumerClosed') {
+				logger.debug({ routerId, pipeDataConsumerId }, 'method=pipeDataConsumerClosed - router already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		const pipeDataConsumer = router.pipeDataConsumers.get(pipeDataConsumerId);
 
-		if (!pipeDataConsumer)
+		if (!pipeDataConsumer) {
+			if (method === 'pipeDataConsumerClosed') {
+				logger.debug({ routerId, pipeDataConsumerId }, 'method=pipeDataConsumerClosed - consumer already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		switch (method) {
 			case 'pipeDataConsumerClosed': {
+				logger.debug({
+					routerId,
+					pipeDataConsumerId,
+					pipeDataProducerId: pipeDataConsumer.dataProducerId
+				}, 'MediaNode -> pipeDataConsumerClosed');
+
 				pipeDataConsumer.close(true);
 				context.handled = true;
 
