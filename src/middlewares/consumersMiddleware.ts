@@ -20,18 +20,31 @@ export const createConsumersMiddleware = ({
 			},
 		} = context;
 
+
 		if (!consumerId)
 			return next();
 
 		const router = routers.get(routerId);
 
-		if (!router)
+		if (!router) {
+			if (method === 'consumerClosed') {
+				logger.debug({ routerId, consumerId }, 'method=consumerClosed - router already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		const consumer = router.consumers.get(consumerId);
 
-		if (!consumer)
+		if (!consumer) {
+			if (method === 'consumerClosed') {
+				logger.debug({ routerId, consumerId }, 'method=consumerClosed - consumer already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		switch (method) {
 			case 'consumerClosed': {

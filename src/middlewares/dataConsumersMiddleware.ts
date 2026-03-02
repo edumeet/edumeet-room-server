@@ -25,16 +25,34 @@ export const createDataConsumersMiddleware = ({
 
 		const router = routers.get(routerId);
 
-		if (!router)
+		if (!router) {
+			if (method === 'dataConsumerClosed') {
+				logger.debug({ routerId, dataConsumerId }, 'method=dataConsumerClosed - router already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		const dataConsumer = router.dataConsumers.get(dataConsumerId);
 
-		if (!dataConsumer)
+		if (!dataConsumer) {
+			if (method === 'dataConsumerClosed') {
+				logger.debug({ routerId, dataConsumerId }, 'method=dataConsumerClosed - consumer already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		switch (method) {
 			case 'dataConsumerClosed': {
+				logger.debug({
+					routerId,
+					dataConsumerId,
+					dataProducerId: dataConsumer.dataProducerId
+				}, 'MediaNode -> dataConsumerClosed');
+
 				dataConsumer.close(true);
 				context.handled = true;
 

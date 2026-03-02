@@ -25,16 +25,35 @@ export const createPipeConsumersMiddleware = ({
 
 		const router = routers.get(routerId);
 
-		if (!router)
+		if (!router) {
+			if (method === 'pipeConsumerClosed') {
+				logger.debug({ routerId, pipeConsumerId }, 'method=pipeConsumerClosed - router already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		const pipeConsumer = router.pipeConsumers.get(pipeConsumerId);
 
-		if (!pipeConsumer)
+		if (!pipeConsumer) {
+			if (method === 'pipeConsumerClosed') {
+				logger.debug({ routerId, pipeConsumerId }, 'method=pipeConsumerClosed - consumer already closed – ignoring');
+				context.handled = true;
+			}
+
 			return next();
+		}
 
 		switch (method) {
 			case 'pipeConsumerClosed': {
+				logger.debug({
+					routerId,
+					pipeConsumerId,
+					kind: pipeConsumer.kind,
+					pipeProducerId: pipeConsumer.producerId
+				}, 'MediaNode -> pipeConsumerClosed');
+
 				pipeConsumer.close(true);
 				context.handled = true;
 
@@ -42,6 +61,13 @@ export const createPipeConsumersMiddleware = ({
 			}
 
 			case 'pipeConsumerPaused': {
+				logger.debug({
+					routerId,
+					pipeConsumerId,
+					kind: pipeConsumer.kind,
+					pipeProducerId: pipeConsumer.producerId
+				}, 'MediaNode -> pipeConsumerPaused');
+
 				pipeConsumer.setProducerPaused();
 				context.handled = true;
 
@@ -49,6 +75,13 @@ export const createPipeConsumersMiddleware = ({
 			}
 
 			case 'pipeConsumerResumed': {
+				logger.debug({
+					routerId,
+					pipeConsumerId,
+					kind: pipeConsumer.kind,
+					pipeProducerId: pipeConsumer.producerId
+				}, 'MediaNode -> pipeConsumerResumed');
+
 				pipeConsumer.setProducerResumed();
 				context.handled = true;
 
