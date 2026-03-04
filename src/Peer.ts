@@ -412,7 +412,7 @@ export class Peer extends EventEmitter {
 			}
 		}
 
-		logger.warn('request() no connection available [peerId: %s]', this.id);
+		throw new Error(`request() no connection available [peerId: ${this.id}]`);
 	}
 
 	public getAddress(): clientAddress {
