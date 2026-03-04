@@ -111,6 +111,9 @@ export class IOServerConnection extends BaseConnection {
 					throw error;
 			}
 		}
+
+		// if all attempts failed throw
+		throw new SocketTimeoutError('sendRequest() - All attempts of sendRequest timed out');
 	}
 
 	private handleSocket(): void {
