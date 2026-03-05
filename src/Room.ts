@@ -265,6 +265,7 @@ export default class Room extends EventEmitter {
 			method: 'peerReconnected',
 			data: {
 				sessionId: peer.sessionId,
+				roomSessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
 				peers: this.getPeers(peer).map((p) => (p.peerInfo)),
 				chatHistory: this.chatHistory,

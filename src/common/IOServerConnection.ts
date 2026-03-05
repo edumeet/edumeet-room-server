@@ -133,13 +133,21 @@ export class IOServerConnection extends BaseConnection {
 	private handleSocket(): void {
 		logger.debug('handleSocket()');
 
-		this.socket.once('disconnect', () => {
-			logger.debug('socket disconnected, starting reconnect window [id: %s]', this.id);
+		this.socket.once('disconnect', (reason: string) => {
+			logger.debug('socket disconnected [id: %s, reason: %s]', this.id, reason);
 
-			this.reconnectTimer = setTimeout(() => {
-				this.reconnectTimer = undefined;
+			if (reason === 'client namespace disconnect') {
+				// Client intentionally disconnected (leave button, kick, etc.) — close immediately.
 				this.close();
-			}, 5_000);
+			} else {
+				// Unintentional disconnect (network drop) — allow reconnect window.
+				logger.debug('starting reconnect window [id: %s]', this.id);
+
+				this.reconnectTimer = setTimeout(() => {
+					this.reconnectTimer = undefined;
+					this.close();
+				}, 5_000);
+			}
 		});
 
 		this.socket.on('notification', (notification) => {
