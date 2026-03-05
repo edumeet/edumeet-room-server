@@ -38,6 +38,7 @@ const logger = new Logger('SocketIOConnection');
 export class IOServerConnection extends BaseConnection {
 	public closed = false;
 	private socket: Socket<ClientServerEvents, ServerClientEvents>;
+	private reconnectTimer?: ReturnType<typeof setTimeout>;
 
 	constructor(socket: Socket<ClientServerEvents, ServerClientEvents>) {
 		super();
@@ -54,12 +55,25 @@ export class IOServerConnection extends BaseConnection {
 
 		this.closed = true;
 
+		if (this.reconnectTimer) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = undefined;
+		}
+
 		if (this.socket.connected)
 			this.socket.disconnect(true);
 
 		this.socket.removeAllListeners();
 
 		this.emit('close');
+	}
+
+	public cancelClose(): void {
+		if (this.reconnectTimer) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = undefined;
+			logger.debug('cancelClose() reconnect window cancelled [id: %s]', this.id);
+		}
 	}
 
 	public get id(): string {
@@ -119,11 +133,13 @@ export class IOServerConnection extends BaseConnection {
 	private handleSocket(): void {
 		logger.debug('handleSocket()');
 
-		// TODO: reconnect logic here
 		this.socket.once('disconnect', () => {
-			logger.debug('socket disconnected');
+			logger.debug('socket disconnected, starting reconnect window [id: %s]', this.id);
 
-			this.close();
+			this.reconnectTimer = setTimeout(() => {
+				this.reconnectTimer = undefined;
+				this.close();
+			}, 5_000);
 		});
 
 		this.socket.on('notification', (notification) => {

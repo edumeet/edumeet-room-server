@@ -87,6 +87,7 @@ export default class ServerManager {
 			'handleConnection() peerManagedId'
 		);
 
+		let room = this.rooms.get(`${tenantId}/${roomId}`);
 		let peer = this.peers.get(peerId);
 
 		if (peer) {
@@ -94,15 +95,22 @@ export default class ServerManager {
 
 			// if reconnectKey equal is a reconnect, else do not accept new connection
 			if (reconnectKey === peer.reconnectKey) {
-				logger.debug('handleConnection() reconnectKey equal, closing old peer [peerId: %s]', peerId);
-				peer.close();
+				logger.debug('handleConnection() reconnectKey equal, doing socket swap [peerId: %s]', peerId);
+
+				peer.switchConnection(connection);
+
+				if (room) {
+					room.reconnectPeer(peer);
+				} else {
+					peer.close();
+				}
+
+				return;
 			} else {
 				logger.debug('handleConnection() reconnectKey not equal, rejecting new connection [peerId: %s]', peerId);
 				throw new Error('Invalid reconnectKey');
 			}
 		}
-
-		let room = this.rooms.get(`${tenantId}/${roomId}`);
 
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
@@ -203,9 +211,8 @@ export default class ServerManager {
 				if (set) {
 					set.delete(peer);
 
-					if (set.size === 0) {
+					if (set.size === 0)
 						this.managedPeers.delete(peerManagedId);
-					}
 				}
 			}
 

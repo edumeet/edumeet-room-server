@@ -212,6 +212,32 @@ export class Peer extends EventEmitter {
 		this.emit('close');
 	}
 
+	@skipIfClosed
+	public switchConnection(newConnection: BaseConnection): void {
+		logger.debug('switchConnection() [peerId: %s]', this.id);
+
+		this.connections.items.forEach((c) => {
+			if (c instanceof IOServerConnection) c.cancelClose();
+			c.close();
+		});
+		this.connections.clear();
+
+		this.consumers.forEach((c) => c.close());
+		this.producers.forEach((p) => p.close());
+		this.consumingTransport?.close();
+		this.producingTransport?.close();
+
+		this.consumers.clear();
+		this.producers.clear();
+		this.consumingTransport = undefined;
+		this.producingTransport = undefined;
+
+		// Reset media state; client handles reconnect so no lostMediaServer notification needed.
+		this.routerReset(true);
+
+		this.addConnection(newConnection);
+	}
+
 	public closeProducers(): void {
 		logger.debug('closeProducers() [peerId: %s]', this.id);
 
