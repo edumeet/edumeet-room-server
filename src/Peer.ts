@@ -216,11 +216,20 @@ export class Peer extends EventEmitter {
 	public switchConnection(newConnection: BaseConnection): void {
 		logger.debug('switchConnection() [peerId: %s]', this.id);
 
-		this.connections.items.forEach((c) => {
+		// Capture old connections before adding the new one.
+		const oldConnections = [ ...this.connections.items ];
+
+		// Add the new connection first so that when old connections emit 'close',
+		// this.connections is not empty and peer.close() is not triggered.
+		this.addConnection(newConnection);
+
+		// Cancel reconnect timers and close old connections.
+		// Each c.close() will fire the 'close' listener from addConnection which
+		// removes the connection from this.connections — no manual clear() needed.
+		oldConnections.forEach((c) => {
 			if (c instanceof IOServerConnection) c.cancelClose();
 			c.close();
 		});
-		this.connections.clear();
 
 		this.consumers.forEach((c) => c.close());
 		this.producers.forEach((p) => p.close());
@@ -234,8 +243,6 @@ export class Peer extends EventEmitter {
 
 		// Reset media state; client handles reconnect so no lostMediaServer notification needed.
 		this.routerReset(true);
-
-		this.addConnection(newConnection);
 	}
 
 	public closeProducers(): void {
