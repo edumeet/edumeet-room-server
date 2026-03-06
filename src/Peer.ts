@@ -56,6 +56,8 @@ export interface PeerContext {
 }
 
 /* eslint-disable no-unused-vars */
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface Peer {
 	on(event: 'close', listener: () => void): this;
 	on(event: 'notification', listener: InboundNotification): this;
@@ -68,8 +70,10 @@ export declare interface Peer {
 
 	on(event: 'lostRouter', listener: () => void): this;
 }
+
 /* eslint-enable no-unused-vars */
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class Peer extends EventEmitter {
 	public closed = false;
 
