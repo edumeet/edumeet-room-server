@@ -37,6 +37,7 @@ export interface MediaNodeConnectionContext {
 }
 
 /* eslint-disable no-unused-vars */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface MediaNodeConnection {
 	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 	on(event: 'notification', listener: InboundNotification): this;
@@ -46,6 +47,7 @@ export declare interface MediaNodeConnection {
 }
 /* eslint-enable no-unused-vars */
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class MediaNodeConnection extends EventEmitter {
 	public closed = false;
 	public pipeline = Pipeline<MediaNodeConnectionContext>();

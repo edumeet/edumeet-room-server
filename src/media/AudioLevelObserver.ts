@@ -24,6 +24,7 @@ interface AudioLevel {
 
 export type AudioLevels = AudioLevel[];
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface AudioLevelObserver {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: (remoteClose: boolean) => void): this;
@@ -31,6 +32,7 @@ export declare interface AudioLevelObserver {
 	on(event: 'volumes', listener: (audioLevels: AudioLevels) => void): this;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class AudioLevelObserver extends EventEmitter {
 	public closed = false;
 	public router: Router;

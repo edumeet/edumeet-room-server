@@ -3,6 +3,7 @@ import { LayerReporter } from './layerReporter';
 
 export type Layer = number;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface LayerWatcher {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'newLayer', listener: (layer: Layer) => void): this;
@@ -15,6 +16,7 @@ export declare interface LayerWatcher {
  * 
  * @emits newLayer - Emitted when the layer changes.
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class LayerWatcher extends EventEmitter {
 	private layerReporters: LayerReporter[] = [];
 	private currentLayer: Layer = 2;
