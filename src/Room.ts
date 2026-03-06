@@ -257,6 +257,13 @@ export default class Room extends EventEmitter {
 	public reconnectPeer(peer: Peer): void {
 		logger.debug('reconnectPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
 
+		if (this.lobbyPeers.items.includes(peer)) {
+			logger.debug('reconnectPeer() peer is in lobby, re-notifying enteredLobby [id: %s]', peer.id);
+			peer.notify({ method: 'enteredLobby', data: {} });
+
+			return;
+		}
+
 		const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER)
 			? this.lobbyPeers.items.map((p) => (p.peerInfo))
 			: [];
