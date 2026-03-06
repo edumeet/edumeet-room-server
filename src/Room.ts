@@ -222,9 +222,9 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public async addPeer(peer: Peer): Promise<void> {
+	public async addPeer(peer: Peer, isReconnect = false): Promise<void> {
 		logger.debug('addPeer() [id: %s]', peer.id);
-		
+
 		peer.once('close', () => this.removePeer(peer));
 
 		try {
@@ -235,11 +235,12 @@ export default class Room extends EventEmitter {
 
 			if (error) throw error;
 			if (this.closed) throw new RoomClosedError('room closed');
+			if (peer.closed) return;
 
 			this.waitingPeers.remove(peer);
 
 			// This will update the permissions of the peer based on what we possibly got from the management service
-			updatePeerPermissions(this, peer);
+			updatePeerPermissions(this, peer, false, isReconnect);
 
 			if (isAllowed(this, peer))
 				this.allowPeer(peer);
@@ -250,6 +251,41 @@ export default class Room extends EventEmitter {
 
 			peer.close();
 		}
+	}
+
+	@skipIfClosed
+	public reconnectPeer(peer: Peer): void {
+		logger.debug('reconnectPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
+
+		if (this.lobbyPeers.items.includes(peer)) {
+			logger.debug('reconnectPeer() peer is in lobby, re-notifying enteredLobby [id: %s]', peer.id);
+			peer.notify({ method: 'enteredLobby', data: {} });
+
+			return;
+		}
+
+		const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER)
+			? this.lobbyPeers.items.map((p) => (p.peerInfo))
+			: [];
+
+		peer.notify({
+			method: 'peerReconnected',
+			data: {
+				sessionId: peer.sessionId,
+				roomSessionId: this.sessionId,
+				creationTimestamp: this.creationTimestamp,
+				peers: this.getPeers(peer).map((p) => (p.peerInfo)),
+				chatHistory: this.chatHistory,
+				fileHistory: this.fileHistory,
+				locked: this.locked,
+				breakoutRooms: this.getBreakoutRooms().map((b) => (b.breakoutRoomInfo)),
+				lobbyPeers,
+				drawing: this.drawing,
+				countdownTimer: this.countdownTimer,
+			}
+		});
+
+		this.assignRouter(peer);
 	}
 
 	@skipIfClosed

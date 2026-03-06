@@ -99,6 +99,7 @@ export default class BreakoutRoom extends EventEmitter {
 		return {
 			name: this.name,
 			sessionId: this.sessionId,
+			creationTimestamp: this.creationTimestamp,
 		};
 	}
 }

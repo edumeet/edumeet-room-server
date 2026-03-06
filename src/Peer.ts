@@ -33,6 +33,7 @@ interface PeerOptions {
 	connection?: BaseConnection;
 	managedId?: string;
 	reconnectKey: string;
+	permissions?: string[];
 }
 
 export interface PeerInfo {
@@ -55,6 +56,8 @@ export interface PeerContext {
 }
 
 /* eslint-disable no-unused-vars */
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface Peer {
 	on(event: 'close', listener: () => void): this;
 	on(event: 'notification', listener: InboundNotification): this;
@@ -67,8 +70,10 @@ export declare interface Peer {
 
 	on(event: 'lostRouter', listener: () => void): this;
 }
+
 /* eslint-enable no-unused-vars */
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class Peer extends EventEmitter {
 	public closed = false;
 
@@ -76,7 +81,7 @@ export class Peer extends EventEmitter {
 	#managedId?: string;
 	#reconnectKey: string;
 	public groupIds: string[] = [];
-	#permissions: string[] = [];
+	#permissions: Set<string> = new Set();
 
 	public connections = List<BaseConnection>();
 
@@ -124,6 +129,7 @@ export class Peer extends EventEmitter {
 		sessionId,
 		connection,
 		reconnectKey,
+		permissions,
 	}: PeerOptions) {
 		logger.debug(
 			{ id, managedId, displayName, sessionId, reconnectKey },
@@ -138,6 +144,9 @@ export class Peer extends EventEmitter {
 		this.picture = picture;
 		this.#managedId = managedId;
 		this.#reconnectKey = reconnectKey;
+
+		if (permissions?.length)
+			this.#permissions = new Set(permissions);
 
 		this.routerReset(true);
 
@@ -212,6 +221,39 @@ export class Peer extends EventEmitter {
 		this.emit('close');
 	}
 
+	@skipIfClosed
+	public switchConnection(newConnection: BaseConnection): void {
+		logger.debug('switchConnection() [peerId: %s]', this.id);
+
+		// Capture old connections before adding the new one.
+		const oldConnections = [ ...this.connections.items ];
+
+		// Add the new connection first so that when old connections emit 'close',
+		// this.connections is not empty and peer.close() is not triggered.
+		this.addConnection(newConnection);
+
+		// Cancel reconnect timers and close old connections.
+		// Each c.close() will fire the 'close' listener from addConnection which
+		// removes the connection from this.connections — no manual clear() needed.
+		oldConnections.forEach((c) => {
+			if (c instanceof IOServerConnection) c.cancelClose();
+			c.close();
+		});
+
+		this.consumers.forEach((c) => c.close());
+		this.producers.forEach((p) => p.close());
+		this.consumingTransport?.close();
+		this.producingTransport?.close();
+
+		this.consumers.clear();
+		this.producers.clear();
+		this.consumingTransport = undefined;
+		this.producingTransport = undefined;
+
+		// Reset media state; client handles reconnect so no lostMediaServer notification needed.
+		this.routerReset(true);
+	}
+
 	public closeProducers(): void {
 		logger.debug('closeProducers() [peerId: %s]', this.id);
 
@@ -252,16 +294,18 @@ export class Peer extends EventEmitter {
 	}
 
 	public get permissions(): string[] {
-		return this.#permissions;
+		return [ ...this.#permissions ];
 	}
 
 	public set permissions(value: string[]) {
+		const newPermissions = new Set(value);
+
 		// Find the diff between the old and new permissions
-		const added = value.filter((x) => !this.#permissions.includes(x));
-		const removed = this.#permissions.filter((x) => !value.includes(x));
+		const added = [ ...newPermissions ].filter((x) => !this.#permissions.has(x));
+		const removed = [ ...this.#permissions ].filter((x) => !newPermissions.has(x));
 
 		// Update the permissions
-		this.#permissions = value;
+		this.#permissions = newPermissions;
 
 		// Notify the client of the changes
 		added.forEach((permission) => this.notify({ method: 'permissionAdded', data: { permission } }));
@@ -297,7 +341,7 @@ export class Peer extends EventEmitter {
 	}
 
 	public hasPermission(permission: Permission): boolean {
-		return this.#permissions.includes(permission);
+		return this.#permissions.has(permission);
 	}
 
 	public get raisedHand(): boolean {

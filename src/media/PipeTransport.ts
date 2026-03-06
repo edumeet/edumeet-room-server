@@ -50,11 +50,13 @@ interface InternalPipeTransportOptions extends PipeTransportOptions {
 	appData?: Record<string, unknown>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface PipeTransport {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class PipeTransport extends EventEmitter {
 	public closed = false;
 	public router: Router;
