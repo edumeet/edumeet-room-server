@@ -222,9 +222,9 @@ export default class Room extends EventEmitter {
 	}
 
 	@skipIfClosed
-	public async addPeer(peer: Peer): Promise<void> {
+	public async addPeer(peer: Peer, isReconnect = false): Promise<void> {
 		logger.debug('addPeer() [id: %s]', peer.id);
-		
+
 		peer.once('close', () => this.removePeer(peer));
 
 		try {
@@ -240,7 +240,7 @@ export default class Room extends EventEmitter {
 			this.waitingPeers.remove(peer);
 
 			// This will update the permissions of the peer based on what we possibly got from the management service
-			updatePeerPermissions(this, peer);
+			updatePeerPermissions(this, peer, false, isReconnect);
 
 			if (isAllowed(this, peer))
 				this.allowPeer(peer);

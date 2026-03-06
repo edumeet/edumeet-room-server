@@ -33,6 +33,7 @@ interface PeerOptions {
 	connection?: BaseConnection;
 	managedId?: string;
 	reconnectKey: string;
+	permissions?: string[];
 }
 
 export interface PeerInfo {
@@ -76,7 +77,7 @@ export class Peer extends EventEmitter {
 	#managedId?: string;
 	#reconnectKey: string;
 	public groupIds: string[] = [];
-	#permissions: string[] = [];
+	#permissions: Set<string> = new Set();
 
 	public connections = List<BaseConnection>();
 
@@ -124,6 +125,7 @@ export class Peer extends EventEmitter {
 		sessionId,
 		connection,
 		reconnectKey,
+		permissions,
 	}: PeerOptions) {
 		logger.debug(
 			{ id, managedId, displayName, sessionId, reconnectKey },
@@ -138,6 +140,9 @@ export class Peer extends EventEmitter {
 		this.picture = picture;
 		this.#managedId = managedId;
 		this.#reconnectKey = reconnectKey;
+
+		if (permissions?.length)
+			this.#permissions = new Set(permissions);
 
 		this.routerReset(true);
 
@@ -285,16 +290,18 @@ export class Peer extends EventEmitter {
 	}
 
 	public get permissions(): string[] {
-		return this.#permissions;
+		return [ ...this.#permissions ];
 	}
 
 	public set permissions(value: string[]) {
+		const newPermissions = new Set(value);
+
 		// Find the diff between the old and new permissions
-		const added = value.filter((x) => !this.#permissions.includes(x));
-		const removed = this.#permissions.filter((x) => !value.includes(x));
+		const added = [ ...newPermissions ].filter((x) => !this.#permissions.has(x));
+		const removed = [ ...this.#permissions ].filter((x) => !newPermissions.has(x));
 
 		// Update the permissions
-		this.#permissions = value;
+		this.#permissions = newPermissions;
 
 		// Notify the client of the changes
 		added.forEach((permission) => this.notify({ method: 'permissionAdded', data: { permission } }));
@@ -330,7 +337,7 @@ export class Peer extends EventEmitter {
 	}
 
 	public hasPermission(permission: Permission): boolean {
-		return this.#permissions.includes(permission);
+		return this.#permissions.has(permission);
 	}
 
 	public get raisedHand(): boolean {
