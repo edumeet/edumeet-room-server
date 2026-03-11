@@ -17,6 +17,7 @@ interface InternalActiveSpeakerObserverOptions extends ActiveSpeakerObserverOpti
 	mediaNode: MediaNode;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface ActiveSpeakerObserver {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: (remoteClose: boolean) => void): this;
@@ -24,6 +25,7 @@ export declare interface ActiveSpeakerObserver {
 	on(event: 'dominantspeaker', listener: (dominantSpeakerId: string) => void): this;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class ActiveSpeakerObserver extends EventEmitter {
 	public closed = false;
 	public router: Router;

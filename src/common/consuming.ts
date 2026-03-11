@@ -43,6 +43,7 @@ export const createConsumer = async (
 	consumerPeer: Peer,
 	producerPeer: Peer,
 	producer: Producer,
+	retryCount = 0,
 ): Promise<void> => {
 	const [ consumerError, consumerRouter ] = await consumerPeer.routerReady;
 	const [ producerError, producerRouter ] = await producerPeer.routerReady;
@@ -100,17 +101,21 @@ export const createConsumer = async (
 			producerId: consumer.producerId
 		}, 'created consumer');
 
-		// The consuming peer went to a different session, maybe close the consumer
-		consumerPeer.on('sessionIdChanged', () => {
+		const onConsumerSessionChange = () => {
 			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
-		});
+		};
+		const onProducerSessionChange = () => {
+			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
+		};
 
+		// The consuming peer went to a different session, maybe close the consumer
+		consumerPeer.on('sessionIdChanged', onConsumerSessionChange);
 		// The producing peer went to a different session, maybe close the consumer
-		producerPeer.on('sessionIdChanged', () => {
-			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
-		});
+		producerPeer.on('sessionIdChanged', onProducerSessionChange);
 
 		consumer.once('close', () => {
+			consumerPeer.off('sessionIdChanged', onConsumerSessionChange);
+			producerPeer.off('sessionIdChanged', onProducerSessionChange);
 			consumerPeer.consumers.delete(consumer.id);
 			(consumer.appData.layerReporter as LayerReporter)?.close();
 
@@ -199,7 +204,10 @@ export const createConsumer = async (
 			}
 		}));
 
-		if (consumer.producerPaused) {
+		// Also check producer.paused to catch the race where consumerProducerPaused
+		// arrived from the media node in the same Socket.IO packet as the consume ack,
+		// and was processed before the consumer was registered in router.consumers.
+		if (consumer.producerPaused || producer.paused) {
 			consumer.appData.suspended = true;
 
 			logger.debug({
@@ -239,7 +247,13 @@ export const createConsumer = async (
 			}, 'notify newConsumer (initial)');
 		}
 	} catch (error) {
-		return logger.error({ err: error }, 'createConsumer() [error: %o]');
+		logger.error({ err: error }, 'createConsumer() [error: %o]');
+
+		if (retryCount < 1 && !producer.closed && !consumerPeer.closed) {
+			await new Promise<void>((resolve) => setTimeout(resolve, 500));
+
+			return createConsumer(consumerPeer, producerPeer, producer, retryCount + 1);
+		}
 	}
 };
 

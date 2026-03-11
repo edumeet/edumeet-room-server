@@ -38,6 +38,7 @@ interface MediaNodeOptions {
 	kdPoint: KDPoint
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface MediaNode {
 	// eslint-disable-next-line no-unused-vars
 	once(event: 'connectionClosed', listener: () => void): this;
@@ -45,6 +46,7 @@ export declare interface MediaNode {
 	once(event: 'draining', listener: () => void): this;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class MediaNode extends EventEmitter {
 	public id: string;
 	public closed = false;

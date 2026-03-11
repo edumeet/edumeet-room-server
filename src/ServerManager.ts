@@ -28,6 +28,12 @@ export default class ServerManager {
 	public mediaService: MediaService;
 	public managementService?: ManagementService;
 
+	// Cache permissions for peers that closed during a network disconnect so they
+	// can be restored if the peer reconnects slowly (after the 5-second window).
+	// Keyed by reconnectKey (which is reset on intentional leave, so stale entries
+	// never match a new session). Entries expire after 60 seconds.
+	private reconnectPermissionsCache = new Map<string, string[]>();
+
 	constructor({ mediaService, peers, rooms, managedPeers, managedRooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
 
@@ -87,6 +93,7 @@ export default class ServerManager {
 			'handleConnection() peerManagedId'
 		);
 
+		let room = this.rooms.get(`${tenantId}/${roomId}`);
 		let peer = this.peers.get(peerId);
 
 		if (peer) {
@@ -94,15 +101,22 @@ export default class ServerManager {
 
 			// if reconnectKey equal is a reconnect, else do not accept new connection
 			if (reconnectKey === peer.reconnectKey) {
-				logger.debug('handleConnection() reconnectKey equal, closing old peer [peerId: %s]', peerId);
-				peer.close();
+				logger.debug('handleConnection() reconnectKey equal, doing socket swap [peerId: %s]', peerId);
+
+				peer.switchConnection(connection);
+
+				if (room) {
+					room.reconnectPeer(peer);
+				} else {
+					peer.close();
+				}
+
+				return;
 			} else {
 				logger.debug('handleConnection() reconnectKey not equal, rejecting new connection [peerId: %s]', peerId);
 				throw new Error('Invalid reconnectKey');
 			}
 		}
-
-		let room = this.rooms.get(`${tenantId}/${roomId}`);
 
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
@@ -151,7 +165,16 @@ export default class ServerManager {
 			void this.initializeManagedRoom(room, roomId, tenantId);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey });
+		let isReconnect = false;
+
+		const savedPermissions = this.reconnectPermissionsCache.get(reconnectKey);
+
+		if (savedPermissions) {
+			isReconnect = true;
+			this.reconnectPermissionsCache.delete(reconnectKey);
+		}
+
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions });
 
 		this.peers.set(peerId, peer);
 
@@ -195,6 +218,20 @@ export default class ServerManager {
 		peer.once('close', () => {
 			logger.debug('handleConnection() peer closed [peerId: %s]', peerId);
 
+			// Cache permissions so they can be restored on slow reconnect
+			// (> 5 s window). The reconnectKey is reset on intentional leave,
+			// so stale entries will never match a fresh join.
+			const perms = peer.permissions;
+
+			if (perms.length > 0) {
+				this.reconnectPermissionsCache.set(peer.reconnectKey, perms);
+
+				setTimeout(
+					() => this.reconnectPermissionsCache.delete(peer.reconnectKey),
+					120_000 // > max reconnect time (~95 s with 10 attempts + randomization)
+				);
+			}
+
 			const peerManagedId = peer.managedId;
 
 			if (peerManagedId) {
@@ -203,16 +240,15 @@ export default class ServerManager {
 				if (set) {
 					set.delete(peer);
 
-					if (set.size === 0) {
+					if (set.size === 0)
 						this.managedPeers.delete(peerManagedId);
-					}
 				}
 			}
 
 			this.peers.delete(peerId);
 		});
 
-		room.addPeer(peer);
+		room.addPeer(peer, isReconnect);
 	}
 
 	private async initializeManagedRoom(room: Room, roomId: string, tenantId: number): Promise<void> {

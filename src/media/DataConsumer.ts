@@ -20,11 +20,13 @@ interface InternalDataConsumerOptions extends DataConsumerOptions {
 	appData?: Record<string, unknown>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface DataConsumer {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class DataConsumer extends EventEmitter {
 	public closed = false;
 	public router: Router;

@@ -20,11 +20,13 @@ interface InternalPipeDataConsumerOptions extends PipeDataConsumerOptions {
 	appData?: Record<string, unknown>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export declare interface PipeDataConsumer {
 	// eslint-disable-next-line no-unused-vars
 	on(event: 'close', listener: (remoteClose: boolean) => void): this;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class PipeDataConsumer extends EventEmitter {
 	public closed = false;
 	public router: Router;

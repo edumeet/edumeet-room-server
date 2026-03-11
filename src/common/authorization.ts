@@ -70,7 +70,7 @@ export const permittedProducer = (source: MediaSourceType, room: Room, peer: Pee
 		throw new Error('peer not authorized');
 };
 
-export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): void => {
+export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, isReconnect = false): void => {
 	const hadPromotePermission = peer.hasPermission(Permission.PROMOTE_PEER);
 	const defaultPermissions = room.defaultRole?.permissions.map((p) => p.name) ?? [];
 	let shouldPromote = false;
@@ -85,6 +85,11 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 			shouldPromote = inLobby;
 			shouldGiveLobbyPeers = !hadPromotePermission;
 		} else {
+			let currentPermissions = peer.permissions;
+
+			if (!isReconnect)
+				currentPermissions = [];
+
 			// Find the user roles the peer has, and get the roles for those user roles
 			const userPermissions = room.userRoles
 				.filter((ur) => ur.userId === peer.managedId)
@@ -97,7 +102,7 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false): 
 				.flat();
 
 			// Combine and remove duplicates
-			peer.permissions = [ ...new Set([ ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
+			peer.permissions = [ ...new Set([ ...currentPermissions, ...userPermissions, ...groupPermissions, ...defaultPermissions ]) ];
 
 			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);

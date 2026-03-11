@@ -38,6 +38,7 @@ const logger = new Logger('SocketIOConnection');
 export class IOServerConnection extends BaseConnection {
 	public closed = false;
 	private socket: Socket<ClientServerEvents, ServerClientEvents>;
+	private reconnectTimer?: ReturnType<typeof setTimeout>;
 
 	constructor(socket: Socket<ClientServerEvents, ServerClientEvents>) {
 		super();
@@ -54,12 +55,25 @@ export class IOServerConnection extends BaseConnection {
 
 		this.closed = true;
 
+		if (this.reconnectTimer) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = undefined;
+		}
+
 		if (this.socket.connected)
 			this.socket.disconnect(true);
 
 		this.socket.removeAllListeners();
 
 		this.emit('close');
+	}
+
+	public cancelClose(): void {
+		if (this.reconnectTimer) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = undefined;
+			logger.debug('cancelClose() reconnect window cancelled [id: %s]', this.id);
+		}
 	}
 
 	public get id(): string {
@@ -119,11 +133,21 @@ export class IOServerConnection extends BaseConnection {
 	private handleSocket(): void {
 		logger.debug('handleSocket()');
 
-		// TODO: reconnect logic here
-		this.socket.once('disconnect', () => {
-			logger.debug('socket disconnected');
+		this.socket.once('disconnect', (reason: string) => {
+			logger.debug('socket disconnected [id: %s, reason: %s]', this.id, reason);
 
-			this.close();
+			if (reason === 'client namespace disconnect') {
+				// Client intentionally disconnected (leave button, kick, etc.) — close immediately.
+				this.close();
+			} else {
+				// Unintentional disconnect (network drop) — allow reconnect window.
+				logger.debug('starting reconnect window [id: %s]', this.id);
+
+				this.reconnectTimer = setTimeout(() => {
+					this.reconnectTimer = undefined;
+					this.close();
+				}, 5_000);
+			}
 		});
 
 		this.socket.on('notification', (notification) => {
