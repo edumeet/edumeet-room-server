@@ -34,9 +34,9 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@feathersjs/authentication-client": "^5.0.41",
-		"@feathersjs/feathers": "^5.0.41",
-		"@feathersjs/socketio-client": "^5.0.41",
+		"@feathersjs/authentication-client": "^5.0.42",
+		"@feathersjs/feathers": "^5.0.42",
+		"@feathersjs/socketio-client": "^5.0.42",
 		"@observertc/observer-js": "^0.40.32",
 		"@types/fast-stats": "^0.0.35",
 		"chokidar": "^5.0.0",
