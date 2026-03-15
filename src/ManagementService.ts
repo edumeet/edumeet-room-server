@@ -250,7 +250,7 @@ export default class ManagementService {
 
 		if (!clientHost) return 0;
 
-		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn: clientHost, $limit: 1 } });
+		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn: clientHost.replace(/\.$/, ''), $limit: 1 } });
 
 		logger.debug({ total, data }, 'getTenantFromFqdn() - tenantFQDNsService.find');
 
