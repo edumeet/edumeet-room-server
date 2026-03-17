@@ -25,7 +25,7 @@ $ yarn install
 $ MANAGEMENT_USERNAME=username MANAGEMENT_PASSWORD=password yarn start
 ```
 
-To run the service you need to have Node.js version 18 or higher installed. Alternatively you can get some debug output by running it like this:
+To run the service you need to have Node.js version 24 or higher installed. Alternatively you can get some debug output by running it like this:
 
 ```bash
 $ DEBUG=edumeet:* yarn start
