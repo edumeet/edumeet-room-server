@@ -369,7 +369,7 @@ export default class Room extends EventEmitter {
 
 	@skipIfClosed
 	public promoteAllPeers(): void {
-		this.lobbyPeers.items.forEach((p) => this.promotePeer(p));
+		[ ...this.lobbyPeers.items ].forEach((p) => this.promotePeer(p));
 	}
 
 	@skipIfClosed
