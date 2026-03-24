@@ -222,7 +222,8 @@ export default class ManagementService {
 				defaultRole: fdata.defaultRole || [],
 				maxActiveVideos: 12,
 				disableUnmanaged: Boolean(fdata.disableUnmanaged),
-				locked: Boolean(fdata.disableUnmanaged) ? true : Boolean(fdata.lockedUnmanaged),
+				// If unmanaged rooms are disabled, force locked=true regardless of lockedUnmanaged setting
+				locked: Boolean(fdata.disableUnmanaged) || Boolean(fdata.lockedUnmanaged),
 				tracker: fdata.tracker || config.defaultRoomSettings?.tracker || '',
 				maxFileSize: maxFileSize,
 				breakoutsEnabled: Boolean(fdata.breakoutsEnabledUnmanaged),
