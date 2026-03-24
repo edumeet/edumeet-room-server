@@ -67,6 +67,7 @@ export default class Room extends EventEmitter {
 	public userRoles: ManagedUserRole[] = []; // Possibly updated by the management service
 	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
 	public defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
+	public disableUnmanaged = false; // Possibly updated by the management service
 	public locked = true; // Possibly updated by the management service
 	public tracker?: string; // Torrent tracker
 	public maxFileSize = 100_000_000; // Torrent tracker

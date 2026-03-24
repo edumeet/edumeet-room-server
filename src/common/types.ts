@@ -254,6 +254,7 @@ export type Default = {
 	lockedManaged: boolean | undefined,
 	raiseHandEnabledManaged: boolean | undefined,
 	localRecordingEnabledManaged: boolean | undefined,
+	disableUnmanaged: boolean | undefined,
 	lockedUnmanaged: boolean | undefined,
 	raiseHandEnabledUnmanaged: boolean | undefined,
 	localRecordingEnabledUnmanaged: boolean | undefined,

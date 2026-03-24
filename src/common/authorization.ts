@@ -117,7 +117,6 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 		);
 
 		// If the peer is authorized he should have BYPASS_ROOM_LOCK
-		// TODO in future add an flag in menagment to turn this on or off
 		if (peer.managedId) {
 			logger.debug('Is auth peer - adding Permission.BYPASS_ROOM_LOCK');
 			unmanagedAdminPermissions.push(Permission.BYPASS_ROOM_LOCK);
@@ -129,6 +128,10 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 		// We combine as in default permissions BYPASS_ROOM_LOCK might be added
 		peer.permissions = [ ...new Set([ ...unmanagedAdminPermissions, ...defaultPermissions ]) ];
 
+		// Ensure disableUnmanaged can't be bypassed via a defaultRole that includes BYPASS_ROOM_LOCK
+		if (room.disableUnmanaged)
+			peer.permissions = peer.permissions.filter((p) => p !== Permission.BYPASS_ROOM_LOCK);
+
 		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 	} else { // unmanaged rooms - default
@@ -137,6 +140,10 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 		// Combine defaultPermissions with current permissions
 		// We combine as user might logged in while in room, so if he is unmanaged admin from if above, he has to keep the permissions
 		peer.permissions = [ ...new Set([ ...peer.permissions, ...defaultPermissions ]) ];
+
+		// Ensure disableUnmanaged can't be bypassed via a defaultRole that includes BYPASS_ROOM_LOCK
+		if (room.disableUnmanaged)
+			peer.permissions = peer.permissions.filter((p) => p !== Permission.BYPASS_ROOM_LOCK);
 
 		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);

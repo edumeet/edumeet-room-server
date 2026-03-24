@@ -350,6 +350,9 @@ export default class ServerManager {
 					if (typeof managedRoom.maxActiveVideos === 'number')
 						room.maxActiveVideos = managedRoom.maxActiveVideos;
 
+					if (typeof managedRoom.disableUnmanaged === 'boolean')
+						room.disableUnmanaged = managedRoom.disableUnmanaged;
+
 					if (typeof managedRoom.locked === 'boolean')
 						room.locked = managedRoom.locked;
 
