@@ -442,13 +442,18 @@ export default class Room extends EventEmitter {
 			if (mediaNode.turnHostname && mediaNode.turnports)
 				iceServers = getIceServers({ hostname: mediaNode.turnHostname, turnports: mediaNode.turnports, ...getCredentials(peer.id, mediaNode.secret, 3600) });
 	
-			const { rtpCapabilities, sctpCapabilities } = await peer.request({
+			const mediaConfigResult = await peer.request({
 				method: 'mediaConfiguration',
 				data: {
 					routerRtpCapabilities: router.rtpCapabilities,
 					iceServers,
 				}
-			}) as { rtpCapabilities: RtpCapabilities, sctpCapabilities: SctpCapabilities };
+			}) as { rtpCapabilities: RtpCapabilities, sctpCapabilities: SctpCapabilities } | undefined;
+
+			if (!mediaConfigResult)
+				throw new Error('mediaConfiguration request returned no result');
+
+			const { rtpCapabilities, sctpCapabilities } = mediaConfigResult;
 
 			router.once('close', () => {
 				this.routers.remove(router);
