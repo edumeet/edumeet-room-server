@@ -294,19 +294,23 @@ export const createDataConsumer = async (
 
 		consumerPeer.dataConsumers.set(dataConsumer.id, dataConsumer);
 
+		const onConsumerSessionChange = () => {
+			if (!consumerPeer.sameSession(producerPeer)) dataConsumer.close();
+		};
+
+		const onProducerSessionChange = () => {
+			if (!consumerPeer.sameSession(producerPeer)) dataConsumer.close();
+		};
+
 		// The consuming peer went to a different session, maybe close the consumer
-		consumerPeer.on('sessionIdChanged', () => {
-			if (!consumerPeer.sameSession(producerPeer))
-				dataConsumer.close();
-		});
+		consumerPeer.on('sessionIdChanged', onConsumerSessionChange);
 
 		// The producing peer went to a different session, maybe close the consumer
-		producerPeer.on('sessionIdChanged', () => {
-			if (!consumerPeer.sameSession(producerPeer))
-				dataConsumer.close();
-		});
+		producerPeer.on('sessionIdChanged', onProducerSessionChange);
 
 		dataConsumer.once('close', () => {
+			consumerPeer.off('sessionIdChanged', onConsumerSessionChange);
+			producerPeer.off('sessionIdChanged', onProducerSessionChange);
 			consumerPeer.dataConsumers.delete(dataConsumer.id);
 
 			consumerPeer.notify({
