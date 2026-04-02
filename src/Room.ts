@@ -365,6 +365,42 @@ export default class Room extends EventEmitter {
 
 		this.peers.add(peer);
 
+		// When a peer changes session (breakout rooms), close all consumers
+		// where the consumer and producer peers are no longer in the same session.
+		// This replaces per-consumer sessionIdChanged listeners with a single
+		// listener per peer, avoiding O(n) listener accumulation.
+		peer.on('sessionIdChanged', () => {
+			// Consumers on this peer (this peer is the consumer)
+			for (const consumer of peer.consumers.values()) {
+				const producerPeer = this.peers.items.find((p) => p.id === consumer.appData.producerPeerId);
+
+				if (producerPeer && !peer.sameSession(producerPeer))
+					consumer.close();
+			}
+
+			for (const dataConsumer of peer.dataConsumers.values()) {
+				const producerPeer = this.peers.items.find((p) => p.id === dataConsumer.appData.producerPeerId);
+
+				if (producerPeer && !peer.sameSession(producerPeer))
+					dataConsumer.close();
+			}
+
+			// Consumers on other peers that consume from this peer (this peer is the producer)
+			for (const otherPeer of this.peers.items) {
+				if (otherPeer === peer) continue;
+
+				for (const consumer of otherPeer.consumers.values()) {
+					if (consumer.appData.producerPeerId === peer.id && !otherPeer.sameSession(peer))
+						consumer.close();
+				}
+
+				for (const dataConsumer of otherPeer.dataConsumers.values()) {
+					if (dataConsumer.appData.producerPeerId === peer.id && !otherPeer.sameSession(peer))
+						dataConsumer.close();
+				}
+			}
+		});
+
 		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
 	}
 

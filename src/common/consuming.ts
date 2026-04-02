@@ -89,6 +89,7 @@ export const createConsumer = async (
 		// If the consuming peer went to a different session, maybe close the consumer
 		if (!consumerPeer.sameSession(producerPeer)) return consumer.close();
 
+		consumer.appData.producerPeerId = producerPeer.id;
 		consumerPeer.consumers.set(consumer.id, consumer);
 
 		logger.debug({
@@ -101,21 +102,7 @@ export const createConsumer = async (
 			producerId: consumer.producerId
 		}, 'created consumer');
 
-		const onConsumerSessionChange = () => {
-			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
-		};
-		const onProducerSessionChange = () => {
-			if (!consumerPeer.sameSession(producerPeer)) consumer.close();
-		};
-
-		// The consuming peer went to a different session, maybe close the consumer
-		consumerPeer.on('sessionIdChanged', onConsumerSessionChange);
-		// The producing peer went to a different session, maybe close the consumer
-		producerPeer.on('sessionIdChanged', onProducerSessionChange);
-
 		consumer.once('close', () => {
-			consumerPeer.off('sessionIdChanged', onConsumerSessionChange);
-			producerPeer.off('sessionIdChanged', onProducerSessionChange);
 			consumerPeer.consumers.delete(consumer.id);
 			(consumer.appData.layerReporter as LayerReporter)?.close();
 
@@ -292,25 +279,10 @@ export const createDataConsumer = async (
 		if (!consumerPeer.sameSession(producerPeer))
 			return dataConsumer.close();
 
+		dataConsumer.appData.producerPeerId = producerPeer.id;
 		consumerPeer.dataConsumers.set(dataConsumer.id, dataConsumer);
 
-		const onConsumerSessionChange = () => {
-			if (!consumerPeer.sameSession(producerPeer)) dataConsumer.close();
-		};
-
-		const onProducerSessionChange = () => {
-			if (!consumerPeer.sameSession(producerPeer)) dataConsumer.close();
-		};
-
-		// The consuming peer went to a different session, maybe close the consumer
-		consumerPeer.on('sessionIdChanged', onConsumerSessionChange);
-
-		// The producing peer went to a different session, maybe close the consumer
-		producerPeer.on('sessionIdChanged', onProducerSessionChange);
-
 		dataConsumer.once('close', () => {
-			consumerPeer.off('sessionIdChanged', onConsumerSessionChange);
-			producerPeer.off('sessionIdChanged', onProducerSessionChange);
 			consumerPeer.dataConsumers.delete(dataConsumer.id);
 
 			consumerPeer.notify({
