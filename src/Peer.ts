@@ -104,6 +104,7 @@ export class Peer extends EventEmitter {
 
 	private turnCredentialsInterval?: NodeJS.Timeout;
 
+	public router?: Router;
 	public consumingTransport?: WebRtcTransport;
 	public producingTransport?: WebRtcTransport;
 	public consumers = new Map<string, Consumer>();
@@ -155,6 +156,7 @@ export class Peer extends EventEmitter {
 	}
 
 	public routerReset(initial = false): void {
+		this.router = undefined;
 		this.rtpCapabilities = undefined;
 		this.sctpCapabilities = undefined;
 
