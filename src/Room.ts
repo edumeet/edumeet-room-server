@@ -220,6 +220,20 @@ export default class Room extends EventEmitter {
 	public addRouter(router: Router): void {
 		if (this.routers.has(router)) return;
 		this.routers.add(router);
+
+		// Single close handler per router. When a router closes, find all
+		// peers that were using it and reset/reassign them. This avoids
+		// O(n) close listeners when many peers share the same router.
+		router.once('close', () => {
+			this.routers.remove(router);
+
+			for (const peer of this.peers.items) {
+				if (peer.router === router) {
+					peer.routerReset();
+					this.assignRouter(peer);
+				}
+			}
+		});
 	}
 
 	@skipIfClosed
@@ -491,14 +505,9 @@ export default class Room extends EventEmitter {
 
 			const { rtpCapabilities, sctpCapabilities } = mediaConfigResult;
 
-			router.once('close', () => {
-				this.routers.remove(router);
-				peer.routerReset();
-				this.assignRouter(peer);
-			});
-
 			this.addRouter(router);
 			this.addMediaNode(mediaNode);
+			peer.router = router;
 			peer.resolveRouterReady(router);
 			
 			peer.rtpCapabilities = rtpCapabilities;
