@@ -41,7 +41,7 @@
 		"@types/fast-stats": "^0.0.35",
 		"chokidar": "^5.0.0",
 		"debug": "^4.4.3",
-		"edumeet-common": "github:edumeet/edumeet-common#0.6.8",
+		"edumeet-common": "github:edumeet/edumeet-common#0.6.9",
 		"fast-stats": "^0.0.7",
 		"geoip-lite": "^2.0.1",
 		"h264-profile-level-id": "^1.1.1",
