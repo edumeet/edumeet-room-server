@@ -508,58 +508,58 @@
     "@eslint/core" "^0.17.0"
     levn "^0.4.1"
 
-"@feathersjs/adapter-commons@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/adapter-commons/-/adapter-commons-5.0.42.tgz#9238da56e4b646aab0eec544933c4856edb75c7e"
-  integrity sha512-hIJj6wzoQvOxvem9+WFsduToAlNqoRkp5qdBQvYXTU4LpjiNJvgrzf9KuL/uSNlN7etr5VniYiDsXJJvpgPpWg==
+"@feathersjs/adapter-commons@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/adapter-commons/-/adapter-commons-5.0.44.tgz#5f9602c4dccd0e5e31192beb730c47002e752f3b"
+  integrity sha512-m9rho8bJnNw8wJEuwQkUMiWf9N8qeWxUB/4yDD2lEwKIlP7/DKxwrWveN11T5veO4T452Z+5/uv5chBWijYG5w==
   dependencies:
-    "@feathersjs/commons" "^5.0.42"
-    "@feathersjs/errors" "^5.0.42"
-    "@feathersjs/feathers" "^5.0.42"
+    "@feathersjs/commons" "^5.0.44"
+    "@feathersjs/errors" "^5.0.44"
+    "@feathersjs/feathers" "^5.0.44"
 
-"@feathersjs/authentication-client@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/authentication-client/-/authentication-client-5.0.42.tgz#896ba01e53692eddfa9b40b1f9be6bd78d7641ec"
-  integrity sha512-tcHvC+AkWf9VWSQ2j5r2O2zuM16xFw4ASvrRhY3xB869gTnTkdxjxij6CEJynNyrCbkeLpRE1VhZo/6KIJy+fw==
+"@feathersjs/authentication-client@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/authentication-client/-/authentication-client-5.0.44.tgz#7e98c0e12b8c3dfc4e4bfc1f32bf279de8da080b"
+  integrity sha512-VJ+WoEDnAQQK+2VnSxkFzZ2zFZ1lf+CTMmb1VPmUT+sn64tcxAXcHxqGbb9hFJh2WTiDF+jFAgSkuc0+C1d3TA==
   dependencies:
-    "@feathersjs/authentication" "^5.0.42"
-    "@feathersjs/commons" "^5.0.42"
-    "@feathersjs/errors" "^5.0.42"
-    "@feathersjs/feathers" "^5.0.42"
+    "@feathersjs/authentication" "^5.0.44"
+    "@feathersjs/commons" "^5.0.44"
+    "@feathersjs/errors" "^5.0.44"
+    "@feathersjs/feathers" "^5.0.44"
 
-"@feathersjs/authentication@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/authentication/-/authentication-5.0.42.tgz#ef4ae357bcee14fbbbd80cc4620ae47052939a2c"
-  integrity sha512-ZVzzZwJq/g4dRmiHbxe3aP829l7Xv80iTuDPPrmfg7p4f3PBpcNmyXjRTsIrqq6Y0V2qtpMt0OAhise2Oj2nQg==
+"@feathersjs/authentication@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/authentication/-/authentication-5.0.44.tgz#6b993f99f3016671f6bbf2cd12c8b19db8ba0b4a"
+  integrity sha512-ZTWYtLI1rOa7jvijhJQNNkNJaB/SGCY2q/qgKafoNxBxvyj+u8lIGYi53aZzTL397XbbDG2d7aeBZaV1pc+eMA==
   dependencies:
-    "@feathersjs/commons" "^5.0.42"
-    "@feathersjs/errors" "^5.0.42"
-    "@feathersjs/feathers" "^5.0.42"
+    "@feathersjs/commons" "^5.0.44"
+    "@feathersjs/errors" "^5.0.44"
+    "@feathersjs/feathers" "^5.0.44"
     "@feathersjs/hooks" "^0.9.0"
-    "@feathersjs/schema" "^5.0.42"
-    "@feathersjs/transport-commons" "^5.0.42"
+    "@feathersjs/schema" "^5.0.44"
+    "@feathersjs/transport-commons" "^5.0.44"
     "@types/jsonwebtoken" "^9.0.10"
     jsonwebtoken "^9.0.3"
     lodash "^4.17.23"
     long-timeout "^0.1.1"
     uuid "^11.1.0"
 
-"@feathersjs/commons@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/commons/-/commons-5.0.42.tgz#c1f85efdabe612159da19f485f39214416ab7221"
-  integrity sha512-UbnQmeCAb4LMRyOz4wMklE/ZyJuZO/SN/RQQyGvzCfsslr6uaXxtzq87+XH2cjB0v4v3Js+g/Sv0l1HOEraW4g==
+"@feathersjs/commons@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/commons/-/commons-5.0.44.tgz#4c8cf432a47daf231714366d58d53a58d7d9250a"
+  integrity sha512-PnxCyKqzWLAqv1LSazDsOXNf520KQOlqUasZ/9YRz4lYRPJ0pzzfZXvzmjBFOsNPaohzKmyySS8578E9vlTQrA==
 
-"@feathersjs/errors@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/errors/-/errors-5.0.42.tgz#462d27d3f9d29d8a6badfe4f020e5fcee46dc1fc"
-  integrity sha512-PRZNYuLqFwtSZB3h/gVnYM0C3D7vAkOF7bEjPpAHl7j3QWbZbx6wdNWv0KX1fd+hm+6yF2JxR0Fzjbvo4w51TA==
+"@feathersjs/errors@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/errors/-/errors-5.0.44.tgz#4467d9b102bbe84f3e0aef1f39bdd6ba50bf748c"
+  integrity sha512-QcxrUvEFHGBT47VyH02rlhw51M+G0yam3fpDnko1HlkM6C62notLwE2lirEDz34JWITwkn/lwV527h1HwHpOuQ==
 
-"@feathersjs/feathers@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/feathers/-/feathers-5.0.42.tgz#4f422614ad26e2bf60eb79176cc45434fab50935"
-  integrity sha512-XNPZ45Gd5cBGmZiJcc5FBlS2J+EX/jZCCY44hbi8EvfI0uL3nkYcCwyg9Wh8xheb+gjB+Zb57zedZXg9MZaxqA==
+"@feathersjs/feathers@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/feathers/-/feathers-5.0.44.tgz#94f114890cc8ea5a4b1dee2ca9d6f308dca4bd2a"
+  integrity sha512-qxZ9ZQQBIfyIdQKUIFUXZ2EegcUWpIwG4BOBpO7RZXu7nlv9SNMttrTbVWEfUzc72jhKtJuRW8/FHdrsb1446g==
   dependencies:
-    "@feathersjs/commons" "^5.0.42"
+    "@feathersjs/commons" "^5.0.44"
     "@feathersjs/hooks" "^0.9.0"
     events "^3.3.0"
 
@@ -568,37 +568,37 @@
   resolved "https://registry.yarnpkg.com/@feathersjs/hooks/-/hooks-0.9.0.tgz#8aa339b83d17fcbd929e80113a3c0616979b33cb"
   integrity sha512-kLfWnuhbC25CPkR1/TDcVs0rSiv0JLNxrpUivLwc7FUnkyeciRi5VOmC1SOzL2SOagcozu3+m4VQiONyzgfY7w==
 
-"@feathersjs/schema@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/schema/-/schema-5.0.42.tgz#0012aa475a02224d14d7e6f7ba0a31decf53dc3a"
-  integrity sha512-jLWDnQaddgNwTKa7Zmj3CvHCJ7ScrzQpHJHrurhuy3/H3GiDNlYwQ3N0J5njxRsVN5GCKFvgVHQRxpHXrs4EeQ==
+"@feathersjs/schema@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/schema/-/schema-5.0.44.tgz#5ee8f96b8fdf807fdf744e0ea3bf64bf4d4d967f"
+  integrity sha512-1xk7+Zs17MQEgfPDipf9ribG4hF+YdYxfO3Dijn1GSk1x285HVqgSH4MQLUpY+z6gfBn5/jE3S7+yDQ4ITmrXw==
   dependencies:
-    "@feathersjs/adapter-commons" "^5.0.42"
-    "@feathersjs/commons" "^5.0.42"
-    "@feathersjs/errors" "^5.0.42"
-    "@feathersjs/feathers" "^5.0.42"
+    "@feathersjs/adapter-commons" "^5.0.44"
+    "@feathersjs/commons" "^5.0.44"
+    "@feathersjs/errors" "^5.0.44"
+    "@feathersjs/feathers" "^5.0.44"
     "@feathersjs/hooks" "^0.9.0"
     "@types/json-schema" "^7.0.15"
     ajv "^8.18.0"
     ajv-formats "^3.0.1"
     json-schema-to-ts "^3.1.1"
 
-"@feathersjs/socketio-client@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/socketio-client/-/socketio-client-5.0.42.tgz#dcc96db3a1a3c60f99037d7be8a9b7139b8f6c48"
-  integrity sha512-AjVfh6TMQTQZUvIp1C+99MbMJxInzhidg29OsHsbkJUYby7JiQGOf2Q9sM9BKCyOagLNCua5/R46OwtiWq2Gaw==
+"@feathersjs/socketio-client@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/socketio-client/-/socketio-client-5.0.44.tgz#df4475a861c6aa64a9e5b6c52c78e62cd95fef37"
+  integrity sha512-u2Kou90fF2jPCRXNq+wFiyAsUonaGrORxKWQl26AAVL/J36PybkxgvVR1TNzcPKk2KbHriUhMqYFyaIPBmkfEg==
   dependencies:
-    "@feathersjs/feathers" "^5.0.42"
-    "@feathersjs/transport-commons" "^5.0.42"
+    "@feathersjs/feathers" "^5.0.44"
+    "@feathersjs/transport-commons" "^5.0.44"
 
-"@feathersjs/transport-commons@^5.0.42":
-  version "5.0.42"
-  resolved "https://registry.yarnpkg.com/@feathersjs/transport-commons/-/transport-commons-5.0.42.tgz#979019f70f5b7e2a491975a1160a25ea2d7eeb46"
-  integrity sha512-ZliACrbX81b9C7D8egW/Lw8J70tm11ghqdB82gWvlGqyCl2sr6pij2kdiz51ifLLNIj4bQGU8ZFMXEN6zcYpww==
+"@feathersjs/transport-commons@^5.0.44":
+  version "5.0.44"
+  resolved "https://registry.yarnpkg.com/@feathersjs/transport-commons/-/transport-commons-5.0.44.tgz#d28f9d4065406682dbdb2b0640466c16ae98f1fd"
+  integrity sha512-BxUyGFcbt+o5TWcXKXNVrbh3zrq2iGAzE9uvaVJ7tVQX820LVHOWAp6NL5GxG+InhLUq0cc3CTpQENE0+oXRMw==
   dependencies:
-    "@feathersjs/commons" "^5.0.42"
-    "@feathersjs/errors" "^5.0.42"
-    "@feathersjs/feathers" "^5.0.42"
+    "@feathersjs/commons" "^5.0.44"
+    "@feathersjs/errors" "^5.0.44"
+    "@feathersjs/feathers" "^5.0.44"
     encodeurl "^2.0.0"
     lodash "^4.17.23"
 
@@ -1419,26 +1419,16 @@ ajv-formats@^3.0.1:
     ajv "^8.0.0"
 
 ajv@^6.12.4:
-  version "6.12.6"
-  resolved "https://registry.yarnpkg.com/ajv/-/ajv-6.12.6.tgz#baf5a62e802b07d977034586f8c3baf5adf26df4"
-  integrity sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==
+  version "6.14.0"
+  resolved "https://registry.yarnpkg.com/ajv/-/ajv-6.14.0.tgz#fd067713e228210636ebb08c60bd3765d6dbe73a"
+  integrity sha512-IWrosm/yrn43eiKqkfkHis7QioDleaXQHdDVPKg0FSwwd/DuvyX79TZnFOnYpB7dcsFAMmtFztZuXPDvSePkFw==
   dependencies:
     fast-deep-equal "^3.1.1"
     fast-json-stable-stringify "^2.0.0"
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
-ajv@^8.0.0:
-  version "8.17.1"
-  resolved "https://registry.yarnpkg.com/ajv/-/ajv-8.17.1.tgz#37d9a5c776af6bc92d7f4f9510eba4c0a60d11a6"
-  integrity sha512-B/gBuNg5SiMTrPkC+A2+cW0RszwxYmn6VYxB/inlBStS5nx6xHIt/ehKRhIMhqusl7a8LjQoZnjCs5vhwxOQ1g==
-  dependencies:
-    fast-deep-equal "^3.1.3"
-    fast-uri "^3.0.1"
-    json-schema-traverse "^1.0.0"
-    require-from-string "^2.0.2"
-
-ajv@^8.18.0:
+ajv@^8.0.0, ajv@^8.18.0:
   version "8.18.0"
   resolved "https://registry.yarnpkg.com/ajv/-/ajv-8.18.0.tgz#8864186b6738d003eb3a933172bb3833e10cefbc"
   integrity sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==
@@ -1501,13 +1491,6 @@ argparse@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/argparse/-/argparse-2.0.1.tgz#246f50f3ca78a3240f6c997e8a9bd1eac49e4b38"
   integrity sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==
-
-"async@2.1 - 2.6.4":
-  version "2.6.4"
-  resolved "https://registry.yarnpkg.com/async/-/async-2.6.4.tgz#706b7ff6084664cd7eae713f6f965433b5504221"
-  integrity sha512-mzo5dfJYwAn29PeiJ0zvwTo04zj8HDJj0Mn8TD7sno7q12prdbnasKJHhkm2c1LgrhlJ0teaea8860oxi51mGA==
-  dependencies:
-    lodash "^4.17.14"
 
 atomic-sleep@^1.0.0:
   version "1.0.0"
@@ -1605,24 +1588,24 @@ bintrees@1.0.2:
   integrity sha512-VOMgTMwjAaUG580SXn3LacVgjurrbMme7ZZNYGSSV7mmtY6QQRh0Eg3pwIcntQ77DErK1L0NxkbetjcoXzVwKw==
 
 brace-expansion@^1.1.7:
-  version "1.1.12"
-  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-1.1.12.tgz#ab9b454466e5a8cc3a187beaad580412a9c5b843"
-  integrity sha512-9T9UjW3r0UW5c1Q7GTwllptXwhvYmEzFhzMfZ9H7FQWt+uZePjZPjBP/W1ZEyZ1twGWom5/56TF4lPcqjnDHcg==
+  version "1.1.13"
+  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-1.1.13.tgz#d37875c01dc9eff988dd49d112a57cb67b54efe6"
+  integrity sha512-9ZLprWS6EENmhEOpjCYW2c8VkmOvckIJZfkr7rBW6dObmfgJ/L1GpSYW5Hpo9lDz4D1+n0Ckz8rU7FwHDQiG/w==
   dependencies:
     balanced-match "^1.0.0"
     concat-map "0.0.1"
 
 brace-expansion@^2.0.2:
-  version "2.0.2"
-  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-2.0.2.tgz#54fc53237a613d854c7bd37463aad17df87214e7"
-  integrity sha512-Jt0vHyM+jmUBqojB7E1NIYadt0vI0Qxjxd2TErW94wDz+E2LAm5vKMXXwg6ZZBTHPuUlDgQHKXvjGBdfcF1ZDQ==
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-2.0.3.tgz#0493338bdd58e319b1039c67cf7ee439892c01d9"
+  integrity sha512-MCV/fYJEbqx68aE58kv2cA/kiky1G8vux3OR6/jbS+jIMe/6fJWa0DTzJU7dqijOWYwHi1t29FlfYI9uytqlpA==
   dependencies:
     balanced-match "^1.0.0"
 
 brace-expansion@^5.0.2:
-  version "5.0.3"
-  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-5.0.3.tgz#6a9c6c268f85b53959ec527aeafe0f7300258eef"
-  integrity sha512-fy6KJm2RawA5RcHkLa1z/ScpBeA762UF9KmZQxwIbDtRJrgLzM10depAiEQ+CXYcoiqW1/m96OAAoke2nE9EeA==
+  version "5.0.5"
+  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-5.0.5.tgz#dcc3a37116b79f3e1b46db994ced5d570e930fdb"
+  integrity sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==
   dependencies:
     balanced-match "^4.0.2"
 
@@ -1874,9 +1857,9 @@ ecdsa-sig-formatter@1.0.11:
   dependencies:
     safe-buffer "^5.0.1"
 
-"edumeet-common@github:edumeet/edumeet-common#0.6.7":
-  version "0.6.7"
-  resolved "https://codeload.github.com/edumeet/edumeet-common/tar.gz/33219d2c0ba85167f0f512e9197d0b2c271c6f3d"
+"edumeet-common@github:edumeet/edumeet-common#0.6.8":
+  version "0.6.8"
+  resolved "https://codeload.github.com/edumeet/edumeet-common/tar.gz/828a4eef524e5e7aeeabe5be7e154faeada8a20f"
   dependencies:
     pino "^9.14.0"
     socket.io-client "^4.8.3"
@@ -2142,13 +2125,6 @@ fb-watchman@^2.0.2:
   dependencies:
     bser "2.1.1"
 
-fd-slicer@~1.1.0:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/fd-slicer/-/fd-slicer-1.1.0.tgz#25c7c89cb1f9077f8891bbe61d8f390eae256f1e"
-  integrity sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==
-  dependencies:
-    pend "~1.2.0"
-
 fdir@^6.5.0:
   version "6.5.0"
   resolved "https://registry.yarnpkg.com/fdir/-/fdir-6.5.0.tgz#ed2ab967a331ade62f18d077dae192684d50d350"
@@ -2240,18 +2216,16 @@ gensync@^1.0.0-beta.2:
   resolved "https://registry.yarnpkg.com/gensync/-/gensync-1.0.0-beta.2.tgz#32a6ee76c3d7f52d46b2b1ae5d93fea8580a25e0"
   integrity sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==
 
-geoip-lite@^1.4.10:
-  version "1.4.10"
-  resolved "https://registry.yarnpkg.com/geoip-lite/-/geoip-lite-1.4.10.tgz#138256ba97f1abee1afdec78df97a78d320c50f6"
-  integrity sha512-4N69uhpS3KFd97m00wiFEefwa+L+HT5xZbzPhwu+sDawStg6UN/dPwWtUfkQuZkGIY1Cj7wDVp80IsqNtGMi2w==
+geoip-lite@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/geoip-lite/-/geoip-lite-2.0.1.tgz#84d5f389cc67b67a99aaf0c5f91f03583b575014"
+  integrity sha512-cR9E28nu1a6dsvzB1tANhdmCyXWV1L4AiSCT9alHLIUl06599EGu33mqY99ieU0twQob0kfcDQ/sAUBvHb7swA==
   dependencies:
-    async "2.1 - 2.6.4"
     chalk "4.1 - 4.1.2"
     iconv-lite "0.4.13 - 0.6.3"
     ip-address "5.8.9 - 5.9.4"
     lazy "1.0.11"
-    rimraf "2.5.2 - 2.7.1"
-    yauzl "2.9.2 - 2.10.0"
+    yauzl "^3.2.1"
 
 get-caller-file@^2.0.5:
   version "2.0.5"
@@ -2294,7 +2268,7 @@ glob@^10.5.0:
     package-json-from-dist "^1.0.0"
     path-scurry "^1.11.1"
 
-glob@^7.1.3, glob@^7.1.4:
+glob@^7.1.4:
   version "7.2.3"
   resolved "https://registry.yarnpkg.com/glob/-/glob-7.2.3.tgz#b8df0fb802bbfa8e89bd1d938b4e16578ed44f2b"
   integrity sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==
@@ -3128,7 +3102,7 @@ lodash.once@^4.0.0:
   resolved "https://registry.yarnpkg.com/lodash.once/-/lodash.once-4.1.1.tgz#0dd3971213c7c56df880977d504c88fb471a97ac"
   integrity sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==
 
-lodash@^4.17.14, lodash@^4.17.15:
+lodash@^4.17.15:
   version "4.17.21"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
   integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
@@ -3626,13 +3600,6 @@ resolve-from@^5.0.0:
   resolved "https://registry.yarnpkg.com/resolve-from/-/resolve-from-5.0.0.tgz#c35225843df8f776df21c57557bc087e9dfdfc69"
   integrity sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==
 
-"rimraf@2.5.2 - 2.7.1":
-  version "2.7.1"
-  resolved "https://registry.yarnpkg.com/rimraf/-/rimraf-2.7.1.tgz#35797f13a7fdadc566142c29d4f07ccad483e3ec"
-  integrity sha512-uWjbaKIK3T1OSVptzX7Nl6PvQ3qAGtKEtVRjRuazjfL3Bx5eI409VZSqgND+4UNnmzLVdPj9FqFJNPqBZFve4w==
-  dependencies:
-    glob "^7.1.3"
-
 safe-buffer@^5.0.1:
   version "5.2.1"
   resolved "https://registry.yarnpkg.com/safe-buffer/-/safe-buffer-5.2.1.tgz#1eaf9fa9bdb1fdd4ec75f58f9cdb4e6b7827eec6"
@@ -3716,12 +3683,12 @@ socket.io-client@^4.8.3:
     socket.io-parser "~4.2.4"
 
 socket.io-parser@~4.2.4:
-  version "4.2.4"
-  resolved "https://registry.yarnpkg.com/socket.io-parser/-/socket.io-parser-4.2.4.tgz#c806966cf7270601e47469ddeec30fbdfda44c83"
-  integrity sha512-/GbIKmo8ioc+NIWIhwdecY0ge+qVBSMdgxGygevmdHj24bsfgtCmcUUcQ5ZzcylGFHsN3k4HB4Cgkl96KVnuew==
+  version "4.2.6"
+  resolved "https://registry.yarnpkg.com/socket.io-parser/-/socket.io-parser-4.2.6.tgz#19156bf179af3931abd05260cfb1491822578a6f"
+  integrity sha512-asJqbVBDsBCJx0pTqw3WfesSY0iRX+2xzWEWzrpcH7L6fLzrhyF8WPI8UaeM4YCuDfpwA/cgsdugMsmtz8EJeg==
   dependencies:
     "@socket.io/component-emitter" "~3.1.0"
-    debug "~4.3.1"
+    debug "~4.4.1"
 
 socket.io@^4.8.3:
   version "4.8.3"
@@ -4215,13 +4182,13 @@ yargs@^17.7.2:
     y18n "^5.0.5"
     yargs-parser "^21.1.1"
 
-"yauzl@2.9.2 - 2.10.0":
-  version "2.10.0"
-  resolved "https://registry.yarnpkg.com/yauzl/-/yauzl-2.10.0.tgz#c7eb17c93e112cb1086fa6d8e51fb0667b79a5f9"
-  integrity sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==
+yauzl@^3.2.1:
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/yauzl/-/yauzl-3.3.0.tgz#5be5e287b9a8112941c177734a34bf61a3e11bb4"
+  integrity sha512-PtGEvEP30p7sbIBJKUBjUnqgTVOyMURc4dLo9iNyAJnNIEz9pm88cCXF21w94Kg3k6RXkeZh5DHOGS0qEONvNQ==
   dependencies:
     buffer-crc32 "~0.2.3"
-    fd-slicer "~1.1.0"
+    pend "~1.2.0"
 
 yn@3.1.1:
   version "3.1.1"
