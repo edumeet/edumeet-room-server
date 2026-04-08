@@ -23,8 +23,9 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'yarn'
     - run: corepack enable
+      env:
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
     - run: yarn install --immutable
     - run: cp config/config.example.json config/config.json
     - run: yarn lint
