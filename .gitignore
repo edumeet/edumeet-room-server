@@ -14,3 +14,8 @@ yarn-error.log
 *.code-workspace
 *.tar
 .env
+
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+.pnp.*

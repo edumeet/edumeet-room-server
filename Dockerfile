@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-RUN yarn install --frozen-lockfile
+RUN corepack enable && yarn install --immutable
 RUN yarn run build
 
 EXPOSE 8443
