@@ -13,9 +13,25 @@ The following steps will get you setup to contribute changes to this repo:
 
 2. Clone your forked repo: `git clone git@github.com:{your_username}/edumeet-room-server.git`
 
-3. Run `yarn install` to install dependencies.
+3. This project uses **Yarn 4** (Berry) via Corepack. Enable it first:
+   ```bash
+   export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+   corepack enable
+   ```
 
-4. You should probably get your IDE working with our eslint config. This is an example of `.vscode/settings.json` and it's how I (pnts-se) personally get it to work on Vscode.
+4. Install dependencies:
+
+   **For development** (allows lockfile changes when adding/upgrading packages):
+   ```bash
+   yarn install
+   ```
+
+   **For building from source** (uses exact lockfile, same as CI/Docker):
+   ```bash
+   yarn install --immutable
+   ```
+
+5. You should probably get your IDE working with our eslint config. This is an example of `.vscode/settings.json` and it's how I (pnts-se) personally get it to work on Vscode.
 
     ```json
     {
@@ -37,7 +53,7 @@ The following steps will get you setup to contribute changes to this repo:
       },
     }
     ```
-5. Create pull request to the main branch of edumeet-room-server.
+6. Create pull request to the main branch of edumeet-room-server.
 ### Git hooks
 We're using husky git-hooks. When you do a commit, it will fail if `yarn lint` fails. When you do a push, it will fail if `yarn test:unit` or `yarn build` fails.
 

@@ -21,11 +21,12 @@ As ipv6 is not supported in [the library we use for geoip lookup](https://github
 ### Running the service manually
 
 ```bash
-$ yarn install
+$ corepack enable
+$ yarn install --immutable
 $ MANAGEMENT_USERNAME=username MANAGEMENT_PASSWORD=password yarn start
 ```
 
-To run the service you need to have Node.js version 24 or higher installed. Alternatively you can get some debug output by running it like this:
+To run the service you need to have Node.js version 24 or higher installed. This project uses Yarn 4 via Corepack. Alternatively you can get some debug output by running it like this:
 
 ```bash
 $ DEBUG=edumeet:* yarn start

@@ -20,6 +20,7 @@
 	"devDependencies": {
 		"@tsconfig/node24": "^24.0.4",
 		"@types/debug": "^4.1.13",
+		"@types/fast-stats": "^0.0.35",
 		"@types/geoip-lite": "^1.4.4",
 		"@types/jest": "^30.0.0",
 		"@types/jsonwebtoken": "^9.0.7",
@@ -38,7 +39,6 @@
 		"@feathersjs/feathers": "^5.0.44",
 		"@feathersjs/socketio-client": "^5.0.44",
 		"@observertc/observer-js": "^0.40.32",
-		"@types/fast-stats": "^0.0.35",
 		"chokidar": "^5.0.0",
 		"debug": "^4.4.3",
 		"edumeet-common": "github:edumeet/edumeet-common#0.7.0",
