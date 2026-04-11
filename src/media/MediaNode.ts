@@ -317,6 +317,14 @@ export class MediaNode extends EventEmitter {
 		logger.debug('healthCheck()');
 
 		const connection = this.setupConnection(false);
+
+		connection.on('mediaNodeReady', ({ version, imageTag }: MediaNodeInfo) => {
+			if (version) this.version = version;
+			if (imageTag) this.imageTag = imageTag;
+
+			logger.debug('healthCheck() mediaNodeReady [version: %s, imageTag: %s]', this.version, this.imageTag);
+		});
+
 		const [ error ] = await connection.ready;
 
 		connection.close();
