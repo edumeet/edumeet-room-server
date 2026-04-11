@@ -63,6 +63,7 @@ export class MediaNode extends EventEmitter {
 	public routers: Map<string, Router> = new Map();
 	private connection?: MediaNodeConnection;
 	private healthCheckTimeout?: NodeJS.Timeout;
+	private periodicHealthCheckInterval?: NodeJS.Timeout;
 	public healthy = true;
 	public draining = false;
 	public load = 0; // Percentage of load 0-100
@@ -100,6 +101,20 @@ export class MediaNode extends EventEmitter {
 		this.kdPoint = kdPoint;
 
 		this.startHealthCheck(true);
+
+		this.periodicHealthCheckInterval = setInterval(async () => {
+			if ((!this.connection || this.connection.closed) && !this.healthCheckTimeout) {
+				logger.debug('periodicHealthCheck() [hostname: %s]', this.hostname);
+
+				await this.healthCheck();
+
+				if (!this.healthy || this.draining) {
+					logger.debug('periodicHealthCheck() | unhealthy or draining, starting reactive check [hostname: %s]', this.hostname);
+
+					this.startHealthCheck();
+				}
+			}
+		}, 5 * 60 * 1000);
 	}
 
 	@skipIfClosed
@@ -113,6 +128,9 @@ export class MediaNode extends EventEmitter {
 
 		clearTimeout(this.healthCheckTimeout);
 		this.healthCheckTimeout = undefined;
+
+		clearInterval(this.periodicHealthCheckInterval);
+		this.periodicHealthCheckInterval = undefined;
 
 		this.connection?.close();
 	}
