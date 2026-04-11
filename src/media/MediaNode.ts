@@ -63,6 +63,7 @@ export class MediaNode extends EventEmitter {
 	public routers: Map<string, Router> = new Map();
 	private connection?: MediaNodeConnection;
 	private healthCheckTimeout?: NodeJS.Timeout;
+	private periodicHealthCheckDelay?: NodeJS.Timeout;
 	private periodicHealthCheckInterval?: NodeJS.Timeout;
 	public healthy = true;
 	public draining = false;
@@ -102,19 +103,25 @@ export class MediaNode extends EventEmitter {
 
 		this.startHealthCheck(true);
 
-		this.periodicHealthCheckInterval = setInterval(async () => {
-			if ((!this.connection || this.connection.closed) && !this.healthCheckTimeout) {
-				logger.debug('periodicHealthCheck() [hostname: %s]', this.hostname);
+		const periodicInterval = 5 * 60 * 1000;
 
-				await this.healthCheck();
+		const startPeriodicCheck = () => {
+			this.periodicHealthCheckInterval = setInterval(async () => {
+				if ((!this.connection || this.connection.closed) && !this.healthCheckTimeout) {
+					logger.debug('periodicHealthCheck() [hostname: %s]', this.hostname);
 
-				if (!this.healthy || this.draining) {
-					logger.debug('periodicHealthCheck() | unhealthy or draining, starting reactive check [hostname: %s]', this.hostname);
+					await this.healthCheck();
 
-					this.startHealthCheck();
+					if (!this.healthy || this.draining) {
+						logger.debug('periodicHealthCheck() | unhealthy or draining, starting reactive check [hostname: %s]', this.hostname);
+
+						this.startHealthCheck();
+					}
 				}
-			}
-		}, 5 * 60 * 1000);
+			}, periodicInterval);
+		};
+
+		this.periodicHealthCheckDelay = setTimeout(startPeriodicCheck, Math.floor(Math.random() * periodicInterval));
 	}
 
 	@skipIfClosed
@@ -129,6 +136,8 @@ export class MediaNode extends EventEmitter {
 		clearTimeout(this.healthCheckTimeout);
 		this.healthCheckTimeout = undefined;
 
+		clearTimeout(this.periodicHealthCheckDelay);
+		this.periodicHealthCheckDelay = undefined;
 		clearInterval(this.periodicHealthCheckInterval);
 		this.periodicHealthCheckInterval = undefined;
 
