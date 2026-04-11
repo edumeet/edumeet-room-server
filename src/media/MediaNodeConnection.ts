@@ -10,6 +10,11 @@ interface MediaNodeConnectionOptions {
 	timeout: number,
 }
 
+export interface MediaNodeInfo {
+	version?: string;
+	imageTag?: string;
+}
+
 interface ClientServerEvents {
 	/* eslint-disable no-unused-vars */
 	notification: (notification: SocketMessage) => void;
@@ -44,6 +49,7 @@ export declare interface MediaNodeConnection {
 	on(event: 'request', listener: InboundRequest): this;
 	on(event: 'load', listener: (load: number) => void): this;
 	on(event: 'draining', listener: () => void): this;
+	on(event: 'mediaNodeReady', listener: (info: MediaNodeInfo) => void): this;
 }
 /* eslint-enable no-unused-vars */
 
@@ -118,6 +124,13 @@ export class MediaNodeConnection extends EventEmitter {
 
 			if (notification.method === 'mediaNodeReady') {
 				clearTimeout(this.#resolveReadyTimeoutHandle);
+
+				const info: MediaNodeInfo = {
+					version: typeof notification.data?.version === 'string' ? notification.data.version : undefined,
+					imageTag: typeof notification.data?.imageTag === 'string' ? notification.data.imageTag : undefined,
+				};
+
+				this.emit('mediaNodeReady', info);
 
 				return this.resolveReady();
 			}

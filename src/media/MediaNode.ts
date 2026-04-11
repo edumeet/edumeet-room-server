@@ -12,7 +12,7 @@ import { createProducersMiddleware } from '../middlewares/producersMiddleware';
 import { createRoutersMiddleware } from '../middlewares/routersMiddleware';
 import { createWebRtcTransportsMiddleware } from '../middlewares/webRtcTransportsMiddleware';
 import { createActiveSpeakerMiddleware } from '../middlewares/activeSpeakerMiddleware';
-import { DrainingError, MediaNodeConnection } from './MediaNodeConnection';
+import { DrainingError, MediaNodeConnection, MediaNodeInfo } from './MediaNodeConnection';
 import { Router, RouterOptions } from './Router';
 import EventEmitter from 'events';
 import { createRecordersMiddleware } from '../middlewares/recordersMiddleware';
@@ -68,6 +68,8 @@ export class MediaNode extends EventEmitter {
 	public load = 0; // Percentage of load 0-100
 	public lastLoadUpdateTs = 0;
 	public secret: string;
+	public version?: string;
+	public imageTag?: string;
 
 	#routersMiddleware = createRoutersMiddleware({ routers: this.routers });
 	#webRtcTransportsMiddleware = createWebRtcTransportsMiddleware({ routers: this.routers });
@@ -206,6 +208,13 @@ export class MediaNode extends EventEmitter {
 			this.#activeSpeakerMiddleware,
 			this.#recordersMiddleware,
 		);
+
+		connection.on('mediaNodeReady', ({ version, imageTag }: MediaNodeInfo) => {
+			if (version) this.version = version;
+			if (imageTag) this.imageTag = imageTag;
+
+			logger.debug('mediaNodeReady [version: %s, imageTag: %s]', this.version, this.imageTag);
+		});
 
 		connection.on('load', (load) => {
 			if (typeof load !== 'number') return;
