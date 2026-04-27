@@ -65,8 +65,21 @@ export class MediaNode extends EventEmitter {
 	private healthCheckTimeout?: NodeJS.Timeout;
 	private periodicHealthCheckDelay?: NodeJS.Timeout;
 	private periodicHealthCheckInterval?: NodeJS.Timeout;
-	public healthy = true;
-	public draining = false;
+	private stabilityResetTimer?: NodeJS.Timeout;
+	private flapCount = 0;
+	private _healthy = true;
+	private _draining = false;
+
+	public get healthy(): boolean { return this._healthy; }
+	public get draining(): boolean { return this._draining; }
+
+	// Flap dampening: a node that keeps oscillating between healthy/unhealthy
+	// gets longer retry intervals to stop disrupting users who are landing on
+	// it. Counter resets after STABILITY_RESET_MS of continuous health.
+	private static readonly FAST_RETRY_MS = 10_000;
+	private static readonly MEDIUM_RETRY_MS = 60_000;
+	private static readonly SLOW_RETRY_MS = 5 * 60_000;
+	private static readonly STABILITY_RESET_MS = 5 * 60_000;
 	public load = 0; // Percentage of load 0-100
 	public lastLoadUpdateTs = 0;
 	public secret: string;
@@ -141,6 +154,9 @@ export class MediaNode extends EventEmitter {
 		clearInterval(this.periodicHealthCheckInterval);
 		this.periodicHealthCheckInterval = undefined;
 
+		clearTimeout(this.stabilityResetTimer);
+		this.stabilityResetTimer = undefined;
+
 		this.connection?.close();
 	}
 
@@ -201,7 +217,7 @@ export class MediaNode extends EventEmitter {
 
 			this.connection.close();
 
-			this.healthy = false;
+			this.markUnhealthy();
 			this.startHealthCheck();
 
 			throw error;
@@ -251,7 +267,7 @@ export class MediaNode extends EventEmitter {
 		});
 
 		connection.on('draining', () => {
-			this.draining = true;
+			this._draining = true;
 
 			this.startHealthCheck();
 
@@ -276,7 +292,7 @@ export class MediaNode extends EventEmitter {
 			if (remoteClose) {
 				this.emit('connectionClosed');
 
-				this.healthy = false;
+				this.markUnhealthy();
 				this.startHealthCheck();
 			}
 		});
@@ -311,7 +327,7 @@ export class MediaNode extends EventEmitter {
 				logger.error('request() | timeout');
 
 				this.connection?.close();
-				this.healthy = false;
+				this.markUnhealthy();
 				this.startHealthCheck();
 			}
 
@@ -325,8 +341,6 @@ export class MediaNode extends EventEmitter {
 
 		logger.debug('startHealthCheck()');
 
-		const interval = 10_000;
-
 		const check = async () => {
 			await this.healthCheck();
 
@@ -339,11 +353,13 @@ export class MediaNode extends EventEmitter {
 				return;
 			}
 
-			logger.debug('startHealthCheck() | unhealthy, scheduling next check');
-			this.healthCheckTimeout = setTimeout(check, interval);
+			const next = this.getRetryInterval();
+
+			logger.debug('startHealthCheck() | unhealthy, next check in %dms', next);
+			this.healthCheckTimeout = setTimeout(check, next);
 		};
 
-		this.healthCheckTimeout = setTimeout(check, initial ? 0 : interval);
+		this.healthCheckTimeout = setTimeout(check, initial ? 0 : this.getRetryInterval());
 	}
 
 	@skipIfClosed
@@ -364,12 +380,43 @@ export class MediaNode extends EventEmitter {
 		connection.close();
 	
 		if (error) {
-			if (error instanceof DrainingError) this.draining = true;
+			if (error instanceof DrainingError) this._draining = true;
 
-			this.healthy = false;
+			this.markUnhealthy();
 		} else {
-			this.draining = false;
-			this.healthy = true;
+			this._draining = false;
+			this.markHealthy();
 		}
+	}
+
+	private markHealthy(): void {
+		this._healthy = true;
+
+		clearTimeout(this.stabilityResetTimer);
+		this.stabilityResetTimer = setTimeout(() => {
+			this.flapCount = 0;
+		}, MediaNode.STABILITY_RESET_MS);
+	}
+
+	private markUnhealthy(): void {
+		clearTimeout(this.stabilityResetTimer);
+		this.stabilityResetTimer = undefined;
+
+		this.flapCount++;
+		this._healthy = false;
+
+		if (this.flapCount >= 2) {
+			logger.warn(
+				{ hostname: this.hostname, flapCount: this.flapCount },
+				'flap detected, extending retry interval'
+			);
+		}
+	}
+
+	private getRetryInterval(): number {
+		if (this.flapCount <= 1) return MediaNode.FAST_RETRY_MS;
+		if (this.flapCount === 2) return MediaNode.MEDIUM_RETRY_MS;
+
+		return MediaNode.SLOW_RETRY_MS;
 	}
 }
