@@ -18,6 +18,15 @@ import { ConfigLoader } from './common/configLoader';
 import chokidar from 'chokidar';
 
 const logger = new Logger('Server');
+
+process.on('unhandledRejection', (reason) => {
+	logger.error({ err: reason }, 'unhandledRejection — keeping process alive');
+});
+
+process.on('uncaughtException', (error) => {
+	logger.error({ err: error }, 'uncaughtException — keeping process alive');
+});
+
 const config = getConfig();
 
 const peers = new Map<string, Peer>();

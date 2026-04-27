@@ -288,9 +288,16 @@ export class MediaNode extends EventEmitter {
 	public async notify(notification: SocketMessage): Promise<void> {
 		logger.debug('notify() [method: %s]', notification.method);
 
-		const connection = await this.getOrCreateConnection();
+		try {
+			const connection = await this.getOrCreateConnection();
 
-		connection.notify(notification);
+			connection.notify(notification);
+		} catch (error) {
+			// Notify is fire-and-forget — synchronous callers (e.g. Consumer.close)
+			// discard the returned Promise, so a rejection here would become an
+			// unhandled rejection and crash the process. Swallow and log instead.
+			logger.warn({ err: error, method: notification.method }, 'notify() failed, dropping notification');
+		}
 	}
 	
 	@skipIfClosed

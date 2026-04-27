@@ -463,8 +463,12 @@ export class Router extends EventEmitter {
 
 				// Pipe events from the pipe Consumer to the pipe Producer.
 				pipeConsumer.once('close', () => pipeProducer?.close());
-				pipeConsumer.on('producerpause', async () => await pipeProducer?.pause());
-				pipeConsumer.on('producerresume', async () => await pipeProducer?.resume());
+				pipeConsumer.on('producerpause', () => {
+					pipeProducer?.pause().catch((err) => logger.warn({ err }, 'pipeProducer.pause() failed'));
+				});
+				pipeConsumer.on('producerresume', () => {
+					pipeProducer?.resume().catch((err) => logger.warn({ err }, 'pipeProducer.resume() failed'));
+				});
 
 				// Pipe events from the pipe Producer to the pipe Consumer.
 				pipeProducer.once('close', () => pipeConsumer?.close());
