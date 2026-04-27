@@ -20,11 +20,13 @@ import chokidar from 'chokidar';
 const logger = new Logger('Server');
 
 process.on('unhandledRejection', (reason) => {
-	logger.error({ err: reason }, 'unhandledRejection — keeping process alive');
+	logger.error({ err: reason }, 'unhandledRejection — exiting for clean restart');
+	process.exit(1);
 });
 
 process.on('uncaughtException', (error) => {
-	logger.error({ err: error }, 'uncaughtException — keeping process alive');
+	logger.error({ err: error }, 'uncaughtException — exiting for clean restart');
+	process.exit(1);
 });
 
 const config = getConfig();
