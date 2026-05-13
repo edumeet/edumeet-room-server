@@ -121,7 +121,7 @@ export default class ServerManager {
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
 
-			room = new Room({ id: roomId, mediaService: this.mediaService });
+			room = new Room({ id: roomId, tenantId, mediaService: this.mediaService });
 
 			this.rooms.set(`${tenantId}/${roomId}`, room);
 
@@ -254,6 +254,27 @@ export default class ServerManager {
 	private async initializeManagedRoom(room: Room, roomId: string, tenantId: number): Promise<void> {
 		try {
 			if (this.closed) return;
+
+			// Tenant policy (incl. allowedMediaNodeRegions) must be loaded before
+			// the first peer's router is assigned. Both this fetch and getRoom
+			// below complete before resolveRoomReady fires, and Room.addPeer
+			// awaits roomReady, so MediaService.getCandidates sees consistent
+			// tenant data on every call.
+			const tenant = await this.managementService?.getTenant(tenantId);
+
+			if (room.closed) return;
+
+			// Per-tenant value wins; otherwise fall back to deployment-level
+			// default. Deployments that don't mix regions can leave both unset
+			// and get the historical "no restriction" behaviour for unmanaged
+			// rooms / FQDNs not in the tenant DB.
+			const regions = tenant?.allowedMediaNodeRegions?.length
+				? tenant.allowedMediaNodeRegions
+				: config.defaultAllowedMediaNodeRegions;
+
+			if (regions?.length) {
+				room.allowedMediaNodeRegions = regions;
+			}
 
 			const managedRoom = await this.managementService?.getRoom(roomId, tenantId);
 

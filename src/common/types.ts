@@ -115,6 +115,14 @@ export interface RoomSettings {
 export type VideoCodec = 'vp8' | 'vp9' | 'h264' | 'h265' | 'av1';
 export type VideoResolution = 'low' | 'medium' | 'high' | 'veryhigh' | 'ultra';
 
+export type ManagedTenant = {
+	id: number;
+	name: string;
+	description?: string;
+	hideUserDetails?: boolean;
+	allowedMediaNodeRegions?: string[];
+};
+
 export type ManagedRoom = {
 	id: number;
 	name: string;

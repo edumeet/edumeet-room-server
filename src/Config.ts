@@ -69,4 +69,6 @@ export interface Config {
 		maxFileSize?: number;
 	};
 	mediaNodes?: MediaNodeConfig[];
+	countryToRegion?: Record<string, string>;
+	defaultAllowedMediaNodeRegions?: string[];
 }

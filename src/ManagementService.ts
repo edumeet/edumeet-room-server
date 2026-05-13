@@ -13,6 +13,7 @@ import {
 	ManagedRolePermission,
 	ManagedRoom,
 	ManagedRoomOwner,
+	ManagedTenant,
 	ManagedUser,
 	ManagedUserRole
 } from './common/types';
@@ -87,6 +88,7 @@ export default class ManagementService {
 	#authRefreshTimer: NodeJS.Timeout | null = null;
 
 	#tenantFQDNsService: FeathersService;
+	#tenantsService: FeathersService;
 
 	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
@@ -122,6 +124,7 @@ export default class ManagementService {
 			.configure(authentication());
 
 		this.#tenantFQDNsService = this.#client.service('tenantFQDNs');
+		this.#tenantsService = this.#client.service('tenants');
 
 		this.#roomsService = this.#client.service('rooms');
 		this.#roomOwnersService = this.#client.service('roomOwners');
@@ -269,6 +272,23 @@ export default class ManagementService {
 		logger.debug({ tenantId }, 'getTenantFromFqdn() - return');
 
 		return tenantId;
+	}
+
+	@skipIfClosed
+	public async getTenant(tenantId: number): Promise<ManagedTenant | undefined> {
+		if (!tenantId) return undefined;
+
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
+
+		try {
+			return await this.#tenantsService.get(tenantId) as ManagedTenant;
+		} catch (err) {
+			logger.warn({ err, tenantId }, 'getTenant() failed');
+
+			return undefined;
+		}
 	}
 
 	@skipIfClosed

@@ -7,6 +7,7 @@ import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import { getConfig } from './Config';
 import * as geoip from 'geoip-lite';
 import { lookup as dnsLookup } from 'dns/promises';
+import { countryToRegion } from './common/regions';
 
 const logger = new Logger('MediaService');
 const config = getConfig();
@@ -67,6 +68,38 @@ export default class MediaService {
 
 		this.bootstrapMediaNodeCountriesFromConfig();
 		this.resolveMediaNodeCountries();
+		this.logUnmappedCountries();
+	}
+
+	/**
+	 * Sanity-check on startup: each media node that has a country configured
+	 * should have that country present in config.countryToRegion. Otherwise it
+	 * resolves to 'OTHER' and will be silently excluded from any region-limited
+	 * tenant's candidate set, which is rarely what the operator intends.
+	 */
+	private logUnmappedCountries(): void {
+		const map = config.countryToRegion;
+
+		if (!map || Object.keys(map).length === 0) return; // deployment doesn't use region binding — nothing to check
+
+		const unmapped = new Set<string>();
+
+		for (const node of this.mediaNodes) {
+			const country = this.getNodeCountry(node);
+
+			if (!country) continue;
+
+			if (!map[country]) unmapped.add(country);
+		}
+
+		if (unmapped.size > 0) {
+			logger.warn(
+				{ countries: Array.from(unmapped) },
+				'Some media node countries are missing from config.countryToRegion; ' +
+				'those nodes will resolve to the OTHER region and be excluded from any region-limited tenant. ' +
+				'Add the missing country codes to the map or set the affected nodes\' country explicitly.'
+			);
+		}
 	}
 
 	public static create() {
@@ -194,12 +227,24 @@ export default class MediaService {
 
 			const peerCountry = this.getClientCountry(peer);
 
+			// Per-tenant region restriction. Undefined/empty means no restriction.
+			// Sticky candidates (room.mediaNodes.items) deliberately do NOT re-apply
+			// this filter: they were already filtered at the moment they were added
+			// to the room. The invariant is enforced as a hard assertion in
+			// Room.addMediaNode().
+			const allowedRegions = room.allowedMediaNodeRegions;
+			const inRegion = (m: MediaNode): boolean => {
+				if (!allowedRegions?.length) return true;
+
+				return allowedRegions.includes(countryToRegion(this.getNodeCountry(m)));
+			};
+
 			// Find the best (nearest) geo candidate distance under normal constraints.
 			// Used to decide whether it is worth breaking stickiness when sticky is too far.
 			const bestGeoCandidate = kdTree.nearestNeighbors(peerGeoPosition, 1, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 
-				return !m.draining && m.healthy && m.load < this.loadThreshold;
+				return inRegion(m) && !m.draining && m.healthy && m.load < this.loadThreshold;
 			});
 
 			const bestGeoDistance = bestGeoCandidate?.[0]?.[1] ?? Number.POSITIVE_INFINITY;
@@ -271,7 +316,7 @@ export default class MediaService {
 
 				if (candidates.includes(m)) return false;
 
-				return !m.draining && m.healthy && m.load < this.loadThreshold;
+				return inRegion(m) && !m.draining && m.healthy && m.load < this.loadThreshold;
 			});
 
 			const lastResortCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
@@ -279,7 +324,7 @@ export default class MediaService {
 
 				if (candidates.includes(m)) return false;
 
-				return !m.draining && m.healthy;
+				return inRegion(m) && !m.draining && m.healthy;
 			});
 
 			// Same-country preference for initial node assignment:
@@ -295,6 +340,7 @@ export default class MediaService {
 				candidates,
 				geoCandidates,
 				sameCountryDelta,
+				allowedRegions,
 			});
 
 			const geoFallback = sameCountryResult.geoFallback;
@@ -571,7 +617,7 @@ export default class MediaService {
 		})();
 	}
 
-	private getNodeCountry(mediaNode: MediaNode): string | undefined {
+	public getNodeCountry(mediaNode: MediaNode): string | undefined {
 		return this.mediaNodeCountries.get(mediaNode.hostname);
 	}
 
@@ -612,6 +658,7 @@ export default class MediaService {
 		candidates: MediaNode[];
 		geoCandidates?: [KDPoint, number][];
 		sameCountryDelta: number;
+		allowedRegions?: string[];
 	}): { geoPreferred: MediaNode[]; geoFallback: MediaNode[] } {
 		const {
 			room,
@@ -621,7 +668,14 @@ export default class MediaService {
 			candidates,
 			geoCandidates,
 			sameCountryDelta,
+			allowedRegions,
 		} = params;
+
+		const inRegion = (m: MediaNode): boolean => {
+			if (!allowedRegions?.length) return true;
+
+			return allowedRegions.includes(countryToRegion(this.getNodeCountry(m)));
+		};
 
 		const geoPreferred: MediaNode[] = [];
 
@@ -633,6 +687,8 @@ export default class MediaService {
 				const m = point.appData.mediaNode as MediaNode;
 
 				if (candidates.includes(m)) return false;
+
+				if (!inRegion(m)) return false;
 
 				const nodeCountry = this.getNodeCountry(m);
 
