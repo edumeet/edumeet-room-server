@@ -62,6 +62,13 @@
 		"filesharingEnabled": true,
 		"localRecordingEnabled": true
 	},
+	"countryToRegion": {
+		"NO": "EEA",
+		"PL": "EEA",
+		"DE": "EEA",
+		"UA": "UA"
+	},
+	"defaultAllowedMediaNodeRegions": [],
 	"mediaNodes": [{
 		"hostname": "localhost",
 		"port": 3000,

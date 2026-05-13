@@ -19,6 +19,7 @@ import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
 
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { MediaNode } from './media/MediaNode';
+import { countryToRegion } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 import { safePromise } from './common/safePromise';
@@ -30,6 +31,7 @@ const logger = new Logger('Room');
 
 interface RoomOptions {
 	id: string;
+	tenantId: number;
 	name?: string;
 	mediaService: MediaService;
 }
@@ -59,6 +61,9 @@ export default class Room extends EventEmitter {
 	public closed = false;
 	public id: string;
 	public readonly creationTimestamp = Date.now();
+
+	public tenantId: number;
+	public allowedMediaNodeRegions?: string[]; // Possibly updated by the management service; undefined = no restriction
 
 	public managedId?: string; // Possibly updated by the management service
 	public name?: string; // Possibly updated by the management service
@@ -146,12 +151,13 @@ export default class Room extends EventEmitter {
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 
-	constructor({ id, name, mediaService }: RoomOptions) {
-		logger.debug('constructor() [id: %s]', id);
+	constructor({ id, tenantId, name, mediaService }: RoomOptions) {
+		logger.debug('constructor() [id: %s, tenantId: %s]', id, tenantId);
 
 		super();
 
 		this.id = id;
+		this.tenantId = tenantId;
 		this.name = name;
 		this.mediaService = mediaService;
 
@@ -214,6 +220,32 @@ export default class Room extends EventEmitter {
 
 	public addMediaNode(mediaNode: MediaNode): void {
 		if (this.mediaNodes.has(mediaNode)) return;
+
+		// Safety net: a region-limited tenant must never have a media node from
+		// a disallowed region in its room. If we get here, the candidate filter
+		// in MediaService.getCandidates was bypassed and we have a real bug —
+		// log loudly rather than silently leak data into the wrong region.
+		if (this.allowedMediaNodeRegions?.length) {
+			const nodeCountry = this.mediaService.getNodeCountry(mediaNode);
+			const nodeRegion = countryToRegion(nodeCountry);
+
+			if (!this.allowedMediaNodeRegions.includes(nodeRegion)) {
+				logger.error(
+					{
+						roomId: this.id,
+						tenantId: this.tenantId,
+						mediaNodeHostname: mediaNode.hostname,
+						nodeCountry,
+						nodeRegion,
+						allowedMediaNodeRegions: this.allowedMediaNodeRegions,
+					},
+					'addMediaNode() refused: node region is not in tenant policy. This indicates a bug in candidate selection.'
+				);
+
+				return;
+			}
+		}
+
 		this.mediaNodes.add(mediaNode);
 	}
 

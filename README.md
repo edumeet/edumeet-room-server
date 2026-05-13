@@ -370,6 +370,54 @@ Defines TURN/TURNS listeners for NAT traversal.
 
 ---
 
+## Media Node Region Binding
+
+The room server supports restricting which media nodes a given tenant's rooms may use, based on a coarse "region" grouping (e.g. `EEA`, `UA`). This is opt-in — deployments that don't mix regions can skip this whole section and the routing behaviour stays identical to before.
+
+### `countryToRegion`
+
+- **Type:** `object` (map of 2-letter ISO country code → region label)
+- **Description:** Maps the `country` field of each media node to a region label. Region labels are deployment-defined strings; the only requirement is that they match the values selected by super-admins in the management UI's tenant editor (see `knownRegions` in the client config).
+
+```json
+"countryToRegion": {
+	"DE": "EEA",
+	"DK": "EEA",
+	"FI": "EEA",
+	"HU": "EEA",
+	"IT": "EEA",
+	"PL": "EEA",
+	"PT": "EEA",
+	"SI": "EEA",
+	"UA": "UA"
+}
+```
+
+A country missing from this map resolves to the internal region `OTHER` and is excluded from any region-limited tenant's candidate set. The server logs a warning at startup if any configured media node has a country not present in this map.
+
+### `defaultAllowedMediaNodeRegions`
+
+- **Type:** `array of strings`
+- **Description:** Fallback region restriction applied when:
+  - the room's tenant has no `allowedMediaNodeRegions` set, **or**
+  - the room could not be resolved to a tenant (unmanaged deployment, or FQDN not present in the tenant DB).
+
+When unset, those cases fall through to "no restriction" (every media node is eligible). Multi-region deployments (e.g. an EU + UA fleet) should set this to a safe baseline so that an unconfigured tenant cannot accidentally land on a non-baseline node.
+
+```jsonc
+// PCSS-style multi-region deployment: unmanaged / unknown tenants stay in EEA.
+"defaultAllowedMediaNodeRegions": ["EEA"]
+```
+
+```jsonc
+// Single-region deployment: leave empty (or omit the field entirely).
+"defaultAllowedMediaNodeRegions": []
+```
+
+### Per-tenant override
+
+In the management server, each tenant can have an `allowedMediaNodeRegions` array (managed via the tenant editor in the client). When set and non-empty, it overrides the deployment-level default for rooms belonging to that tenant.
+
 ## Notes
 
 - All file paths are relative to the application working directory unless otherwise specified.

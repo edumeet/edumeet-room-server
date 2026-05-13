@@ -81,7 +81,10 @@ export const AppConfigSchema = z.object({
 				}
 			))
 		}
-	))
+	)),
+	countryToRegion: z.record(z.string().length(2)
+		.toUpperCase(), z.string()).optional(),
+	defaultAllowedMediaNodeRegions: z.array(z.string()).optional()
 
 });
 export type AppConfigParsed = z.infer<typeof AppConfigSchema>;
