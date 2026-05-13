@@ -82,8 +82,11 @@ export const AppConfigSchema = z.object({
 			))
 		}
 	)),
-	countryToRegion: z.record(z.string().length(2)
-		.toUpperCase(), z.string()).optional(),
+	countryToRegion: z.record(
+		z.string().length(2)
+			.toUpperCase(),
+		z.union([ z.string(), z.array(z.string()) ])
+	).optional(),
 	defaultAllowedMediaNodeRegions: z.array(z.string()).optional()
 
 });

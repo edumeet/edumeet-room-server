@@ -7,7 +7,7 @@ import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import { getConfig } from './Config';
 import * as geoip from 'geoip-lite';
 import { lookup as dnsLookup } from 'dns/promises';
-import { countryToRegion } from './common/regions';
+import { countryToRegions } from './common/regions';
 
 const logger = new Logger('MediaService');
 const config = getConfig();
@@ -89,15 +89,22 @@ export default class MediaService {
 
 			if (!country) continue;
 
-			if (!map[country]) unmapped.add(country);
+			const value = map[country];
+
+			// Missing entry, or entry resolving to no region (empty array) — both
+			// fall through to the internal OTHER bucket and get filtered out for
+			// any region-limited tenant. Flag both cases for operator awareness.
+			if (!value || (Array.isArray(value) && value.length === 0)) {
+				unmapped.add(country);
+			}
 		}
 
 		if (unmapped.size > 0) {
 			logger.warn(
 				{ countries: Array.from(unmapped) },
-				'Some media node countries are missing from config.countryToRegion; ' +
+				'Some media node countries are missing from config.countryToRegion (or mapped to an empty list); ' +
 				'those nodes will resolve to the OTHER region and be excluded from any region-limited tenant. ' +
-				'Add the missing country codes to the map or set the affected nodes\' country explicitly.'
+				'Add the missing country codes to the map with at least one region label.'
 			);
 		}
 	}
@@ -236,7 +243,8 @@ export default class MediaService {
 			const inRegion = (m: MediaNode): boolean => {
 				if (!allowedRegions?.length) return true;
 
-				return allowedRegions.includes(countryToRegion(this.getNodeCountry(m)));
+				return countryToRegions(this.getNodeCountry(m))
+					.some((r) => allowedRegions.includes(r));
 			};
 
 			// Find the best (nearest) geo candidate distance under normal constraints.
@@ -674,7 +682,8 @@ export default class MediaService {
 		const inRegion = (m: MediaNode): boolean => {
 			if (!allowedRegions?.length) return true;
 
-			return allowedRegions.includes(countryToRegion(this.getNodeCountry(m)));
+			return countryToRegions(this.getNodeCountry(m))
+				.some((r) => allowedRegions.includes(r));
 		};
 
 		const geoPreferred: MediaNode[] = [];
