@@ -90,14 +90,6 @@ export default class ManagementService {
 	#tenantFQDNsService: FeathersService;
 	#tenantsService: FeathersService;
 
-	/**
-	 * In-memory cache for tenant config keyed by tenantId. Tenant config (notably
-	 * `allowedMediaNodeRegions`) is essentially static — invalidated implicitly
-	 * by room-server restarts, which is fine since region-policy changes don't
-	 * require migration of existing rooms anyway.
-	 */
-	#tenantCache = new Map<number, ManagedTenant | null>();
-
 	#defaultsService: FeathersService;
 	#roomsService: FeathersService;
 	#roomOwnersService: FeathersService;
@@ -286,25 +278,14 @@ export default class ManagementService {
 	public async getTenant(tenantId: number): Promise<ManagedTenant | undefined> {
 		if (!tenantId) return undefined;
 
-		if (this.#tenantCache.has(tenantId)) {
-			const cached = this.#tenantCache.get(tenantId);
-
-			return cached ?? undefined;
-		}
-
 		const [ error ] = await this.ready;
 
 		if (error) throw error;
 
 		try {
-			const tenant = await this.#tenantsService.get(tenantId) as ManagedTenant;
-
-			this.#tenantCache.set(tenantId, tenant ?? null);
-
-			return tenant ?? undefined;
+			return await this.#tenantsService.get(tenantId) as ManagedTenant;
 		} catch (err) {
-			logger.warn({ err, tenantId }, 'getTenant() failed; caching miss');
-			this.#tenantCache.set(tenantId, null);
+			logger.warn({ err, tenantId }, 'getTenant() failed');
 
 			return undefined;
 		}
