@@ -38,7 +38,6 @@
 		"@feathersjs/authentication-client": "^5.0.44",
 		"@feathersjs/feathers": "^5.0.44",
 		"@feathersjs/socketio-client": "^5.0.44",
-		"@observertc/observer-js": "^0.40.32",
 		"chokidar": "^5.0.0",
 		"debug": "^4.4.3",
 		"edumeet-common": "github:edumeet/edumeet-common#0.7.0",

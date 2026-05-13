@@ -388,13 +388,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@bufbuild/protobuf@npm:1.1.1":
-  version: 1.1.1
-  resolution: "@bufbuild/protobuf@npm:1.1.1"
-  checksum: 10c0/5c113bc894ff8b81f0f2f9f1cf643f599ce92a93b449c4b1363864be2b68f718dc146e9a8c38d0ac53f773897f4edeb161a43e5af90c69f2e761979ef0ed336d
-  languageName: node
-  linkType: hard
-
 "@cspotcode/source-map-support@npm:^0.8.0":
   version: 0.8.1
   resolution: "@cspotcode/source-map-support@npm:0.8.1"
@@ -1072,32 +1065,6 @@ __metadata:
   version: 4.0.0
   resolution: "@npmcli/redact@npm:4.0.0"
   checksum: 10c0/a1e9ba9c70a6b40e175bda2c3dd8cfdaf096e6b7f7a132c855c083c8dfe545c3237cd56702e2e6627a580b1d63373599d49a1192c4078a85bf47bbde824df31c
-  languageName: node
-  linkType: hard
-
-"@observertc/observer-js@npm:^0.40.32":
-  version: 0.40.32
-  resolution: "@observertc/observer-js@npm:0.40.32"
-  dependencies:
-    "@bufbuild/protobuf": "npm:1.1.1"
-    "@observertc/report-schemas-js": "npm:2.2.10"
-    "@observertc/sample-schemas-js": "npm:2.2.10"
-    uuid: "npm:^8.3.2"
-  checksum: 10c0/0acfd98fc69cc2418a55ba65888d346bdfd62a1be90d35fbe1218ff7e677ed759de0bf9c3e08e62ae4b25b3ecaeb0e30c461a13916a794e8072ebca6876e8a3f
-  languageName: node
-  linkType: hard
-
-"@observertc/report-schemas-js@npm:2.2.10":
-  version: 2.2.10
-  resolution: "@observertc/report-schemas-js@npm:2.2.10"
-  checksum: 10c0/bdaf0b85b5a5c4a14bdcfb2702ab0242e54ebd39b851644dc85265856836826afa72183407d93e12700d823ca655c86c47369c7d010ce63d5ee1746efe255cab
-  languageName: node
-  linkType: hard
-
-"@observertc/sample-schemas-js@npm:2.2.10":
-  version: 2.2.10
-  resolution: "@observertc/sample-schemas-js@npm:2.2.10"
-  checksum: 10c0/e297ff51dbcadb159723dab452c04919b14e236dc63d0370ed7b57cd9175fb4b8714fde06f2f7f50b1d4bcd0fb5a53422e2049453bf6d06fb8e5c9b4107c31e0
   languageName: node
   linkType: hard
 
@@ -2355,7 +2322,6 @@ __metadata:
     "@feathersjs/authentication-client": "npm:^5.0.44"
     "@feathersjs/feathers": "npm:^5.0.44"
     "@feathersjs/socketio-client": "npm:^5.0.44"
-    "@observertc/observer-js": "npm:^0.40.32"
     "@tsconfig/node24": "npm:^24.0.4"
     "@types/debug": "npm:^4.1.13"
     "@types/fast-stats": "npm:^0.0.35"
@@ -5489,15 +5455,6 @@ __metadata:
   bin:
     uuid: dist/esm/bin/uuid
   checksum: 10c0/34aa51b9874ae398c2b799c88a127701408cd581ee89ec3baa53509dd8728cbb25826f2a038f9465f8b7be446f0fbf11558862965b18d21c993684297628d4d3
-  languageName: node
-  linkType: hard
-
-"uuid@npm:^8.3.2":
-  version: 8.3.2
-  resolution: "uuid@npm:8.3.2"
-  bin:
-    uuid: dist/bin/uuid
-  checksum: 10c0/bcbb807a917d374a49f475fae2e87fdca7da5e5530820ef53f65ba1d12131bd81a92ecf259cc7ce317cbe0f289e7d79fdfebcef9bfa3087c8c8a2fa304c9be54
   languageName: node
   linkType: hard
 
