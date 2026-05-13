@@ -65,7 +65,9 @@
 	"countryToRegion": {
 		"NO": "EEA",
 		"PL": "EEA",
-		"DE": "EEA",
+		"DE": [ "EEA", "DACH" ],
+		"AT": [ "EEA", "DACH" ],
+		"CH": "DACH",
 		"UA": "UA"
 	},
 	"defaultAllowedMediaNodeRegions": [],

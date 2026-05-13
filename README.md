@@ -376,24 +376,30 @@ The room server supports restricting which media nodes a given tenant's rooms ma
 
 ### `countryToRegion`
 
-- **Type:** `object` (map of 2-letter ISO country code → region label)
-- **Description:** Maps the `country` field of each media node to a region label. Region labels are deployment-defined strings; the only requirement is that they match the values selected by super-admins in the management UI's tenant editor (see `knownRegions` in the client config).
+- **Type:** `object` (map of 2-letter ISO country code → region label or array of region labels)
+- **Description:** Maps the `country` field of each media node to one or more region labels. Region labels are deployment-defined strings; the only requirement is that they match the values selected by super-admins in the management UI's tenant editor (see `knownRegions` in the client config).
+
+A country may belong to **multiple regions** (e.g. Germany simultaneously in the wider EEA bucket and the narrower DACH bucket). Express it by giving the country an array of labels; tenants then choose which of those buckets they accept.
 
 ```json
 "countryToRegion": {
-	"DE": "EEA",
-	"DK": "EEA",
-	"FI": "EEA",
-	"HU": "EEA",
-	"IT": "EEA",
+	"DE": [ "EEA", "DACH" ],
+	"AT": [ "EEA", "DACH" ],
+	"CH": "DACH",
+	"FR": "EEA",
 	"PL": "EEA",
-	"PT": "EEA",
-	"SI": "EEA",
 	"UA": "UA"
 }
 ```
 
-A country missing from this map resolves to the internal region `OTHER` and is excluded from any region-limited tenant's candidate set. The server logs a warning at startup if any configured media node has a country not present in this map.
+In the example above:
+- An EEA-only tenant (`['EEA']`) sees DE, AT, FR, PL — but not CH (Switzerland is not in EEA) and not UA.
+- A DACH-only tenant (`['DACH']`) sees DE, AT, CH — but not FR, PL, UA.
+- A tenant with `['EEA','DACH']` would see DE, AT, CH, FR, PL.
+
+The single-string form (`"FR": "EEA"`) is the convenience shorthand for `[ "EEA" ]`.
+
+A country missing from this map (or mapped to an empty array) resolves to the internal region `OTHER` and is excluded from any region-limited tenant's candidate set. The server logs a warning at startup if any configured media node has such a country.
 
 ### `defaultAllowedMediaNodeRegions`
 

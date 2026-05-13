@@ -19,7 +19,7 @@ import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
 
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { MediaNode } from './media/MediaNode';
-import { countryToRegion } from './common/regions';
+import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 import { safePromise } from './common/safePromise';
@@ -227,19 +227,21 @@ export default class Room extends EventEmitter {
 		// log loudly rather than silently leak data into the wrong region.
 		if (this.allowedMediaNodeRegions?.length) {
 			const nodeCountry = this.mediaService.getNodeCountry(mediaNode);
-			const nodeRegion = countryToRegion(nodeCountry);
+			const nodeRegions = countryToRegions(nodeCountry);
+			const allowedSet = this.allowedMediaNodeRegions;
+			const matches = nodeRegions.some((r) => allowedSet.includes(r));
 
-			if (!this.allowedMediaNodeRegions.includes(nodeRegion)) {
+			if (!matches) {
 				logger.error(
 					{
 						roomId: this.id,
 						tenantId: this.tenantId,
 						mediaNodeHostname: mediaNode.hostname,
 						nodeCountry,
-						nodeRegion,
+						nodeRegions,
 						allowedMediaNodeRegions: this.allowedMediaNodeRegions,
 					},
-					'addMediaNode() refused: node region is not in tenant policy. This indicates a bug in candidate selection.'
+					'addMediaNode() refused: none of the node\'s regions are in tenant policy. This indicates a bug in candidate selection.'
 				);
 
 				return;
