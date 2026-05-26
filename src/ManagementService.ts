@@ -86,6 +86,8 @@ export default class ManagementService {
 	#socket: Socket;
 
 	#authRefreshTimer: NodeJS.Timeout | null = null;
+	#refreshAttempt = 0;
+	#pendingAuth: Promise<void> | null = null;
 
 	#tenantFQDNsService: FeathersService;
 	#tenantsService: FeathersService;
@@ -168,7 +170,9 @@ export default class ManagementService {
 		if (error) throw error;
 
 		// Room exist on mgmt
-		const { total, data } = await this.#roomsService.find({ query: { name, tenantId } });
+		const { total, data } = await this.runAuthenticated(
+			() => this.#roomsService.find({ query: { name, tenantId } })
+		);
 
 		let room = undefined;
 
@@ -179,7 +183,9 @@ export default class ManagementService {
 
 		let fdata = undefined;
 
-		const fallback = await this.#defaultsService.find({ query: { name, tenantId } });
+		const fallback = await this.runAuthenticated(
+			() => this.#defaultsService.find({ query: { name, tenantId } })
+		);
 
 		if (fallback.total === 1) {
 			logger.debug('getRoom() [name: %s] -> fallback: %o', name, fallback);
@@ -255,7 +261,9 @@ export default class ManagementService {
 
 		if (!clientHost) return 0;
 
-		const { total, data } = await this.#tenantFQDNsService.find({ query: { fqdn: clientHost.replace(/\.$/, ''), $limit: 1 } });
+		const { total, data } = await this.runAuthenticated(
+			() => this.#tenantFQDNsService.find({ query: { fqdn: clientHost.replace(/\.$/, ''), $limit: 1 } })
+		);
 
 		logger.debug({ total, data }, 'getTenantFromFqdn() - tenantFQDNsService.find');
 
@@ -283,7 +291,9 @@ export default class ManagementService {
 		if (error) throw error;
 
 		try {
-			return await this.#tenantsService.get(tenantId) as ManagedTenant;
+			return await this.runAuthenticated(
+				() => this.#tenantsService.get(tenantId)
+			) as ManagedTenant;
 		} catch (err) {
 			logger.warn({ err, tenantId }, 'getTenant() failed');
 
@@ -334,8 +344,16 @@ export default class ManagementService {
 			this.#authRefreshTimer = null;
 		}
 
-		if (!payload?.exp)
+		if (!payload?.exp) {
+			// Token has no exp — we can't compute a refresh time. Don't auto-retry here:
+			// either the server is misconfigured (retrying won't help) or it's intentionally
+			// non-expiring (no refresh needed). 401 self-heal in runAuthenticated remains as a backstop.
+			logger.warn('Token payload missing exp, refresh not scheduled');
+
 			return;
+		}
+
+		this.#refreshAttempt = 0;
 
 		const nowSec = Math.floor(Date.now() / 1000);
 		const expSec = payload.exp;
@@ -349,14 +367,87 @@ export default class ManagementService {
 		if (delayMs <= 0)
 			delayMs = 1000;
 
-		this.#authRefreshTimer = setTimeout(() => {
-			if (this.closed) return;
+		this.#authRefreshTimer = setTimeout(() => this.runScheduledRefresh(), delayMs);
+	}
 
-			this.authenticateLocal()
-				.catch((err) =>
-					logger.warn({ err }, 'Token refresh authenticateLocal() failed')
+	@skipIfClosed
+	private scheduleRefreshRetry(): void {
+		if (this.#authRefreshTimer) {
+			clearTimeout(this.#authRefreshTimer);
+			this.#authRefreshTimer = null;
+		}
+
+		this.#refreshAttempt += 1;
+
+		// First retry is quick — most refresh failures are sub-second blips (socket
+		// in mid-reconnect, mgmt restart finishing, transient 5xx) and a 1s retry
+		// will land before anyone notices. After that we back off so a real outage
+		// doesn't get hammered.
+		const backoffSchedule = [ 1_000, 5_000, 30_000, 120_000, 300_000, 600_000 ];
+		const idx = Math.min(this.#refreshAttempt - 1, backoffSchedule.length - 1);
+		const backoffMs = backoffSchedule[idx];
+
+		logger.warn(
+			{ attempt: this.#refreshAttempt, backoffMs },
+			'Scheduling token refresh retry'
+		);
+
+		this.#authRefreshTimer = setTimeout(() => this.runScheduledRefresh(), backoffMs);
+	}
+
+	@skipIfClosed
+	private async runScheduledRefresh(): Promise<void> {
+		try {
+			await this.authenticateLocalDedup();
+			// Success path: authenticateLocal -> scheduleTokenRefresh resets #refreshAttempt
+			// and re-arms the timer at 80% of the new token's lifetime.
+		} catch (err) {
+			logger.warn(
+				{ err, attempt: this.#refreshAttempt },
+				'Token refresh authenticateLocal() failed, will retry with backoff'
+			);
+			this.scheduleRefreshRetry();
+		}
+	}
+
+	private authenticateLocalDedup(): Promise<void> {
+		if (this.#pendingAuth) return this.#pendingAuth;
+
+		this.#pendingAuth = this.authenticateLocal().finally(() => {
+			this.#pendingAuth = null;
+		});
+
+		return this.#pendingAuth;
+	}
+
+	// Run a mgmt service call; on 401/NotAuthenticated, re-auth once and retry.
+	// This is the backstop for the case where the cached token expired between refreshes
+	// (e.g. refresh chain broke earlier and recovered too late, or the server invalidated
+	// the connection's auth at exp before our refresh landed).
+	private async runAuthenticated<T>(fn: () => Promise<T>): Promise<T> {
+		try {
+			return await fn();
+		} catch (err) {
+			if (!isNonRecoverableAuthError(err)) throw err;
+			if (this.closed) throw err;
+
+			logger.warn(
+				{ err },
+				'Management service call got 401; re-authenticating and retrying once'
+			);
+
+			try {
+				await this.authenticateLocalDedup();
+			} catch (authErr) {
+				logger.warn(
+					{ err: authErr },
+					'Re-authentication after 401 failed; rethrowing original error'
 				);
-		}, delayMs);
+				throw err;
+			}
+
+			return fn();
+		}
 	}
 
 	@skipIfClosed
