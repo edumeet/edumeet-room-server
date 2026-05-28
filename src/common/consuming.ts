@@ -338,6 +338,13 @@ const checkPipe = async (
 				pipeProducer?.once('close', () => pipePromises.delete(producer.id));
 			})();
 
+			// On failure, evict the cached promise so the createConsumer() retry can
+			// rebuild the pipe instead of re-awaiting a rejected promise.
+			pipePromise.catch(() => {
+				if (pipePromises.get(producer.id) === pipePromise)
+					pipePromises.delete(producer.id);
+			});
+
 			pipePromises.set(producer.id, pipePromise);
 		}
 
@@ -374,6 +381,13 @@ const checkDataPipe = async (
 
 				pipeDataProducer?.once('close', () => pipePromises.delete(dataProducer.id));
 			})();
+
+			// On failure, evict the cached promise so a later attempt can rebuild the
+			// pipe instead of re-awaiting a rejected promise.
+			pipePromise.catch(() => {
+				if (pipePromises.get(dataProducer.id) === pipePromise)
+					pipePromises.delete(dataProducer.id);
+			});
 
 			pipePromises.set(dataProducer.id, pipePromise);
 		}

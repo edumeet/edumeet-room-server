@@ -423,12 +423,32 @@ export class Router extends EventEmitter {
 						if (remotePipeTransport)
 							remotePipeTransport.close();
 
+						// Evict the failed pair, otherwise this rejected promise stays
+						// cached and every later consume across this router pair awaits
+						// it and fails permanently.
+						this.routerPipePromises.delete(pipeTransportPairKey);
+
 						reject(error);
 					});
 			});
 
+			// Guarantee the pair promise always has a rejection handler. If
+			// addPipeTransportPair() below throws synchronously (duplicate key) or is
+			// skipped on a closed remote router, the promise would otherwise be left
+			// with no awaiter and its later rejection becomes an unhandledRejection
+			// that exits the whole process.
+			pipeTransportPairPromise.catch(() => {});
+
 			this.routerPipePromises.set(pipeTransportPairKey, pipeTransportPairPromise);
-			router.addPipeTransportPair(this.id, pipeTransportPairPromise);
+
+			try {
+				router.addPipeTransportPair(this.id, pipeTransportPairPromise);
+			} catch (error) {
+				this.routerPipePromises.delete(pipeTransportPairKey);
+
+				throw error;
+			}
+
 			await pipeTransportPairPromise;
 		}
 
