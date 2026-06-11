@@ -374,13 +374,28 @@ export class Router extends EventEmitter {
 			remotePipeTransport = pipeTransportPair[router.id];
 		} else {
 			pipeTransportPairPromise = new Promise((resolve, reject) => {
-				Promise.all([
+				Promise.allSettled([
 					this.createPipeTransport({ internal }),
 					router.createPipeTransport({ internal })
 				])
-					.then((pipeTransports) => {
-						localPipeTransport = pipeTransports[0];
-						remotePipeTransport = pipeTransports[1];
+					.then(([ localResult, remoteResult ]) => {
+						// Capture whichever side(s) actually came up so the .catch
+						// below can close them. Using allSettled (not all) is what
+						// guarantees BOTH requests have finished before we decide:
+						// with Promise.all, a rejection on one side runs the .catch
+						// while the other side is still in flight, and that
+						// slow-but-successful transport then resolves with nobody to
+						// close it — the orphaned-pipe leak seen when a partner node
+						// times out mid-pair-setup.
+						if (localResult.status === 'fulfilled')
+							localPipeTransport = localResult.value;
+						if (remoteResult.status === 'fulfilled')
+							remotePipeTransport = remoteResult.value;
+
+						if (localResult.status === 'rejected')
+							throw localResult.reason;
+						if (remoteResult.status === 'rejected')
+							throw remoteResult.reason;
 					})
 					.then(() => {
 						return Promise.all([
