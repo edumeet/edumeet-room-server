@@ -40,7 +40,20 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 				appData = { ...appData, peerId: peer.id, layerWatcher };
 
-				const producer = await peer.producingTransport.produce({ kind, rtpParameters, appData });
+				const { producer, reused } = await peer.producingTransport.produceDeduped({ kind, rtpParameters, appData });
+
+				response.id = producer.id;
+				context.handled = true;
+
+				// Retried produce (slow ack): the producer already exists and its consumer
+				// fan-out / listeners were set up by the original call. Just return the id
+				// and discard this call's unused LayerWatcher — re-running below would create
+				// duplicate consumers (createConsumer is not idempotent) and listeners.
+				if (reused) {
+					layerWatcher?.close();
+
+					break;
+				}
 
 				peer.producers.set(producer.id, producer);
 				producer.once('close', () => {
@@ -65,9 +78,6 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 					method: 'newProducerLayer',
 					data: { producerId: producer.id, spatialLayer }
 				}));
-
-				response.id = producer.id;
-				context.handled = true;
 
 				(async () => {
 					for (const consumerPeer of room.getPeers(peer)) {

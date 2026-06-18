@@ -74,6 +74,22 @@ export class WebRtcTransport extends EventEmitter {
 	public dataConsumers: Map<string, DataConsumer> = new Map();
 	public dataProducers: Map<string, DataProducer> = new Map();
 
+	// Idempotency guards: a client whose request ack timed out (slow round-trip
+	// under load) re-sends the identical request. Socket.IO's ack timeout does not
+	// cancel the work already done, so the duplicate would re-run connect/produce on
+	// the media node, which throws ("connect() already called", "ssrc/MID already
+	// exists") and breaks the peer's media. We dedupe so retries resolve to the
+	// original result instead.
+	//
+	// produce dedupe is keyed by the track's msid (falling back to the SSRC set), NOT
+	// the mid: mediasoup-client recycles a closed m-section's mid for a later producer
+	// (versatica/mediasoup-client #363), so mid is not a stable per-producer identity.
+	// SSRC alone is insufficient because RID-based simulcast carries no SSRC in its
+	// encodings — only msid is present for every media type (audio, SVC, SSRC- and
+	// RID-simulcast). A retry re-sends the same msid; a new track always gets a new one.
+	#connectPromise?: Promise<void>;
+	public producePromises: Map<string, Promise<Producer>> = new Map();
+
 	constructor({
 		router,
 		mediaNode,
@@ -126,14 +142,26 @@ export class WebRtcTransport extends EventEmitter {
 	}: { dtlsParameters: DtlsParameters }) {
 		logger.debug('connect()');
 
-		await this.mediaNode.request({
+		// Idempotent: reuse the first connect so a retried (duplicate) connect for the
+		// same transport awaits the original instead of hitting "connect() already
+		// called" on the media node. Cleared on failure so a genuine retry can proceed.
+		if (this.#connectPromise) return this.#connectPromise;
+
+		this.#connectPromise = this.mediaNode.request({
 			method: 'connectWebRtcTransport',
 			data: {
 				routerId: this.router.id,
 				transportId: this.id,
 				dtlsParameters,
 			}
-		});
+		}).then(() => undefined);
+
+		try {
+			await this.#connectPromise;
+		} catch (error) {
+			this.#connectPromise = undefined;
+			throw error;
+		}
 	}
 
 	@skipIfClosed
@@ -165,6 +193,53 @@ export class WebRtcTransport extends EventEmitter {
 				bitrate,
 			}
 		});
+	}
+
+	// Idempotent produce: a retried produce (same track identity) resolves to the
+	// ORIGINAL producer with reused=true, so the caller can skip its side effects
+	// (consumer fan-out, listeners) instead of double-running them. A brand-new track —
+	// even one reusing a recycled mid — has a new identity and makes a new producer.
+	@skipIfClosed
+	public async produceDeduped(options: ProduceOptions): Promise<{ producer: Producer; reused: boolean }> {
+		const key = WebRtcTransport.produceKey(options.rtpParameters);
+
+		if (key) {
+			const existing = this.producePromises.get(key);
+
+			if (existing) return { producer: await existing, reused: true };
+		}
+
+		const promise = this.produce(options);
+
+		if (key) {
+			this.producePromises.set(key, promise);
+
+			promise.then((producer) => {
+				producer.once('close', () => {
+					if (this.producePromises.get(key) === promise) this.producePromises.delete(key);
+				});
+			}).catch(() => {
+				if (this.producePromises.get(key) === promise) this.producePromises.delete(key);
+			});
+		}
+
+		return { producer: await promise, reused: false };
+	}
+
+	// Stable per-producer identity for dedupe. Prefer the track's msid (present for all
+	// media types incl. RID-based simulcast, which has no SSRC); fall back to the sorted
+	// SSRC set if a client omits msid; undefined → no dedupe (safe: original behaviour).
+	private static produceKey(rtpParameters: RtpParameters): string | undefined {
+		const { msid } = rtpParameters as { msid?: string };
+
+		if (typeof msid === 'string' && msid.length > 0) return `msid:${msid}`;
+
+		const ssrcs = (rtpParameters.encodings ?? [])
+			.map((encoding) => encoding.ssrc)
+			.filter((ssrc): ssrc is number => typeof ssrc === 'number')
+			.sort((a, b) => a - b);
+
+		return ssrcs.length > 0 ? `ssrc:${ssrcs.join(',')}` : undefined;
 	}
 
 	@skipIfClosed
