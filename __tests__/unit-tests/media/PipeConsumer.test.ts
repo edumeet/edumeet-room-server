@@ -1,9 +1,9 @@
 import 'jest';
-import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { RtpParameters } from 'mediasoup/types';
 import { PipeConsumer } from '../../../src/media/PipeConsumer';
 import { Router } from '../../../src/media/Router';
 import { MediaKind } from 'edumeet-common';
-import MediaNode from '../../../src/media/MediaNode';
+import { MediaNode } from '../../../src/media/MediaNode';
 
 describe('PipeConsumer', () => {
 	let pipeConsumer: PipeConsumer;
@@ -39,7 +39,7 @@ describe('PipeConsumer', () => {
 		pipeConsumer.close();
 
 		expect(pipeConsumer.closed).toBe(true);
-		expect(spyEmit).toHaveBeenCalledWith('close');
+		expect(spyEmit).toHaveBeenCalledWith('close', false);
 		expect(spyNotify).toHaveBeenCalled();
 	});
 

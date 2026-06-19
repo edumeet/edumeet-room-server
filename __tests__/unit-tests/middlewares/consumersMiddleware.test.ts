@@ -5,13 +5,15 @@ import { createConsumersMiddleware } from '../../../src/middlewares/consumersMid
 
 const next = jest.fn();
 
+// `consumerClosed` is acknowledged (handled=true) even when the router/consumer is
+// already gone — a benign self-healing race ack — so every shape below is handled.
 test.each([
-	[ 'id', 'id', 'id', 'wrong', false ],
-	[ 'id', 'id', 'wrong', 'id', false ],
-	[ 'id', 'wrong', 'id', 'id', false ],
-	[ 'wrong', 'id', 'id', 'id', false ],
+	[ 'id', 'id', 'id', 'wrong', true ],
+	[ 'id', 'id', 'wrong', 'id', true ],
+	[ 'id', 'wrong', 'id', 'id', true ],
+	[ 'wrong', 'id', 'id', 'id', true ],
 	[ 'id', 'id', 'id', 'id', true ]
-])('Should not handle messages for wrong consumer or router', async (routerId, routerIdInMessage, dataConsumerId, dataConsumerIdInMessage, wasHandled) => {
+])('Should self-heal consumerClosed for missing or mismatched ids', async (routerId, routerIdInMessage, dataConsumerId, dataConsumerIdInMessage, wasHandled) => {
 	const consumer = {
 		id: dataConsumerId,
 		router: {

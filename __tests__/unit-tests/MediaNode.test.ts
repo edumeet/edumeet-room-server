@@ -1,6 +1,6 @@
 import { KDPoint } from 'edumeet-common';
 import 'jest';
-import MediaNode from '../../src/media/MediaNode';
+import { MediaNode } from '../../src/media/MediaNode';
 import { Router } from '../../src/media/Router';
 
 it('Has correct properties', () => {
@@ -9,6 +9,7 @@ it('Has correct properties', () => {
 		hostname: 'h',
 		port: 3000,
 		secret: 's',
+		turnports: [],
 		kdPoint: {} as unknown as KDPoint
 	});
 
@@ -24,6 +25,7 @@ it('close()', () => {
 		hostname: 'h',
 		port: 3000,
 		secret: 's',
+		turnports: [],
 		kdPoint: {} as unknown as KDPoint
 	});
 

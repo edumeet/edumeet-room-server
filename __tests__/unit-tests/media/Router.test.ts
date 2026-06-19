@@ -1,8 +1,9 @@
 import 'jest';
+import { SocketMessage } from 'edumeet-common';
 import { Router } from '../../../src/media/Router';
-import MediaNode from '../../../src/media/MediaNode';
-import { RtpCapabilities, RtpParameters } from 'mediasoup-client/lib/RtpParameters';
-import { SctpCapabilities } from 'mediasoup/node/lib/SctpParameters';
+import { MediaNode } from '../../../src/media/MediaNode';
+import { RtpCapabilities, RtpParameters } from 'mediasoup/types';
+import { SctpCapabilities } from 'mediasoup/types';
 import { Producer } from '../../../src/media/Producer';
 import { WebRtcTransport } from '../../../src/media/WebRtcTransport';
 import { PipeTransport } from '../../../src/media/PipeTransport';
@@ -79,6 +80,7 @@ describe('Router', () => {
 			hostname: 'testHostname',
 			port: 1234,
 			secret: 'testSecret',
+			turnports: [],
 			kdPoint: fakePoint
 		});
 
@@ -87,6 +89,7 @@ describe('Router', () => {
 			hostname: 'testHostname',
 			port: 1234,
 			secret: 'testSecret',
+			turnports: [],
 			kdPoint: fakePoint
 		});
 		router1 = new Router({
@@ -143,14 +146,15 @@ describe('Router', () => {
 			hostname: 'testHostname',
 			port: 1234,
 			secret: 'testSecret',
+			turnports: [],
 			kdPoint: fakePoint
 		});
 
 		expect(router3.closed).toBe(false);
-		
+
 		closingMediaNode.routers.set(router3.id, router3);
 		closingMediaNode.close();
-		
+
 		expect(router3.closed).toBe(true);
 	});
 
@@ -165,8 +169,10 @@ describe('Router', () => {
 			} ],
 		} as RtpCapabilities;
 
-		jest.spyOn(mediaNode1, 'request').mockImplementation(async ({ method, data }) => {
-			return ({
+		jest.spyOn(mediaNode1, 'request').mockImplementation(async (...args: unknown[]) => {
+			const { method, data } = args[0] as SocketMessage;
+
+			return (({
 				'canConsume': () => {
 					expect(data.routerId).toBe(router1.id);
 					expect(data.producerId).toBe(producerId);
@@ -174,11 +180,11 @@ describe('Router', () => {
 
 					return { canConsume: true };
 				},
-			}[method] ?? (() => expect(true).toBe(false)))();
+			} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 		});
 
-		const fakeProducer1 = { 
-			id: producerId, 
+		const fakeProducer1 = {
+			id: producerId,
 			paused: false,
 			router: router1,
 			kind: MediaKind.AUDIO,
@@ -202,16 +208,18 @@ describe('Router', () => {
 		const spyDelete = jest.spyOn(router1.webRtcTransports, 'delete');
 		const mockWebRtcTransport = new MockWebRtcTransport();
 
-		jest.spyOn(mediaNode1, 'request').mockImplementation(async ({ method, data }) => {
-			return ({
+		jest.spyOn(mediaNode1, 'request').mockImplementation(async (...args: unknown[]) => {
+			const { method, data } = args[0] as SocketMessage;
+
+			return (({
 				'createWebRtcTransport': () => {
 					expect(data.routerId).toBe(router1.id);
 					expect(data.forceTcp).toBe(false);
 					expect(data.sctpCapabilities).toBe(mockWebRtcTransport.sctpCapabilities);
 
-					return mockWebRtcTransport; 
+					return mockWebRtcTransport;
 				},
-			}[method] ?? (() => expect(true).toBe(false)))();
+			} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const transport = await router1.createWebRtcTransport({
@@ -234,8 +242,10 @@ describe('Router', () => {
 	it('createPipeTransport()', async () => {
 		const transportId = 'testTransportId';
 
-		jest.spyOn(mediaNode1, 'request').mockImplementation(async ({ method, data }) => {
-			return ({
+		jest.spyOn(mediaNode1, 'request').mockImplementation(async (...args: unknown[]) => {
+			const { method, data } = args[0] as SocketMessage;
+
+			return (({
 				'createPipeTransport': () => {
 					expect(data.routerId).toBe(router1.id);
 					expect(data.internal).toBe(false);
@@ -247,7 +257,7 @@ describe('Router', () => {
 						srtpParameters: {},
 					};
 				},
-			}[method] ?? (() => expect(true).toBe(false)))();
+			} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const transport = await router1.createPipeTransport({
@@ -257,7 +267,7 @@ describe('Router', () => {
 		expect(transport.id).toBe(transportId);
 		expect(router1.pipeTransports.has(transportId)).toBe(true);
 	});
-		
+
 	describe('pipeToRouter()', () => {
 		let fakePipeDataProducer: PipeDataProducer;
 		let fakeDataProducer: DataProducer;
@@ -275,8 +285,8 @@ describe('Router', () => {
 			fakePipeTransport2 = new MockPipeTransport() as unknown as PipeTransport;
 			fakePipeTransport2.id = 'id2';
 			fakePipeTransport3 = new MockPipeTransportPaused() as unknown as PipeTransport;
-			fakeProducer1 = { 
-				id: 'id', 
+			fakeProducer1 = {
+				id: 'id',
 				paused: false,
 				router: router1,
 				kind: MediaKind.AUDIO,
@@ -304,14 +314,16 @@ describe('Router', () => {
 			} catch (error) {
 				expect((error as Error).message).toBe('Producer not found');
 			}
-			jest.spyOn(mediaNode1, 'request').mockImplementation(async ({ method, data }) => {
+			jest.spyOn(mediaNode1, 'request').mockImplementation(async (...args: unknown[]) => {
+				const { method, data } = args[0] as SocketMessage;
+
 				if (data.routerId === router1.id) {
-					return ({
+					return (({
 						'createPipeTransport': () => {
 							expect(data.routerId).toBe(router1.id);
 							expect(data.internal).toBe(true);
 
-							return fakePipeTransport1; 
+							return fakePipeTransport1;
 						},
 						'connectPipeTransport': () => {
 							expect(data.routerId).toBe(router1.id);
@@ -325,16 +337,16 @@ describe('Router', () => {
 							expect(data.pipeTransportId).toBe(fakePipeTransport1.id);
 							expect(data.producerId).toBe(fakeProducer1.id);
 
-							return fakePipeConsumer; 
+							return fakePipeConsumer;
 						}
-					}[method] ?? (() => expect(true).toBe(false)))();
+					} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 				} else {
-					return ({
+					return (({
 						'createPipeTransport': () => {
 							expect(data.routerId).toBe(router2.id);
 							expect(data.internal).toBe(true);
-						
-							return fakePipeTransport2; 
+
+							return fakePipeTransport2;
 
 						},
 						'connectPipeTransport': () => {
@@ -354,7 +366,7 @@ describe('Router', () => {
 
 							return { id: fakeProducer1.id };
 						}
-					}[method] ?? (() => expect(true).toBe(false)))();
+					} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 
 				}
 			});
@@ -398,8 +410,10 @@ describe('Router', () => {
 		});
 
 		it('pipeToRouter() - external', async () => {
-			jest.spyOn(mediaNode1, 'request').mockImplementation(async ({ method, data }) => {
-				return ({
+			jest.spyOn(mediaNode1, 'request').mockImplementation(async (...args: unknown[]) => {
+				const { method, data } = args[0] as SocketMessage;
+
+				return (({
 					'createPipeTransport': () => {
 						expect(data.routerId).toBe(router1.id);
 						expect(data.internal).toBe(false);
@@ -418,13 +432,15 @@ describe('Router', () => {
 						expect(data.pipeTransportId).toBe(fakePipeTransport2.id);
 						expect(data.producerId).toBe(fakeProducer1.id);
 
-						return fakePipeConsumer; 
+						return fakePipeConsumer;
 					}
-				}[method] ?? (() => expect(true).toBe(false)))();
+				} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 			});
 
-			jest.spyOn(mediaNode2, 'request').mockImplementation(async ({ method, data }) => {
-				return ({
+			jest.spyOn(mediaNode2, 'request').mockImplementation(async (...args: unknown[]) => {
+				const { method, data } = args[0] as SocketMessage;
+
+				return (({
 					'createPipeTransport': () => {
 						expect(data.routerId).toBe(router3.id);
 						expect(data.internal).toBe(false);
@@ -448,7 +464,7 @@ describe('Router', () => {
 
 						return { id: fakeProducer1.id };
 					}
-				}[method] ?? (() => expect(true).toBe(false)))();
+				} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 			});
 
 			try {
@@ -482,38 +498,38 @@ describe('Router', () => {
 				{ producerId: undefined, router: router2 }
 			)).rejects.toThrow();
 		});
-	
+
 		it('pipeToRouter() - Should throw on no dataProducerId', async () => {
 			await expect(router1.pipeToRouter(
 				{ dataProducerId: undefined, router: router2 }
 			)).rejects.toThrow();
 		});
-		
+
 		it('pipeToRouter() - Should throw on dataProducerId and producerId', async () => {
 			await expect(router1.pipeToRouter(
 				{ dataProducerId: 'id', producerId: 'id', router: router2 }
 			)).rejects.toThrow();
 		});
-	
+
 		it('pipeToRouter() - Should throw on non existing producerId', async () => {
 			await expect(router1.pipeToRouter(
 				{ producerId: 'does not exist', router: router2 }
 			)).rejects.toThrow();
 		});
-	
+
 		it('pipeToRouter() - Should throw on non existing dataProducerId', async () => {
 			await expect(router1.pipeToRouter(
 				{ dataProducerId: 'does not exist', router: router2 }
 			)).rejects.toThrow();
 		});
-	
+
 		it('pipeToRouter() - Should find existing dataProducer', async () => {
 			router1.dataProducers.set('testId1', fakeDataProducer);
 			await expect(router1.pipeToRouter(
 				{ dataProducerId: 'testId1', router: router2 }
 			)).rejects.toThrow();
 		});
-	
+
 		it('pipeToRouter() - Should find existing pipeDataProducer', async () => {
 
 			router1.pipeDataProducers.set('id', fakePipeDataProducer);
@@ -537,7 +553,7 @@ describe('Router', () => {
 				} as unknown as PipeTransportPair;
 			});
 			expect(router1.routerPipePromises.size == 0);
-		
+
 			const { pipeConsumer, pipeProducer } = await router1.pipeToRouter(
 				{ producerId: fakeProducer2.id, router: router2 });
 
@@ -545,7 +561,7 @@ describe('Router', () => {
 			expect(pipeConsumer).toBeTruthy();
 			expect(pipeProducer).toBeTruthy();
 		});
-		
+
 		it('pipeToRouter() - Producer and pipeProducer pause should sync', async () => {
 			fakeProducer2.paused = true;
 
@@ -556,7 +572,7 @@ describe('Router', () => {
 				'router1': fakePipeTransport3,
 				'router2': fakePipeTransport3
 			});
-		
+
 			const { pipeProducer } = await router1.pipeToRouter(
 				{ producerId: fakeProducer2.id, router: router2 });
 
@@ -576,7 +592,7 @@ describe('Router', () => {
 				'testId1': fakePipeTransport3,
 				'testId2': fakePipeTransport3
 			});
-		
+
 			await expect(router1.pipeToRouter(
 				{ producerId: fakeProducer2.id, router: router2 })).rejects.toThrow();
 		});
@@ -594,7 +610,7 @@ describe('Router', () => {
 			await expect(router1.pipeToRouter(
 				{ dataProducerId: fakeDataProducer.id, router: router2 })).rejects.toThrow();
 		});
-		
+
 		it('pipeToRouter() - Should close pipedata consumer/producer on close event', async () => {
 			router1.dataProducers.set(fakeDataProducer.id, fakeDataProducer);
 			jest.spyOn(router1, 'createPipeTransport').mockResolvedValue(fakePipeTransport1);
@@ -603,17 +619,17 @@ describe('Router', () => {
 				'router1': fakePipeTransport1,
 				'router2': fakePipeTransport1
 			});
-			
+
 			const { pipeDataConsumer, pipeDataProducer } = await router1.pipeToRouter(
 				{ dataProducerId: fakeDataProducer.id, router: router2 });
-			
+
 			if (pipeDataConsumer && pipeDataProducer) {
 				const spyClose1 = jest.spyOn(pipeDataProducer, 'close');
 				const spyClose2 = jest.spyOn(pipeDataConsumer, 'close');
 
-				pipeDataConsumer.emit('close');	
+				pipeDataConsumer.emit('close');
 				expect(spyClose1).toHaveBeenCalled();
-				pipeDataProducer.emit('close');	
+				pipeDataProducer.emit('close');
 				expect(spyClose2).toHaveBeenCalled();
 			}
 		});

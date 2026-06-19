@@ -2,8 +2,8 @@ import 'jest';
 
 import { DataProducer } from '../../../src/media/DataProducer';
 import { Router } from '../../../src/media/Router';
-import MediaNode from '../../../src/media/MediaNode';
-import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
+import { MediaNode } from '../../../src/media/MediaNode';
+import { SctpStreamParameters } from 'mediasoup/types';
 
 describe('DataProducer', () => {
 	const DATA_PRODUCER_ID = 'id';

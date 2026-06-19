@@ -2,15 +2,15 @@ import { SocketMessage } from 'edumeet-common';
 import 'jest';
 import { DataConsumer } from '../../../src/media/DataConsumer';
 import { Router } from '../../../src/media/Router';
-import MediaNode from '../../../src/media/MediaNode';
-import { SctpStreamParameters } from 'mediasoup/node/lib/SctpParameters';
+import { MediaNode } from '../../../src/media/MediaNode';
+import { SctpStreamParameters } from 'mediasoup/types';
 
 describe('Consumer', () => {
 	const dataConsumerId = 'id'; 
 	const dataProducerId = 'id'; 
 	let fakeRouter: Router;
 	let fakeAppData: Record<string, unknown>;
-	let fakeSctpStreamParameters: SctpStreamParameters;
+	const fakeSctpStreamParameters: SctpStreamParameters = { streamId: 0 };
 	let dataConsumer: DataConsumer;
 	let spyNotify: jest.SpyInstance;
 	let mediaNode: MediaNode;

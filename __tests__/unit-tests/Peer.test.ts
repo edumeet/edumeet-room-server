@@ -1,10 +1,11 @@
-import { BaseConnection, IOServerConnection } from 'edumeet-common';
+import { BaseConnection } from 'edumeet-common';
 import 'jest';
 import { Socket } from 'socket.io';
 import { Peer, PeerContext } from '../../src/Peer';
 import { Producer } from '../../src/media/Producer';
 import { Consumer } from '../../src/media/Consumer';
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
+import { IOServerConnection } from '../../src/common/IOServerConnection';
 import { Pipeline } from 'edumeet-common';
 
 describe('Peer', () => {
@@ -46,6 +47,7 @@ describe('Peer', () => {
 			sessionId: roomId,
 			displayName,
 			picture,
+			reconnectKey: 'testReconnectKey',
 			connection
 		});
 	});
@@ -71,7 +73,8 @@ describe('Peer', () => {
 		expect(peer.connections.items.length).toBe(0);
 		expect(peer.producers.size).toBe(0);
 		expect(peer.consumers.size).toBe(0);
-		expect(peer.transports.size).toBe(0);
+		expect(peer.consumingTransport).toBeUndefined();
+		expect(peer.producingTransport).toBeUndefined();
 		expect(spyEmit).toHaveBeenCalledTimes(1);
 	});
 
@@ -106,7 +109,7 @@ describe('Peer', () => {
 		} as unknown as WebRtcTransport;
 		const spyCloseTransport = jest.spyOn(transportToClose, 'close');
 
-		peer.transports.set(transportToClose.id, transportToClose);
+		peer.producingTransport = transportToClose;
 		peer.close();
 		expect(spyCloseTransport).toHaveBeenCalled();
 	});
@@ -132,20 +135,20 @@ describe('Peer', () => {
 	describe('Connections', () => {
 		let pipelineWithMiddleware: Pipeline<PeerContext>;
 		let pipelineWithoutMiddleware: Pipeline<PeerContext>;
-		let mockRequest: jest.SpyInstance; 
-		let mockRespond: jest.SpyInstance;  
-		let mockReject: jest.SpyInstance;  
+		let mockRequest: jest.SpyInstance;
+		let mockRespond: jest.SpyInstance;
+		let mockReject: jest.SpyInstance;
 		let spyPipelineExecute: jest.SpyInstance;
-		
+
 		beforeEach(() => {
 			pipelineWithoutMiddleware = {
 				execute: (context: PeerContext) => {
-					context.handled = false; 
+					context.handled = false;
 				}
 			} as unknown as Pipeline<PeerContext>;
 			pipelineWithMiddleware = {
 				execute: (context: PeerContext) => {
-					context.handled = true; 
+					context.handled = true;
 				}
 			} as unknown as Pipeline<PeerContext>;
 			mockRequest = jest.fn();
@@ -183,7 +186,7 @@ describe('Peer', () => {
 			const mockNotification = jest.fn();
 
 			connection.emit('notification', mockNotification);
-			
+
 			expect(spyPipelineExecute).toHaveBeenCalledTimes(1);
 		});
 
@@ -193,7 +196,7 @@ describe('Peer', () => {
 			connection.emit('notification');
 			expect(spyPipelineExecute).not.toHaveBeenCalled();
 		});
-		
+
 		it('addConnection() - request promise should resolve when handled by middleware', async () => {
 			peer.pipeline = pipelineWithMiddleware;
 

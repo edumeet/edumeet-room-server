@@ -1,10 +1,10 @@
 import 'jest';
 import { Router } from '../../src/media/Router';
-import MediaNode from '../../src/media/MediaNode';
-import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { MediaNode } from '../../src/media/MediaNode';
+import { RtpParameters } from 'mediasoup/types';
 import { SrtpParameters } from '../../src/common/types';
 import { PipeTransport } from '../../src/media/PipeTransport';
-import { KDPoint, MediaKind } from 'edumeet-common';
+import { KDPoint, MediaKind, SocketMessage } from 'edumeet-common';
 
 describe('PipeTransport', () => {
 	let pipeTransport: PipeTransport;
@@ -20,6 +20,7 @@ describe('PipeTransport', () => {
 		hostname: 'testHostname',
 		port: 1234,
 		secret: 'testSecret',
+		turnports: [],
 		kdPoint: fakePoint
 	});
 
@@ -49,23 +50,27 @@ describe('PipeTransport', () => {
 	});
 
 	it('close()', () => {
-		jest.spyOn(mediaNode, 'notify').mockImplementation(async ({ method, data }) => {
-			return ({
+		jest.spyOn(mediaNode, 'notify').mockImplementation(async (...args: unknown[]) => {
+			const { method, data } = args[0] as SocketMessage;
+
+			return (({
 				'closePipeTransport': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
 					expect(data.pipeTransportId).toBe(pipeTransportId);
 				},
-			}[method] ?? (() => expect(true).toBe(false)))();
+			} as Record<string, () => void>)[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		pipeTransport.close();
-		expect(pipeTransport.mediaNode.notify).toBeCalledTimes(1);
+		expect(pipeTransport.mediaNode.notify).toHaveBeenCalledTimes(1);
 		expect(pipeTransport.closed).toBe(true);
 	});
 
 	it('connect()', async () => {
-		jest.spyOn(mediaNode, 'request').mockImplementation(async ({ method, data }) => {
-			return ({
+		jest.spyOn(mediaNode, 'request').mockImplementation(async (...args: unknown[]) => {
+			const { method, data } = args[0] as SocketMessage;
+
+			return (({
 				'connectPipeTransport': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
 					expect(data.pipeTransportId).toBe(pipeTransportId);
@@ -73,19 +78,21 @@ describe('PipeTransport', () => {
 					expect(data.port).toBe(port);
 					expect(data.srtpParameters).toBe(srtpParameters);
 				}
-			}[method] ?? (() => expect(true).toBe(false)))();
+			} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		await pipeTransport.connect({ ip, port, srtpParameters });
-		expect(mediaNode.request).toBeCalledTimes(1);
+		expect(mediaNode.request).toHaveBeenCalledTimes(1);
 	});
 
 	it('produce()', async () => {
 		const producerId = 'testProducerId';
 		const rtpParameters = {} as RtpParameters;
 
-		jest.spyOn(mediaNode, 'request').mockImplementation(async ({ method, data }) => {
-			return ({
+		jest.spyOn(mediaNode, 'request').mockImplementation(async (...args: unknown[]) => {
+			const { method, data } = args[0] as SocketMessage;
+
+			return (({
 				'createPipeProducer': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
 					expect(data.pipeTransportId).toBe(pipeTransportId);
@@ -96,7 +103,7 @@ describe('PipeTransport', () => {
 
 					return { id: producerId };
 				}
-			}[method] ?? (() => expect(true).toBe(false)))();
+			} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const pipeProducer = await pipeTransport.produce({
@@ -116,8 +123,10 @@ describe('PipeTransport', () => {
 		const consumerId = 'testConsumerId';
 		const rtpParameters = {} as RtpParameters;
 
-		jest.spyOn(mediaNode, 'request').mockImplementation(async ({ method, data }) => {
-			return ({
+		jest.spyOn(mediaNode, 'request').mockImplementation(async (...args: unknown[]) => {
+			const { method, data } = args[0] as SocketMessage;
+
+			return (({
 				'createPipeConsumer': () => {
 					expect(data.routerId).toBe(pipeTransport.router.id);
 					expect(data.pipeTransportId).toBe(pipeTransportId);
@@ -130,7 +139,7 @@ describe('PipeTransport', () => {
 						rtpParameters,
 					};
 				}
-			}[method] ?? (() => expect(true).toBe(false)))();
+			} as Record<string, () => unknown>)[method] ?? (() => expect(true).toBe(false)))();
 		});
 
 		const pipeConsumer = await pipeTransport.consume({

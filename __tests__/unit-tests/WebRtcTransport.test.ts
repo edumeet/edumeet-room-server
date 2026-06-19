@@ -1,12 +1,12 @@
 import 'jest';
 import { Router } from '../../src/media/Router';
-import MediaNode from '../../src/media/MediaNode';
-import { SctpParameters } from 'mediasoup-client/lib/SctpParameters';
+import { MediaNode } from '../../src/media/MediaNode';
+import { SctpParameters } from 'mediasoup/types';
 import { KDPoint } from 'edumeet-common';
 import { Producer } from '../../src/media/Producer';
 import { Consumer } from '../../src/media/Consumer';
 import { WebRtcTransport } from '../../src/media/WebRtcTransport';
-import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup/node/lib/WebRtcTransport';
+import { DtlsParameters, IceCandidate, IceParameters } from 'mediasoup/types';
 
 const fakePoint = {} as unknown as KDPoint;
 const create = () => {
@@ -15,6 +15,7 @@ const create = () => {
 		hostname: 'h',
 		port: 1234,
 		secret: 's',
+		turnports: [],
 		kdPoint: fakePoint
 	});
 	const router = new Router({

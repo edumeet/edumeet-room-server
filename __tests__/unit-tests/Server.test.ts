@@ -1,8 +1,16 @@
 import 'jest';
 import { Socket } from 'socket.io';
 import { socketHandler } from '../../src/common/socketHandler';
+import ServerManager from '../../src/ServerManager';
 
 describe('Server', () => {
+	beforeAll(() => {
+		// socketHandler hands valid connections off to the global serverManager.
+		global.serverManager = {
+			handleConnection: jest.fn().mockResolvedValue(undefined),
+		} as unknown as ServerManager;
+	});
+
 	afterEach(() => {
 		jest.restoreAllMocks();
 	});
@@ -14,6 +22,10 @@ describe('Server', () => {
 				query: {
 					roomId: 'roomId',
 					peerId: 'peerId',
+					reconnectKey: 'reconnectKey',
+				},
+				headers: {
+					host: 'tenant.example.com',
 				},
 			},
 			on: jest.fn(),

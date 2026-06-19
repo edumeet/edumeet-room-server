@@ -1,10 +1,10 @@
 import { MediaKind, SocketMessage } from 'edumeet-common';
 import 'jest';
-import { RtpParameters } from 'mediasoup-client/lib/RtpParameters';
+import { RtpParameters } from 'mediasoup/types';
 import { ConsumerLayers, ConsumerScore } from '../../../src/common/types';
 import { Consumer } from '../../../src/media/Consumer';
 import { Router } from '../../../src/media/Router';
-import MediaNode from '../../../src/media/MediaNode';
+import { MediaNode } from '../../../src/media/MediaNode';
 
 describe('Consumer', () => {
 	const consumerId = 'id'; 
