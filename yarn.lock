@@ -513,70 +513,70 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@feathersjs/adapter-commons@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/adapter-commons@npm:5.0.44"
+"@feathersjs/adapter-commons@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/adapter-commons@npm:5.0.45"
   dependencies:
-    "@feathersjs/commons": "npm:^5.0.44"
-    "@feathersjs/errors": "npm:^5.0.44"
-    "@feathersjs/feathers": "npm:^5.0.44"
-  checksum: 10c0/e279e5017ef0d62c109634f887600b097df335475d42a6e2a8a54464bff2c61267f4c2b7430c67e733c63d8ff929e25222d6d98e67a35bb63a1eef9c4b787eac
+    "@feathersjs/commons": "npm:^5.0.45"
+    "@feathersjs/errors": "npm:^5.0.45"
+    "@feathersjs/feathers": "npm:^5.0.45"
+  checksum: 10c0/a0662745d5d44c3486dd1b9dc38c119c6daa437aa97147fb97806e21498d763fd1e873e80682d3586a263d0f15c4c40f0f1b86794fb4919b23e3364216f46fb4
   languageName: node
   linkType: hard
 
-"@feathersjs/authentication-client@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/authentication-client@npm:5.0.44"
+"@feathersjs/authentication-client@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/authentication-client@npm:5.0.45"
   dependencies:
-    "@feathersjs/authentication": "npm:^5.0.44"
-    "@feathersjs/commons": "npm:^5.0.44"
-    "@feathersjs/errors": "npm:^5.0.44"
-    "@feathersjs/feathers": "npm:^5.0.44"
-  checksum: 10c0/a724421c58444df4a47aa1c807db9a23efd30b2e8bd831b4f57625c649c379f246f683c6a966d17a2f9055027a43c259ee02a13241fb2b7fa0d51ba4928fb5a5
+    "@feathersjs/authentication": "npm:^5.0.45"
+    "@feathersjs/commons": "npm:^5.0.45"
+    "@feathersjs/errors": "npm:^5.0.45"
+    "@feathersjs/feathers": "npm:^5.0.45"
+  checksum: 10c0/6e9ccb6fa9f5d4898b81b1399cb0a964ee25e395d1e07de237dc48667f04aa205d845716c02d1125153dc0bf694af418e62e3e2cb4d7da90497a6f1192292ade
   languageName: node
   linkType: hard
 
-"@feathersjs/authentication@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/authentication@npm:5.0.44"
+"@feathersjs/authentication@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/authentication@npm:5.0.45"
   dependencies:
-    "@feathersjs/commons": "npm:^5.0.44"
-    "@feathersjs/errors": "npm:^5.0.44"
-    "@feathersjs/feathers": "npm:^5.0.44"
+    "@feathersjs/commons": "npm:^5.0.45"
+    "@feathersjs/errors": "npm:^5.0.45"
+    "@feathersjs/feathers": "npm:^5.0.45"
     "@feathersjs/hooks": "npm:^0.9.0"
-    "@feathersjs/schema": "npm:^5.0.44"
-    "@feathersjs/transport-commons": "npm:^5.0.44"
+    "@feathersjs/schema": "npm:^5.0.45"
+    "@feathersjs/transport-commons": "npm:^5.0.45"
     "@types/jsonwebtoken": "npm:^9.0.10"
     jsonwebtoken: "npm:^9.0.3"
     lodash: "npm:^4.17.23"
     long-timeout: "npm:^0.1.1"
     uuid: "npm:^11.1.0"
-  checksum: 10c0/fa905ecf9735c356cf38f3eb8993b247cf3c316ffb28811e08ae686a068e6715e8b410eef52a0358170f449bbd46d6ba0bff17dcf5c222b5522294568fbed772
+  checksum: 10c0/b74fb47e3af29939f7c77490a7f8419eca2a51b36075b4c714d4ef67371d60a642e85273bf27f6f1469c6da4a5fa84d64a2754f7ff53e732ddfe558e2c2dbe7b
   languageName: node
   linkType: hard
 
-"@feathersjs/commons@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/commons@npm:5.0.44"
-  checksum: 10c0/05f21404eedb9d95d06af4a380a115592c708a3ee81bb2c12cbeea1c2369ef94c281fa14056ce2d8cf7dce8b4bfd7a00f6c1ad2ccf356854f9456727d6f33baa
+"@feathersjs/commons@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/commons@npm:5.0.45"
+  checksum: 10c0/d52597070e897119074c828b5e04399b33934c02613f33a22ac3c011831ce70f07db895c78ce5ae5d1f2c4651f51dce0ce708944a71fe99fdd05471928cca16b
   languageName: node
   linkType: hard
 
-"@feathersjs/errors@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/errors@npm:5.0.44"
-  checksum: 10c0/41cc9a539b3dde53db2889410cf99ed5b3133e11ae9b51d4cd7b9e58ed0257be4196c66864eb6df3c36f5ed0ca6592bcafd18d8a65893dae3021825d563ceb13
+"@feathersjs/errors@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/errors@npm:5.0.45"
+  checksum: 10c0/9fcfed7875b50e9f8b307ddd000abb36c13ffa7efdf5f9a946962f4391ce7fa549d635cce3bcdddda2a3eb650d122d3cae2fb321e776dbac29d523d3fc7af545
   languageName: node
   linkType: hard
 
-"@feathersjs/feathers@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/feathers@npm:5.0.44"
+"@feathersjs/feathers@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/feathers@npm:5.0.45"
   dependencies:
-    "@feathersjs/commons": "npm:^5.0.44"
+    "@feathersjs/commons": "npm:^5.0.45"
     "@feathersjs/hooks": "npm:^0.9.0"
     events: "npm:^3.3.0"
-  checksum: 10c0/37cd30bf783348ea592c11e77c177ae444cac227911d1ad201e743c15dceddabce025ce9849cbe6bd8ae2a22f34313b9ec9f96a6d3a8eb4a401f7116bf10bd9a
+  checksum: 10c0/8511c1c2658e36b18662733e8547fec561e41928532f17aa762e62277f6c5c246831e6fba450c4ebbc18af3efd1632291415117c3538bb4ef2ea45a4b1544551
   languageName: node
   linkType: hard
 
@@ -587,14 +587,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@feathersjs/schema@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/schema@npm:5.0.44"
+"@feathersjs/schema@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/schema@npm:5.0.45"
   dependencies:
-    "@feathersjs/adapter-commons": "npm:^5.0.44"
-    "@feathersjs/commons": "npm:^5.0.44"
-    "@feathersjs/errors": "npm:^5.0.44"
-    "@feathersjs/feathers": "npm:^5.0.44"
+    "@feathersjs/adapter-commons": "npm:^5.0.45"
+    "@feathersjs/commons": "npm:^5.0.45"
+    "@feathersjs/errors": "npm:^5.0.45"
+    "@feathersjs/feathers": "npm:^5.0.45"
     "@feathersjs/hooks": "npm:^0.9.0"
     "@types/json-schema": "npm:^7.0.15"
     ajv: "npm:^8.18.0"
@@ -602,30 +602,30 @@ __metadata:
     json-schema-to-ts: "npm:^3.1.1"
   peerDependencies:
     typescript: ">=5.0"
-  checksum: 10c0/2bd11f58ec4d96a1a81fb31e88efdd7f53e08ce5d8f6acbc277d9b46c45b7ddcaa4ee1537d3a5b26af5e9297ea481e05a1d6895cfd42593cc77204153dea1c60
+  checksum: 10c0/8d234b6ad88e0124e295bedff46ace3895565bf6edc1c90333eabf2298ad85cf0e7eabf47efeada2c9ece48aea536bef94c1e1addd3a06718bcdd96c76648554
   languageName: node
   linkType: hard
 
-"@feathersjs/socketio-client@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/socketio-client@npm:5.0.44"
+"@feathersjs/socketio-client@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/socketio-client@npm:5.0.45"
   dependencies:
-    "@feathersjs/feathers": "npm:^5.0.44"
-    "@feathersjs/transport-commons": "npm:^5.0.44"
-  checksum: 10c0/852582d869b8e12186be3c5f5c4f83946ecb96c91646f3e86a3b7972960c5b40632644769a83bf49c9ab4b766d7a7512d7364d6946c565501dd0775bba5025c7
+    "@feathersjs/feathers": "npm:^5.0.45"
+    "@feathersjs/transport-commons": "npm:^5.0.45"
+  checksum: 10c0/a1c77bb06aea916f255d821ba587e06766d2589622e7fea7bb6912e2048cb3cb2b24edadde7d642fb0981f4fd55c8511dfd0b0ceb4b36f81551f11837234f461
   languageName: node
   linkType: hard
 
-"@feathersjs/transport-commons@npm:^5.0.44":
-  version: 5.0.44
-  resolution: "@feathersjs/transport-commons@npm:5.0.44"
+"@feathersjs/transport-commons@npm:^5.0.45":
+  version: 5.0.45
+  resolution: "@feathersjs/transport-commons@npm:5.0.45"
   dependencies:
-    "@feathersjs/commons": "npm:^5.0.44"
-    "@feathersjs/errors": "npm:^5.0.44"
-    "@feathersjs/feathers": "npm:^5.0.44"
+    "@feathersjs/commons": "npm:^5.0.45"
+    "@feathersjs/errors": "npm:^5.0.45"
+    "@feathersjs/feathers": "npm:^5.0.45"
     encodeurl: "npm:^2.0.0"
     lodash: "npm:^4.17.23"
-  checksum: 10c0/d1e93ee6a7e9ef75589463f1fce6a2bc627a805044e1eaead5526a7c9d8ce1c3684cf42adf6e17baaf56b675cfd8add05fc7e945880161e47898b75bc0806ba5
+  checksum: 10c0/6c030d2ef16ef980464f443ccdee11bdc1778f5dbf11e37d32e04a0f34682bf829a710b15db705807a753edc44e73be851296c632cfa40ed5c6295f54e768d72
   languageName: node
   linkType: hard
 
@@ -1996,13 +1996,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"buffer-crc32@npm:~0.2.3":
-  version: 0.2.13
-  resolution: "buffer-crc32@npm:0.2.13"
-  checksum: 10c0/cb0a8ddf5cf4f766466db63279e47761eb825693eeba6a5a95ee4ec8cb8f81ede70aa7f9d8aeec083e781d47154290eb5d4d26b3f7a465ec57fb9e7d59c47150
-  languageName: node
-  linkType: hard
-
 "buffer-equal-constant-time@npm:^1.0.1":
   version: 1.0.1
   resolution: "buffer-equal-constant-time@npm:1.0.1"
@@ -2319,9 +2312,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "edumeet-room-server@workspace:."
   dependencies:
-    "@feathersjs/authentication-client": "npm:^5.0.44"
-    "@feathersjs/feathers": "npm:^5.0.44"
-    "@feathersjs/socketio-client": "npm:^5.0.44"
+    "@feathersjs/authentication-client": "npm:^5.0.45"
+    "@feathersjs/feathers": "npm:^5.0.45"
+    "@feathersjs/socketio-client": "npm:^5.0.45"
     "@tsconfig/node24": "npm:^24.0.4"
     "@types/debug": "npm:^4.1.13"
     "@types/fast-stats": "npm:^0.0.35"
@@ -2337,7 +2330,7 @@ __metadata:
     edumeet-common: "github:edumeet/edumeet-common#0.7.0"
     eslint: "npm:^9.39.4"
     fast-stats: "npm:^0.0.7"
-    geoip-lite: "npm:^2.0.2"
+    geoip-lite: "npm:^2.0.3"
     h264-profile-level-id: "npm:^1.1.1"
     jest: "npm:^30.3.0"
     jsonwebtoken: "npm:^9.0.3"
@@ -2844,16 +2837,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"geoip-lite@npm:^2.0.2":
-  version: 2.0.2
-  resolution: "geoip-lite@npm:2.0.2"
+"geoip-lite@npm:^2.0.3":
+  version: 2.0.3
+  resolution: "geoip-lite@npm:2.0.3"
   dependencies:
     chalk: "npm:4.1 - 4.1.2"
     iconv-lite: "npm:0.4.13 - 0.6.3"
     ip-address: "npm:^10.2.0"
     lazy: "npm:1.0.11"
-    yauzl: "npm:^3.2.1"
-  checksum: 10c0/56952ac918090d8497c66704e61c108ca7ce2609d47ba571cbf653156d441432b68872b11eb6e63e5baf97a12889f3d096556814ba0ed69ea08dd3bc3322815d
+    yauzl: "npm:^3.3.1"
+  checksum: 10c0/2ee506b2ca4dc4a44930708af2e3fcffa87d6a174e6fc71766962c03a02f9acabfd94aa90061fe36790d91d4ec20829876cdd0c9123fe1f8591db995e089db64
   languageName: node
   linkType: hard
 
@@ -5637,13 +5630,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yauzl@npm:^3.2.1":
-  version: 3.3.0
-  resolution: "yauzl@npm:3.3.0"
+"yauzl@npm:^3.3.1":
+  version: 3.4.0
+  resolution: "yauzl@npm:3.4.0"
   dependencies:
-    buffer-crc32: "npm:~0.2.3"
     pend: "npm:~1.2.0"
-  checksum: 10c0/935e32054171104bdf8a4091180f61b5698d8b90ee64552bb643c2176f815d4215d0764e3f41e0d9a1e4525b37602bf145ec5fd39dd014f0be7290851ce3acce
+  checksum: 10c0/17a98c42c0065e8af429eb8a61f7a0e4562181ed54080366b838f34f741b6829f167f804787c86b7646bb042707f35871739f053de0548285e405a2eae4da025
   languageName: node
   linkType: hard
 
