@@ -1,0 +1,15 @@
+{
+	"extends": "./src/tsconfig.json",
+	"compilerOptions": {
+		// ts-jest can fall back to classic module resolution (it warns that hybrid
+		// Node16/NodeNext module kind is only fully supported with isolatedModules).
+		// Classic resolution ignores mediasoup's package `exports` map, so the
+		// `mediasoup/types` subpath (which has no physical file at the package root)
+		// fails to resolve even though plain `tsc` resolves it fine. Pin it explicitly
+		// so the unit suite type-checks regardless of how ts-jest resolves modules.
+		"baseUrl": ".",
+		"paths": {
+			"mediasoup/types": [ "node_modules/mediasoup/node/lib/types" ]
+		}
+	}
+}

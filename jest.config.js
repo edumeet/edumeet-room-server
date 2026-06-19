@@ -5,7 +5,7 @@ module.exports = {
 	testMatch: [ '**/__tests__/**/*.test.ts' ],
 	transform: {
 		'^.+\\.[t]s$': [
-			'ts-jest', { tsconfig: 'src/tsconfig.json' }
+			'ts-jest', { tsconfig: 'tsconfig.spec.json' }
 		]
 	}
 }
