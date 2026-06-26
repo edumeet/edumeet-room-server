@@ -289,9 +289,14 @@ export class MediaNode extends EventEmitter {
 			connection.pipeline.remove(this.#activeSpeakerMiddleware);
 			connection.pipeline.remove(this.#recordersMiddleware);
 
-			if (remoteClose) {
-				this.emit('connectionClosed');
+			// Close this node's routers on ANY connection teardown, not just a remote one. A LOCAL
+			// close (request timeout at request(), getOrCreateConnection error, or reset) otherwise
+			// leaves every router on this node — and all their WebRTC/pipe transports — orphaned in
+			// this.routers forever, because Router only self-closes on 'connectionClosed'. A fresh
+			// connection then rebuilds new routers while the old ones leak.
+			this.emit('connectionClosed');
 
+			if (remoteClose) {
 				this.markUnhealthy();
 				this.startHealthCheck();
 			}
