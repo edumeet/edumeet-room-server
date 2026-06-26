@@ -516,14 +516,8 @@ export default class Room extends EventEmitter {
 	private async doAssignRouter(peer: Peer): Promise<void> {
 		if (this.closed || peer.closed) return;
 
-		// Tracked so a router created here but never joined to the room (e.g. mediaConfiguration
-		// failed) can be closed instead of leaking, orphaned, in MediaNode.routers.
-		let assignedRouter: Router | undefined;
-
 		try {
 			const [ router, mediaNode ] = await this.mediaService.getRouter(this, peer);
-
-			assignedRouter = router;
 
 			if (this.closed) throw router.close();
 
@@ -554,11 +548,6 @@ export default class Room extends EventEmitter {
 			peer.sctpCapabilities = sctpCapabilities;
 		} catch (error) {
 			logger.error({ err: error }, 'assignRouter() [%o]');
-
-			// If a router was created but never joined the room and nothing else is using it, close
-			// it so it doesn't linger orphaned (holding transports) in MediaNode.routers.
-			if (assignedRouter && !this.routers.has(assignedRouter) && assignedRouter.webRtcTransports.size === 0)
-				assignedRouter.close();
 
 			peer.notify({ method: 'noMediaServer' });
 
