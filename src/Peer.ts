@@ -21,7 +21,7 @@ import { IOServerConnection, clientAddress } from './common/IOServerConnection';
 import { Permission } from './common/authorization';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
-import { RtpCapabilities, SctpCapabilities } from 'mediasoup/types';
+import { RtpCapabilities } from 'mediasoup/types';
 
 const logger = new Logger('Peer');
 
@@ -100,7 +100,6 @@ export class Peer extends EventEmitter {
 	public initialConsume = false;
 
 	public rtpCapabilities?: RtpCapabilities;
-	public sctpCapabilities?: SctpCapabilities;
 
 	private turnCredentialsInterval?: NodeJS.Timeout;
 
@@ -158,7 +157,6 @@ export class Peer extends EventEmitter {
 	public routerReset(initial = false): void {
 		this.router = undefined;
 		this.rtpCapabilities = undefined;
-		this.sctpCapabilities = undefined;
 
 		this.initialConsume = false;
 

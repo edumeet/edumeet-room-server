@@ -27,7 +27,7 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 					forceTcp,
 					producing,
 					consuming,
-					sctpCapabilities,
+					enableSctp,
 				} = message.data;
 
 				if (producing && consuming) throw new Error('cannot create WebRtcTransport with both producing and consuming');
@@ -41,7 +41,7 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 
 				const transport = await router.createWebRtcTransport({
 					forceTcp,
-					sctpCapabilities,
+					enableSctp,
 					appData: {
 						producing,
 						consuming,

@@ -25,7 +25,7 @@ import { Permission, isAllowed, updatePeerPermissions } from './common/authoriza
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 import { Router } from './media/Router';
-import { RtpCapabilities, SctpCapabilities } from 'mediasoup/types';
+import { RtpCapabilities } from 'mediasoup/types';
 
 const logger = new Logger('Room');
 
@@ -532,12 +532,12 @@ export default class Room extends EventEmitter {
 					routerRtpCapabilities: router.rtpCapabilities,
 					iceServers,
 				}
-			}) as { rtpCapabilities: RtpCapabilities, sctpCapabilities: SctpCapabilities } | undefined;
+			}) as { rtpCapabilities: RtpCapabilities } | undefined;
 
 			if (!mediaConfigResult)
 				throw new Error('mediaConfiguration request returned no result');
 
-			const { rtpCapabilities, sctpCapabilities } = mediaConfigResult;
+			const { rtpCapabilities } = mediaConfigResult;
 
 			this.addRouter(router);
 			this.addMediaNode(mediaNode);
@@ -545,7 +545,6 @@ export default class Room extends EventEmitter {
 			peer.resolveRouterReady(router);
 			
 			peer.rtpCapabilities = rtpCapabilities;
-			peer.sctpCapabilities = sctpCapabilities;
 		} catch (error) {
 			logger.error({ err: error }, 'assignRouter() [%o]');
 
