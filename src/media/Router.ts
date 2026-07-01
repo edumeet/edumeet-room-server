@@ -15,7 +15,7 @@ import { ActiveSpeakerObserver, ActiveSpeakerObserverOptions } from './ActiveSpe
 import { AudioLevelObserver, AudioLevelObserverOptions } from './AudioLevelObserver';
 import { canConsume } from '../common/ortc';
 import { Recorder, RecorderOptions } from './Recorder';
-import { SctpCapabilities, RtpCapabilities } from 'mediasoup/types';
+import { RtpCapabilities } from 'mediasoup/types';
 
 const logger = new Logger('Router');
 
@@ -23,7 +23,7 @@ interface CreateWebRtcTransportOptions {
 	forceTcp?: boolean;
 	producing?: boolean;
 	consuming?: boolean;
-	sctpCapabilities?: SctpCapabilities;
+	enableSctp?: boolean;
 	appData?: Record<string, unknown>;
 }
 
@@ -220,7 +220,7 @@ export class Router extends EventEmitter {
 	@skipIfClosed
 	public async createWebRtcTransport({
 		forceTcp,
-		sctpCapabilities,
+		enableSctp,
 		appData = {}
 	}: CreateWebRtcTransportOptions): Promise<WebRtcTransport> {
 		logger.debug('createWebRtcTransport()');
@@ -236,7 +236,7 @@ export class Router extends EventEmitter {
 			data: {
 				routerId: this.id,
 				forceTcp,
-				sctpCapabilities,
+				enableSctp,
 			}
 		}) as WebRtcTransportOptions;
 
