@@ -383,7 +383,7 @@ export default class ManagementService {
 		// in mid-reconnect, mgmt restart finishing, transient 5xx) and a 1s retry
 		// will land before anyone notices. After that we back off so a real outage
 		// doesn't get hammered.
-		const backoffSchedule = [ 1_000, 5_000, 30_000, 120_000, 300_000, 600_000 ];
+		const backoffSchedule = [ 1_000, 1_000, 1_500, 2_000, 2_500, 3_000, 5_000, 15_000, 30_000, 120_000, 300_000, 600_000 ];
 		const idx = Math.min(this.#refreshAttempt - 1, backoffSchedule.length - 1);
 		const backoffMs = backoffSchedule[idx];
 
