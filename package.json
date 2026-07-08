@@ -35,9 +35,9 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@feathersjs/authentication-client": "^5.0.45",
-		"@feathersjs/feathers": "^5.0.45",
-		"@feathersjs/socketio-client": "^5.0.45",
+		"@feathersjs/authentication-client": "^5.0.46",
+		"@feathersjs/feathers": "^5.0.46",
+		"@feathersjs/socketio-client": "^5.0.46",
 		"chokidar": "^5.0.0",
 		"debug": "^4.4.3",
 		"edumeet-common": "github:edumeet/edumeet-common#0.7.0",
