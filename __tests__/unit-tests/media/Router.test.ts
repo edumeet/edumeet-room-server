@@ -3,7 +3,6 @@ import { SocketMessage } from 'edumeet-common';
 import { Router } from '../../../src/media/Router';
 import { MediaNode } from '../../../src/media/MediaNode';
 import { RtpCapabilities, RtpParameters } from 'mediasoup/types';
-import { SctpCapabilities } from 'mediasoup/types';
 import { Producer } from '../../../src/media/Producer';
 import { WebRtcTransport } from '../../../src/media/WebRtcTransport';
 import { PipeTransport } from '../../../src/media/PipeTransport';
@@ -15,7 +14,7 @@ import { KDPoint, MediaKind } from 'edumeet-common';
 
 class MockWebRtcTransport extends EventEmitter {
 	id = 'id';
-	sctpCapabilities = {} as SctpCapabilities;
+	enableSctp = true;
 }
 
 class MockPipeTransport extends EventEmitter {
@@ -215,7 +214,7 @@ describe('Router', () => {
 				'createWebRtcTransport': () => {
 					expect(data.routerId).toBe(router1.id);
 					expect(data.forceTcp).toBe(false);
-					expect(data.sctpCapabilities).toBe(mockWebRtcTransport.sctpCapabilities);
+					expect(data.enableSctp).toBe(mockWebRtcTransport.enableSctp);
 
 					return mockWebRtcTransport;
 				},
@@ -224,7 +223,7 @@ describe('Router', () => {
 
 		const transport = await router1.createWebRtcTransport({
 			forceTcp: false,
-			sctpCapabilities: mockWebRtcTransport.sctpCapabilities
+			enableSctp: mockWebRtcTransport.enableSctp
 		});
 
 		expect(transport.id).toBe('id');
