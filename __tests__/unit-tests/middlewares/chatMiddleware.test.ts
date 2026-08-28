@@ -67,7 +67,7 @@ test('Should notify peers on authorized peer sending chat message', async () => 
 	const message = {
 		method: 'chatMessage',
 		data: {
-
+			text: 'text'
 		}
 	};
 
@@ -81,6 +81,60 @@ test('Should notify peers on authorized peer sending chat message', async () => 
 
 	expect(spyNotify.mock.calls[0][0]).toBe('chatMessage');
 	expect(context.handled).toBeTruthy();
+});
+
+test('Should throw on a message that is not a string', async () => {
+	const spyNotify = jest.fn();
+	const room = { id: 'id', notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
+	const options = { room } as unknown as MiddlewareOptions;
+	const sut = createChatMiddleware(options);
+
+	const peer = {
+		permissions: [],
+		hasPermission: jest.fn(() => true)
+	};
+	const message = { method: 'chatMessage', data: { text: { evil: true } } };
+
+	const context = { peer, message, handled: false } as unknown as PeerContext;
+
+	await expect(sut(context, next)).rejects.toThrow();
+	expect(spyNotify).not.toHaveBeenCalled();
+	expect(room.chatHistory).toHaveLength(0);
+});
+
+test('Should throw on an empty message', async () => {
+	const room = { id: 'id', notifyPeers: jest.fn(), chatHistory: [], fileHistory: [] } as unknown as Room;
+	const options = { room } as unknown as MiddlewareOptions;
+	const sut = createChatMiddleware(options);
+
+	const peer = {
+		permissions: [],
+		hasPermission: jest.fn(() => true)
+	};
+	const message = { method: 'chatMessage', data: { text: '   ' } };
+
+	const context = { peer, message, handled: false } as unknown as PeerContext;
+
+	await expect(sut(context, next)).rejects.toThrow();
+});
+
+test('Should throw on an over long message', async () => {
+	const spyNotify = jest.fn();
+	const room = { id: 'id', notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
+	const options = { room } as unknown as MiddlewareOptions;
+	const sut = createChatMiddleware(options);
+
+	const peer = {
+		permissions: [],
+		hasPermission: jest.fn(() => true)
+	};
+	const message = { method: 'chatMessage', data: { text: 'a'.repeat(10001) } };
+
+	const context = { peer, message, handled: false } as unknown as PeerContext;
+
+	await expect(sut(context, next)).rejects.toThrow();
+	expect(spyNotify).not.toHaveBeenCalled();
+	expect(room.chatHistory).toHaveLength(0);
 });
 
 test('Should call next middleware if not chat message', async () => {

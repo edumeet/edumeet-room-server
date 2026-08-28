@@ -22,6 +22,7 @@ import { Permission } from './common/authorization';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 import { RtpCapabilities } from 'mediasoup/types';
+import { isValidText, MAX_DISPLAY_NAME_LENGTH } from './common/textValidation';
 
 const logger = new Logger('Peer');
 
@@ -140,7 +141,7 @@ export class Peer extends EventEmitter {
 
 		this.id = id;
 		this.#sessionId = sessionId;
-		this.displayName = displayName ?? 'Guest';
+		this.displayName = isValidText(displayName, MAX_DISPLAY_NAME_LENGTH) ? displayName : 'Guest';
 		this.picture = picture;
 		this.#managedId = managedId;
 		this.#reconnectKey = reconnectKey;

@@ -23,6 +23,14 @@ export interface ChatMessage {
 	timestamp: number;
 }
 
+export interface DirectChatMessage {
+	text: string;
+	peerId: string;
+	to: string;
+	displayName?: string;
+	timestamp: number;
+}
+
 export interface FileMessage {
 	magnetURI: string;
 	peerId: string;

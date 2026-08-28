@@ -4,6 +4,7 @@ import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { createConsumers } from '../common/consuming';
+import { isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
 
 const logger = new Logger('JoinMiddleware');
 
@@ -29,7 +30,7 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 					picture,
 				} = message.data;
 
-				peer.displayName = displayName;
+				if (isValidText(displayName, MAX_DISPLAY_NAME_LENGTH)) peer.displayName = displayName;
 				peer.picture = picture;
 
 				const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER) ?
