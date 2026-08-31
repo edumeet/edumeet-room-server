@@ -301,6 +301,20 @@ Example permissions:
 | `localRecordingEnabled` | `boolean` | Enables local room recording |
 | `tracker` | `string` | for file sharing |
 | `maxFileSize` | `number` | filesize for fileshareing (100 is the default value - 100 MB )  |
+| `endToEndEncryption` | `boolean` | Whether media in rooms is end-to-end encrypted by default. Requires a Chromium based browser; other browsers are refused entry to an encrypted room. |
+
+#### `endToEndEncryption` precedence
+
+A room's effective value is resolved as per-room setting, then tenant default, then this config
+value, then `false`. Only an unset value falls through, so an explicit `false` at a higher level
+stops the resolution there rather than deferring to this config.
+
+In practice that means `defaultRoomSettings.endToEndEncryption` only applies to tenants that have
+no `defaults` row in the management server, and to unmanaged deployments. Once a tenant default has
+been saved in the management UI it always wins over this value, whether it was saved as on or off.
+
+If a tenant sets `endToEndEncryptionLock`, the tenant value is forced and per-room settings are
+ignored entirely.
 
 
 

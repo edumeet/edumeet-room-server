@@ -213,6 +213,11 @@ export default class ManagementService {
 			room.background = room.background || fdata.background || '';
 			room.tracker = room.tracker || fdata.tracker || config.defaultRoomSettings?.tracker || '';
 			room.maxFileSize = room.maxFileSize || maxFileSize;
+			// E2EE: a tenant lock forces the tenant value over the per-room value (tenant mandates E2EE);
+			// otherwise per-room value, else tenant default, else room-server config, else false.
+			room.endToEndEncryption = fdata.endToEndEncryptionLock
+				? Boolean(fdata.endToEndEncryption)
+				: (room.endToEndEncryption ?? fdata.endToEndEncryption ?? config.defaultRoomSettings?.endToEndEncryption ?? false);
 		} else {
 			// FALLBACK
 			// get roles with a virt adapter on mgmt side
@@ -241,6 +246,10 @@ export default class ManagementService {
 				raiseHandEnabled: Boolean(fdata.raiseHandEnabledUnmanaged),
 				filesharingEnabled: Boolean(fdata.filesharingEnabledUnmanaged),
 				localRecordingEnabled: Boolean(fdata.localRecordingEnabledUnmanaged),
+				// E2EE for unmanaged rooms: tenant default (lock forces it), else room-server config, else false
+				endToEndEncryption: fdata.endToEndEncryptionLock
+					? Boolean(fdata.endToEndEncryption)
+					: (fdata.endToEndEncryption ?? Boolean(config.defaultRoomSettings?.endToEndEncryption)),
 				logo: fdata.logo || '',
 				background: fdata.background || ''
 			};

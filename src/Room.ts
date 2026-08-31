@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
 import { createPrivateChatMiddleware } from './middlewares/privateChatMiddleware';
+import { createE2eeMiddleware } from './middlewares/e2eeMiddleware';
 import { createCountdownTimerMiddleware } from './middlewares/countdownTimerMiddleware';
 import { createLockMiddleware } from './middlewares/lockMiddleware';
 import { createFileMiddleware } from './middlewares/fileMiddleware';
@@ -87,6 +88,7 @@ export default class Room extends EventEmitter {
 	public raiseHandEnabled = true; // Possibly updated by the management service
 	public reactionsEnabled = true; // Possibly updated by the management service
 	public localRecordingEnabled = true; // Possibly updated by the management service
+	public endToEndEncryption = false; // Possibly updated by the management service
 	public drawingEnabled = true; // Possibly updated by the management service
 
 	public settings: RoomSettings = {};
@@ -147,6 +149,7 @@ export default class Room extends EventEmitter {
 	#breakoutMiddleware: Middleware<PeerContext>;
 	#chatMiddleware: Middleware<PeerContext>;
 	#privateChatMiddleware: Middleware<PeerContext>;
+	#e2eeMiddleware: Middleware<PeerContext>;
 	#fileMiddleware: Middleware<PeerContext>;
 	#countdownTimerMiddleware: Middleware<PeerContext>;
 	#drawingMiddleware: Middleware<PeerContext>;
@@ -174,6 +177,7 @@ export default class Room extends EventEmitter {
 		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
 		this.#chatMiddleware = createChatMiddleware({ room: this });
 		this.#privateChatMiddleware = createPrivateChatMiddleware({ room: this });
+		this.#e2eeMiddleware = createE2eeMiddleware({ room: this });
 		this.#fileMiddleware = createFileMiddleware({ room: this });
 		this.#countdownTimerMiddleware = createCountdownTimerMiddleware({ room: this });
 		this.#drawingMiddleware = createDrawingMiddleware({ room: this });
@@ -190,6 +194,7 @@ export default class Room extends EventEmitter {
 			this.#breakoutMiddleware,
 			this.#chatMiddleware,
 			this.#privateChatMiddleware,
+			this.#e2eeMiddleware,
 			this.#fileMiddleware,
 			this.#countdownTimerMiddleware,
 			this.#drawingMiddleware,
@@ -312,7 +317,7 @@ export default class Room extends EventEmitter {
 
 		if (this.lobbyPeers.items.includes(peer)) {
 			logger.debug('reconnectPeer() peer is in lobby, re-notifying enteredLobby [id: %s]', peer.id);
-			peer.notify({ method: 'enteredLobby', data: {} });
+			peer.notify({ method: 'enteredLobby', data: { endToEndEncryption: this.endToEndEncryption } });
 
 			return;
 		}
@@ -377,6 +382,7 @@ export default class Room extends EventEmitter {
 				raiseHandEnabled: this.raiseHandEnabled,
 				reactionsEnabled: this.reactionsEnabled,
 				localRecordingEnabled: this.localRecordingEnabled,
+				endToEndEncryption: this.endToEndEncryption,
 
 				settings: this.settings,
 			}
@@ -389,7 +395,7 @@ export default class Room extends EventEmitter {
 
 		this.lobbyPeers.add(peer);
 		peer.pipeline.use(this.#lobbyPeerMiddleware);
-		peer.notify({ method: 'enteredLobby', data: {} });
+		peer.notify({ method: 'enteredLobby', data: { endToEndEncryption: this.endToEndEncryption } });
 
 		this.notifyPeersWithPermission('parkedPeer', { peerId: peer.id }, Permission.PROMOTE_PEER);
 	}
@@ -407,6 +413,7 @@ export default class Room extends EventEmitter {
 			this.#moderatorMiddleware,
 			this.#mediaMiddleware,
 			this.#lockMiddleware,
+			this.#e2eeMiddleware,
 		);
 
 		if (this.breakoutsEnabled) peer.pipeline.use(this.#breakoutMiddleware);

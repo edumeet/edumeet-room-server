@@ -162,6 +162,7 @@ export type ManagedRoom = {
 	reactionsEnabled: boolean;
 	filesharingEnabled: boolean;
 	localRecordingEnabled: boolean;
+	endToEndEncryption?: boolean;
 
 	// Video settings
 	videoCodec?: VideoCodec;
@@ -272,6 +273,8 @@ export type Default = {
 	raiseHandEnabledManaged: boolean | undefined,
 	localRecordingEnabledManaged: boolean | undefined,
 	disableUnmanaged: boolean | undefined,
+	endToEndEncryption: boolean | undefined,
+	endToEndEncryptionLock: boolean | undefined,
 	lockedUnmanaged: boolean | undefined,
 	raiseHandEnabledUnmanaged: boolean | undefined,
 	localRecordingEnabledUnmanaged: boolean | undefined,

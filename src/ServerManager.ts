@@ -144,6 +144,7 @@ export default class ServerManager {
 					reactionsEnabled = true,
 					filesharingEnabled = true,
 					localRecordingEnabled = true,
+					endToEndEncryption = false,
 					tracker=undefined,
 					maxFileSize = 100_000_000
 				} = config.defaultRoomSettings;
@@ -160,6 +161,7 @@ export default class ServerManager {
 				room.reactionsEnabled = reactionsEnabled;
 				room.filesharingEnabled = filesharingEnabled;
 				room.localRecordingEnabled = localRecordingEnabled;
+				room.endToEndEncryption = endToEndEncryption;
 			}
 
 			void this.initializeManagedRoom(room, roomId, tenantId);
@@ -317,6 +319,8 @@ export default class ServerManager {
 					room.reactionsEnabled = managedRoom.reactionsEnabled;
 					room.filesharingEnabled = managedRoom.filesharingEnabled;
 					room.localRecordingEnabled = managedRoom.localRecordingEnabled;
+					// resolved in ManagementService.getRoom (room value ?? tenant default ?? config); keep config fallback if absent
+					room.endToEndEncryption = managedRoom.endToEndEncryption ?? room.endToEndEncryption;
 
 					const managedSettings: RoomSettings = {
 						logo: managedRoom.logo,
@@ -401,6 +405,9 @@ export default class ServerManager {
 
 					if (typeof managedRoom.localRecordingEnabled === 'boolean')
 						room.localRecordingEnabled = managedRoom.localRecordingEnabled;
+
+					if (typeof managedRoom.endToEndEncryption === 'boolean')
+						room.endToEndEncryption = managedRoom.endToEndEncryption;
 
 					// Settings: only override logo/background if they are non-empty.
 					const currentSettings: RoomSettings = room.settings ?? {} as RoomSettings;

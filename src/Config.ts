@@ -65,6 +65,7 @@ export interface Config {
 		raiseHandEnabled?: boolean;
 		reactionsEnabled?: boolean;
 		localRecordingEnabled?: boolean;
+		endToEndEncryption?: boolean;
 		tracker?: string;
 		maxFileSize?: number;
 	};
