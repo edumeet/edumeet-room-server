@@ -172,6 +172,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				response.id = dataProducer.id;
 				context.handled = true;
 
+				if (dataProducer.label === 'observertc-samples') {
+					// Observer monitoring data is consumed on the media node directly;
+					// don't distribute it as a data consumer to other peers.
+
+					break;
+				}
+
 				(async () => {
 					for (const consumerPeer of room.getPeers(peer)) {
 						if (!consumerPeer.sameSession(peer))
