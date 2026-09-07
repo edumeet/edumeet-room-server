@@ -44,6 +44,7 @@ const makeRoom = (overrides: Record<string, unknown> = {}): Room => ({
 	groupRoles: [],
 	defaultRole: undefined,
 	lobbyPeers: List<Peer>(),
+	peers: List<Peer>(),
 	promotePeer: jest.fn(),
 	...overrides,
 }) as unknown as Room;
@@ -121,5 +122,45 @@ describe('updatePeerPermissions() - webinar roles', () => {
 		// The computed role must actually block publishing.
 		expect(() => permittedProducer(MediaSourceType.MIC, room, peer)).toThrow('peer not authorized');
 		expect(() => permittedProducer(MediaSourceType.WEBCAM, room, peer)).toThrow('peer not authorized');
+	});
+});
+
+describe('updatePeerPermissions() - lobby list', () => {
+	const waiting = { id: 'waiting', peerInfo: { id: 'waiting' } } as unknown as Peer;
+	const promoterRoom = (): Room => makeRoom({
+		managedId: 'room1',
+		userRoles: [ {
+			userId: 'mod1',
+			role: { permissions: [ { name: Permission.PROMOTE_PEER } ] },
+		} ],
+	});
+
+	test('A peer in the room that gains the promote permission is handed the current lobby list', () => {
+		const peer = makePeer({ managedId: 'mod1' });
+		const room = promoterRoom();
+
+		room.lobbyPeers.add(waiting);
+		room.peers.add(peer);
+
+		updatePeerPermissions(room, peer);
+
+		expect(peer.notify).toHaveBeenCalledWith({ method: 'parkedPeers', data: { lobbyPeers: [ waiting.peerInfo ] } });
+	});
+
+	test('A peer that is not in the room yet gets no lobby list, so nothing stale survives its own stay in the lobby', () => {
+		const peer = makePeer({ managedId: 'mod1' });
+		const room = promoterRoom();
+
+		room.lobbyPeers.add(waiting);
+
+		updatePeerPermissions(room, peer);
+
+		expect(peer.hasPermission(Permission.PROMOTE_PEER)).toBe(true);
+		expect(peer.notify).not.toHaveBeenCalled();
+
+		updatePeerPermissions(room, peer, true);
+
+		expect(peer.notify).not.toHaveBeenCalled();
+		expect(room.promotePeer).not.toHaveBeenCalled();
 	});
 });
