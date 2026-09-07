@@ -152,7 +152,13 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 	logger.debug({ peerPermissions: peer.permissions }, 'Final peer permissions');
 
 	if (shouldPromote) return room.promotePeer(peer); // We return here because the peer will get the lobbyPeers when it joins
-	if (shouldGiveLobbyPeers) peer.notify({ method: 'parkedPeers', data: { lobbyPeers: room.lobbyPeers.items.map((p) => (p.peerInfo)) } });
+
+	// Only a peer that is in the room can keep a lobby list current: promotions and departures in the
+	// lobby are announced to room peers alone. A peer that is about to be parked, or waits in the
+	// lobby, would carry a list of the people waiting beside it into the room and never hear that
+	// they were let in. It gets the list from its join response instead.
+	if (shouldGiveLobbyPeers && room.peers.items.includes(peer))
+		peer.notify({ method: 'parkedPeers', data: { lobbyPeers: room.lobbyPeers.items.map((p) => (p.peerInfo)) } });
 };
 
 export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
