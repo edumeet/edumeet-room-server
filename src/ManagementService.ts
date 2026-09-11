@@ -105,6 +105,8 @@ export default class ManagementService {
 	#rolesService: FeathersService;
 	#rolePermissionsService: FeathersService;
 
+	#meetingsService: FeathersService;
+
 	constructor({ managedRooms, managedPeers, mediaService }: ManagementServiceOptions) {
 		logger.debug('constructor()');
 
@@ -141,6 +143,8 @@ export default class ManagementService {
 		this.#rolesService = this.#client.service('roles');
 		this.#rolePermissionsService = this.#client.service('rolePermissions');
 
+		this.#meetingsService = this.#client.service('meetings');
+
 		this.setupSocketLifecycle();
 
 		this.setupListeners();
@@ -159,6 +163,21 @@ export default class ManagementService {
 
 		this.#client.logout().catch((err) => logger.warn({ err }, 'logout failed on close'));
 		this.#socket.disconnect();
+	}
+
+	@skipIfClosed
+	public async hasMeetingToken(roomId: number | string, meetingToken: string): Promise<boolean> {
+		logger.debug('hasMeetingToken() [roomId: %s]', roomId);
+
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
+
+		const result = await this.runAuthenticated(
+			() => this.#meetingsService.find({ query: { roomId: Number(roomId), meetingToken, $limit: 1 } })
+		);
+
+		return Array.isArray(result) ? result.length > 0 : Number(result.total) > 0;
 	}
 
 	@skipIfClosed

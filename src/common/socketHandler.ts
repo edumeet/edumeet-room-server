@@ -1,6 +1,7 @@
 import { Socket } from 'socket.io';
 import { Logger } from 'edumeet-common';
 import { IOServerConnection } from './IOServerConnection';
+import { normalizeMeetingToken } from './meetingToken';
 
 const logger = new Logger('socketHandler');
 
@@ -12,6 +13,7 @@ export const socketHandler = (socket: Socket) => {
 		displayName,
 		token,
 		reconnectKey,
+		meetingToken,
 	} = socket.handshake.query;
 
 	logger.debug(
@@ -82,6 +84,7 @@ export const socketHandler = (socket: Socket) => {
 		reconnectKey as string,
 		displayName as string,
 		token as string,
+		normalizeMeetingToken(meetingToken),
 	).catch((error) => {
 		logger.warn({ err: error }, 'socketHandler() - handleConnection()');
 

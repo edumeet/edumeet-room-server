@@ -25,6 +25,7 @@ import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
+import { MeetingTokenRejection, admitMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 import { Router } from './media/Router';
@@ -77,6 +78,10 @@ export default class Room extends EventEmitter {
 	public defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
 	public disableUnmanaged = false; // Possibly updated by the management service
 	public locked = true; // Possibly updated by the management service
+	public meetingsOnly = false; // Possibly updated by the management service
+	public activeMeetingToken?: string;
+	// eslint-disable-next-line no-unused-vars
+	public validateMeetingToken?: (token: string) => Promise<boolean>;
 	public tracker?: string; // Torrent tracker
 	public maxFileSize = 100_000_000; // Torrent tracker
 	public promoteOnHostJoin = false; // Possibly updated by the management service
@@ -299,6 +304,14 @@ export default class Room extends EventEmitter {
 			if (this.closed) throw new RoomClosedError('room closed');
 			if (peer.closed) return;
 
+			if (!isReconnect || peer.meetingToken) {
+				const rejection = await admitMeetingToken(this, peer.meetingToken);
+
+				if (this.closed) throw new RoomClosedError('room closed');
+				if (peer.closed) return;
+				if (rejection) return this.rejectMeetingToken(peer, rejection);
+			}
+
 			this.waitingPeers.remove(peer);
 
 			// This will update the permissions of the peer based on what we possibly got from the management service
@@ -313,6 +326,13 @@ export default class Room extends EventEmitter {
 
 			peer.close();
 		}
+	}
+
+	private rejectMeetingToken(peer: Peer, reason: MeetingTokenRejection): void {
+		logger.info('rejectMeetingToken() [id: %s, peerId: %s, reason: %s]', this.id, peer.id, reason);
+
+		peer.notify({ method: 'meetingTokenRejected', data: { reason } });
+		peer.close();
 	}
 
 	@skipIfClosed

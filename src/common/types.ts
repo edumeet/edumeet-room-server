@@ -162,6 +162,7 @@ export type ManagedRoom = {
 	reactionsEnabled: boolean;
 	filesharingEnabled: boolean;
 	localRecordingEnabled: boolean;
+	meetingsOnly?: boolean;
 	endToEndEncryption?: boolean;
 
 	// Video settings
