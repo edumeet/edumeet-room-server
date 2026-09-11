@@ -162,6 +162,10 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 };
 
 export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
+	const meetingsOnly = Boolean(managedRoom.meetingsOnly);
+
+	if (room.meetingsOnly && !meetingsOnly) room.activeMeetingToken = undefined;
+	room.meetingsOnly = meetingsOnly;
 	room.locked = managedRoom.locked;
 	room.chatEnabled = managedRoom.chatEnabled;
 	room.filesharingEnabled = managedRoom.filesharingEnabled;
@@ -209,6 +213,7 @@ export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
 	room.notifyPeers('roomUpdate', {
 		name: room.name,
 		locked: room.locked,
+		meetingsOnly: room.meetingsOnly,
 		chatEnabled: room.chatEnabled,
 		filesharingEnabled: room.filesharingEnabled,
 		raiseHandEnabled: room.raiseHandEnabled,

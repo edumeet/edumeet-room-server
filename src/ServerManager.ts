@@ -69,6 +69,7 @@ export default class ServerManager {
 		reconnectKey: string,
 		displayName?: string,
 		token?: string,
+		meetingToken?: string,
 	): Promise<void> {
 		logger.debug(
 			{ peerId, displayName, roomId, tenantFqdn, reconnectKey },
@@ -176,7 +177,7 @@ export default class ServerManager {
 			this.reconnectPermissionsCache.delete(reconnectKey);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions });
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken });
 
 		this.peers.set(peerId, peer);
 
@@ -278,7 +279,8 @@ export default class ServerManager {
 				room.allowedMediaNodeRegions = regions;
 			}
 
-			const managedRoom = await this.managementService?.getRoom(roomId, tenantId);
+			const managementService = this.managementService;
+			const managedRoom = await managementService?.getRoom(roomId, tenantId);
 
 			if (room.closed) return;
 
@@ -307,6 +309,9 @@ export default class ServerManager {
 
 					room.maxActiveVideos = managedRoom.maxActiveVideos;
 					room.locked = managedRoom.locked;
+					room.meetingsOnly = Boolean(managedRoom.meetingsOnly);
+					if (managementService)
+						room.validateMeetingToken = (meetingToken) => managementService.hasMeetingToken(managedRoom.id, meetingToken);
 					if (managedRoom.maxFileSize)
 						room.maxFileSize = managedRoom.maxFileSize;
 					// TODO remove after it is part of mgmt service
