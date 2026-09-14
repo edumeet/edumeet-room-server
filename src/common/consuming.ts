@@ -10,6 +10,9 @@ import { LayerReporter } from './layerReporter';
 
 const logger = new Logger('createConsumer');
 
+// Client monitoring samples go to the media node only, never to other peers.
+export const OBSERVER_SAMPLES_LABEL = 'observertc-samples';
+
 export const createConsumers = async (
 	room: Room,
 	consumerPeer: Peer,
@@ -29,6 +32,8 @@ export const createConsumers = async (
 
 	for (const producerPeer of peers) {
 		for (const dataProducer of producerPeer.dataProducers.values()) {
+			if (dataProducer.label === OBSERVER_SAMPLES_LABEL) continue;
+
 			createDataConsumerPromises.push(createDataConsumer(consumerPeer, producerPeer, dataProducer));
 		}
 	}

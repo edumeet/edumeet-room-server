@@ -1,7 +1,7 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
-import { createConsumer, createDataConsumer } from '../common/consuming';
+import { createConsumer, createDataConsumer, OBSERVER_SAMPLES_LABEL } from '../common/consuming';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { LayerWatcher } from '../common/layerWatcher';
@@ -172,12 +172,7 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				response.id = dataProducer.id;
 				context.handled = true;
 
-				if (dataProducer.label === 'observertc-samples') {
-					// Observer monitoring data is consumed on the media node directly;
-					// don't distribute it as a data consumer to other peers.
-
-					break;
-				}
+				if (dataProducer.label === OBSERVER_SAMPLES_LABEL) break;
 
 				(async () => {
 					for (const consumerPeer of room.getPeers(peer)) {
