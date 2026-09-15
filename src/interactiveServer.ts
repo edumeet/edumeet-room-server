@@ -138,7 +138,7 @@ export const interactiveServer = (serverManager: ServerManager, managementServic
 			fs.unlinkSync(SOCKET_PATH);
 		}
 	} catch (error) {
-		logger.debug({ err: error }, 'InteractiveServer listening [error: %o}');
+		logger.debug({ err: error }, 'InteractiveServer listening failed');
 	}
 
 	server.listen(SOCKET_PATH, () => {

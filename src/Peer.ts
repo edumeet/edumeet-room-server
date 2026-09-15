@@ -189,7 +189,7 @@ export class Peer extends EventEmitter {
 
 			const [ error, router ] = await this.routerReady;
 
-			if (error) return logger.error('startTurnCredentialsRefresh() | failed to get router [error: %o]', error);
+			if (error) return logger.error({ err: error }, 'startTurnCredentialsRefresh() | failed to get router');
 
 			const { mediaNode: { turnHostname, turnports, secret } } = router;
 
@@ -396,7 +396,7 @@ export class Peer extends EventEmitter {
 				if (!context.handled)
 					throw new Error('no middleware handled the notification');
 			} catch (error) {
-				logger.error({ err: error }, 'notification() [error: %o]');
+				logger.error({ err: error }, 'notification() failed');
 			}
 		});
 
@@ -419,7 +419,7 @@ export class Peer extends EventEmitter {
 					reject('Server error');
 				}
 			} catch (error) {
-				logger.error({ err: error }, 'request() [error: %o]');
+				logger.error({ err: error }, 'request() failed');
 				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
 				reject?.('Server error');
@@ -442,7 +442,7 @@ export class Peer extends EventEmitter {
 			try {
 				return connection.notify(notification);
 			} catch (error) {
-				logger.error({ err: error }, 'notify() [error: %o]');
+				logger.error({ err: error }, 'notify() failed');
 			}
 		}
 
@@ -457,7 +457,7 @@ export class Peer extends EventEmitter {
 			try {
 				return await connection.request(request);
 			} catch (error) {
-				logger.error({ err: error }, 'request() [error: %o]');
+				logger.error({ err: error }, 'request() failed');
 			}
 		}
 

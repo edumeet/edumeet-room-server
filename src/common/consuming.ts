@@ -239,7 +239,7 @@ export const createConsumer = async (
 			}, 'notify newConsumer (initial)');
 		}
 	} catch (error) {
-		logger.error({ err: error }, 'createConsumer() [error: %o]');
+		logger.error({ err: error }, 'createConsumer() failed');
 
 		if (retryCount < 1 && !producer.closed && !consumerPeer.closed) {
 			await new Promise<void>((resolve) => setTimeout(resolve, 500));
@@ -309,7 +309,7 @@ export const createDataConsumer = async (
 			}
 		});
 	} catch (error) {
-		return logger.error({ err: error }, 'createDataConsumer() [error: %o]');
+		return logger.error({ err: error }, 'createDataConsumer() failed');
 	}
 };
 

@@ -70,6 +70,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 	#socket!: Socket<ClientServerEvents, ServerClientEvents>;
 	#timeout;
+	#lastConnectError?: string;
 
 	constructor({ url, timeout = 3000 }: MediaNodeConnectionOptions) {
 		logger.debug('constructor() [url: %s, timeout: %s]', url, timeout);
@@ -88,7 +89,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 			this.#handleSocket();
 		} catch (error) {
-			logger.error({ err: error }, 'constructor() [error: %o]');
+			logger.error({ err: error }, 'constructor() failed');
 			
 			this.rejectReady(new ConnectionError('Failed to connect to media node'));
 			this.close();
@@ -113,7 +114,17 @@ export class MediaNodeConnection extends EventEmitter {
 	}
 
 	#handleSocket(): void {
-		this.#resolveReadyTimeoutHandle = setTimeout(() => this.rejectReady(new TimeoutError('connection timed out')), this.#timeout);
+		// No connect_error before the timeout means nothing answered at all (packets dropped),
+		// as opposed to a DNS failure or a refused connection, which report within milliseconds.
+		this.#resolveReadyTimeoutHandle = setTimeout(() => this.rejectReady(new TimeoutError(
+			this.#lastConnectError ? `connection timed out [lastError: ${this.#lastConnectError}]` : 'connection timed out'
+		)), this.#timeout);
+
+		this.#socket.on('connect_error', (error: Error & { description?: { message?: string } }) => {
+			this.#lastConnectError = error.description?.message ?? error.message;
+
+			logger.debug('handleSocket() connect_error [error: %s]', this.#lastConnectError);
+		});
 
 		this.#socket.on('notification', async (notification) => {
 			logger.debug('"notification" recieved [notification: %o]', notification);
@@ -159,7 +170,7 @@ export class MediaNodeConnection extends EventEmitter {
 				if (!context.handled)
 					throw new Error(`no middleware handled the notification [method: ${notification.method}]`);
 			} catch (error) {
-				logger.error({ err: error }, 'notification() [error: %o]');
+				logger.error({ err: error }, 'notification() failed');
 			}
 		});
 
@@ -185,7 +196,7 @@ export class MediaNodeConnection extends EventEmitter {
 					result('Server error', null);
 				}
 			} catch (error) {
-				logger.error({ err: error }, 'request() [error: %o]');
+				logger.error({ err: error }, 'request() failed');
 
 				result('Server error', null);
 			}

@@ -67,6 +67,7 @@ export class MediaNode extends EventEmitter {
 	private periodicHealthCheckInterval?: NodeJS.Timeout;
 	private stabilityResetTimer?: NodeJS.Timeout;
 	private flapCount = 0;
+	private unhealthySince?: number;
 	private _healthy = true;
 	private _draining = false;
 
@@ -76,10 +77,14 @@ export class MediaNode extends EventEmitter {
 	// Flap dampening: a node that keeps oscillating between healthy/unhealthy
 	// gets longer retry intervals to stop disrupting users who are landing on
 	// it. Counter resets after STABILITY_RESET_MS of continuous health.
+	// One outage is one flap, however many callers see it fail; a node that
+	// stays down backs off by how long it has been down instead.
 	private static readonly FAST_RETRY_MS = 10_000;
 	private static readonly MEDIUM_RETRY_MS = 60_000;
 	private static readonly SLOW_RETRY_MS = 5 * 60_000;
 	private static readonly STABILITY_RESET_MS = 5 * 60_000;
+	private static readonly FAST_RETRY_WINDOW_MS = 2 * 60_000;
+	private static readonly MEDIUM_RETRY_WINDOW_MS = 10 * 60_000;
 	public load = 0; // Percentage of load 0-100
 	public lastLoadUpdateTs = 0;
 	public secret: string;
@@ -189,7 +194,7 @@ export class MediaNode extends EventEmitter {
 
 			return router;
 		} catch (error) {
-			logger.error({ err: error }, 'getRouter() [%o]');
+			logger.error({ err: error }, 'getRouter() failed');
 
 			throw error;
 		} finally {
@@ -213,11 +218,11 @@ export class MediaNode extends EventEmitter {
 		const [ error ] = await this.connection.ready;
 
 		if (error) {
-			logger.error('getOrCreateConnection() [error:%o]', error);
+			logger.error({ err: error, hostname: this.hostname }, 'getOrCreateConnection() failed');
 
 			this.connection.close();
 
-			this.markUnhealthy();
+			this.markUnhealthy(`connection failed: ${error.message}`);
 			this.startHealthCheck();
 
 			throw error;
@@ -297,7 +302,7 @@ export class MediaNode extends EventEmitter {
 			this.emit('connectionClosed');
 
 			if (remoteClose) {
-				this.markUnhealthy();
+				this.markUnhealthy('connection lost');
 				this.startHealthCheck();
 			}
 		});
@@ -332,7 +337,7 @@ export class MediaNode extends EventEmitter {
 				logger.error('request() | timeout');
 
 				this.connection?.close();
-				this.markUnhealthy();
+				this.markUnhealthy(`request timeout [method: ${request.method}]`);
 				this.startHealthCheck();
 			}
 
@@ -387,7 +392,9 @@ export class MediaNode extends EventEmitter {
 		if (error) {
 			if (error instanceof DrainingError) this._draining = true;
 
-			this.markUnhealthy();
+			logger.debug('healthCheck() failed [hostname: %s, error: %s]', this.hostname, error.message);
+
+			this.markUnhealthy(`health check failed: ${error.message}`);
 		} else {
 			this._draining = false;
 			this.markHealthy();
@@ -395,7 +402,15 @@ export class MediaNode extends EventEmitter {
 	}
 
 	private markHealthy(): void {
+		if (this._healthy) return;
+
+		logger.info(
+			{ hostname: this.hostname, unhealthyMs: Date.now() - (this.unhealthySince ?? Date.now()) },
+			'media node healthy again'
+		);
+
 		this._healthy = true;
+		this.unhealthySince = undefined;
 
 		clearTimeout(this.stabilityResetTimer);
 		this.stabilityResetTimer = setTimeout(() => {
@@ -403,25 +418,33 @@ export class MediaNode extends EventEmitter {
 		}, MediaNode.STABILITY_RESET_MS);
 	}
 
-	private markUnhealthy(): void {
+	private markUnhealthy(reason: string): void {
+		if (!this._healthy) return;
+
 		clearTimeout(this.stabilityResetTimer);
 		this.stabilityResetTimer = undefined;
 
 		this.flapCount++;
 		this._healthy = false;
+		this.unhealthySince = Date.now();
 
-		if (this.flapCount >= 2) {
-			logger.warn(
-				{ hostname: this.hostname, flapCount: this.flapCount },
-				'flap detected, extending retry interval'
-			);
-		}
+		logger.warn(
+			{ hostname: this.hostname, reason, flapCount: this.flapCount },
+			'media node unhealthy'
+		);
 	}
 
 	private getRetryInterval(): number {
-		if (this.flapCount <= 1) return MediaNode.FAST_RETRY_MS;
-		if (this.flapCount === 2) return MediaNode.MEDIUM_RETRY_MS;
+		const unhealthyMs = Date.now() - (this.unhealthySince ?? Date.now());
 
-		return MediaNode.SLOW_RETRY_MS;
+		const byDuration = unhealthyMs < MediaNode.FAST_RETRY_WINDOW_MS ? MediaNode.FAST_RETRY_MS
+			: unhealthyMs < MediaNode.MEDIUM_RETRY_WINDOW_MS ? MediaNode.MEDIUM_RETRY_MS
+				: MediaNode.SLOW_RETRY_MS;
+
+		const byFlaps = this.flapCount <= 1 ? MediaNode.FAST_RETRY_MS
+			: this.flapCount === 2 ? MediaNode.MEDIUM_RETRY_MS
+				: MediaNode.SLOW_RETRY_MS;
+
+		return Math.max(byDuration, byFlaps);
 	}
 }

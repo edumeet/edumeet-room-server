@@ -497,7 +497,7 @@ export default class ManagementService {
 
 			return;
 		} catch (err) {
-			logger.debug({ err }, 'reAuthenticate(true) failed, falling back to local auth: %o');
+			logger.debug({ err }, 'reAuthenticate(true) failed, falling back to local auth');
 		}
 
 		try {

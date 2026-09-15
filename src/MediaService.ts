@@ -51,6 +51,9 @@ export default class MediaService {
 
 	private readonly mediaNodeCountries = new Map<string, string>(); // key: hostname
 
+	private static readonly GET_ROUTER_ROUNDS = 3;
+	private static readonly GET_ROUTER_ROUND_DELAY_MS = 1000;
+
 	constructor({
 		kdTree,
 		mediaNodes,
@@ -201,29 +204,50 @@ export default class MediaService {
 	public async getRouter(room: Room, peer: Peer): Promise<[Router, MediaNode]> {
 		logger.debug('getRouter() [roomId: %s, peerId: %s]', room.id, peer.id);
 
-		let candidates: MediaNode[] = [];
+		// A node that answers with an error (rather than timing out) stays healthy, so without a
+		// bound it would be offered and asked again on every pass, forever. Each round asks every
+		// eligible node once; a short pause between rounds lets a node that was mid-restart answer
+		// before the peer is told there is no media server, which the client shows as final.
+		for (let round = 1; round <= MediaService.GET_ROUTER_ROUNDS; round++) {
+			const attempted = new Set<MediaNode>();
+			let candidates: MediaNode[] = [];
 
-		do {
-			candidates = this.getCandidates(this.kdTree, room, peer);
+			do {
+				// Excluding attempted nodes inside candidate selection, not afterwards, lets nodes
+				// beyond the nearest few be considered.
+				candidates = this.getCandidates(this.kdTree, room, peer, attempted);
 
-			for (const mediaNode of candidates) {
-				try {
-					const router = await mediaNode.getRouter({
-						roomId: room.sessionId,
-						appData: { pipePromises: new Map<string, Promise<void>>() }
-					});
+				for (const mediaNode of candidates) {
+					// Candidates are chosen once per pass; an earlier attempt in this pass can take
+					// several seconds, during which a later candidate may have been marked unhealthy.
+					if (!mediaNode.healthy || mediaNode.draining) continue;
 
-					return [ router, mediaNode ];
-				} catch (error) {
-					logger.error({ err: error }, 'getRouter() [error %o]');
+					attempted.add(mediaNode);
+
+					try {
+						const router = await mediaNode.getRouter({
+							roomId: room.sessionId,
+							appData: { pipePromises: new Map<string, Promise<void>>() }
+						});
+
+						return [ router, mediaNode ];
+					} catch (error) {
+						logger.error({ err: error }, 'getRouter() failed');
+					}
 				}
-			}
-		} while (candidates.length > 0);
+			} while (candidates.length > 0);
+
+			if (attempted.size === 0 || round === MediaService.GET_ROUTER_ROUNDS) break;
+
+			await new Promise<void>((resolve) => setTimeout(resolve, MediaService.GET_ROUTER_ROUND_DELAY_MS));
+
+			if (this.closed || room.closed || peer.closed) break;
+		}
 
 		throw new Error('no media nodes available');
 	}
 
-	public getCandidates(kdTree: KDTree, room: Room, peer: Peer): MediaNode[] {
+	public getCandidates(kdTree: KDTree, room: Room, peer: Peer, exclude: ReadonlySet<MediaNode> = new Set()): MediaNode[] {
 		try {
 			logger.debug({ roomId: room.id, peerId: peer.id }, 'getCandidates()');
 
@@ -252,7 +276,7 @@ export default class MediaService {
 			const bestGeoCandidate = kdTree.nearestNeighbors(peerGeoPosition, 1, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 
-				return inRegion(m) && !m.draining && m.healthy && m.load < this.loadThreshold;
+				return !exclude.has(m) && inRegion(m) && !m.draining && m.healthy && m.load < this.loadThreshold;
 			});
 
 			const bestGeoDistance = bestGeoCandidate?.[0]?.[1] ?? Number.POSITIVE_INFINITY;
@@ -303,7 +327,10 @@ export default class MediaService {
 			);
 
 			const candidates = room.mediaNodes.items
-				.filter(({ draining, healthy, load, kdPoint }) => {
+				.filter((mediaNode) => {
+					const { draining, healthy, load, kdPoint } = mediaNode;
+
+					if (exclude.has(mediaNode)) return false;
 					if (draining) return false;
 					if (!healthy) return false;
 					if (load >= this.loadThreshold) return false;
@@ -322,7 +349,7 @@ export default class MediaService {
 			const geoCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 
-				if (candidates.includes(m)) return false;
+				if (candidates.includes(m) || exclude.has(m)) return false;
 
 				return inRegion(m) && !m.draining && m.healthy && m.load < this.loadThreshold;
 			});
@@ -330,7 +357,7 @@ export default class MediaService {
 			const lastResortCandidates = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 
-				if (candidates.includes(m)) return false;
+				if (candidates.includes(m) || exclude.has(m)) return false;
 
 				return inRegion(m) && !m.draining && m.healthy;
 			});
@@ -349,6 +376,7 @@ export default class MediaService {
 				geoCandidates,
 				sameCountryDelta,
 				allowedRegions,
+				exclude,
 			});
 
 			const geoFallback = sameCountryResult.geoFallback;
@@ -667,6 +695,7 @@ export default class MediaService {
 		geoCandidates?: [KDPoint, number][];
 		sameCountryDelta: number;
 		allowedRegions?: string[];
+		exclude: ReadonlySet<MediaNode>;
 	}): { geoPreferred: MediaNode[]; geoFallback: MediaNode[] } {
 		const {
 			room,
@@ -677,6 +706,7 @@ export default class MediaService {
 			geoCandidates,
 			sameCountryDelta,
 			allowedRegions,
+			exclude,
 		} = params;
 
 		const inRegion = (m: MediaNode): boolean => {
@@ -695,7 +725,7 @@ export default class MediaService {
 			const sameCountryNN = kdTree.nearestNeighbors(peerGeoPosition, 5, (point) => {
 				const m = point.appData.mediaNode as MediaNode;
 
-				if (candidates.includes(m)) return false;
+				if (candidates.includes(m) || exclude.has(m)) return false;
 
 				if (!inRegion(m)) return false;
 

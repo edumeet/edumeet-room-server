@@ -428,9 +428,7 @@ export class Router extends EventEmitter {
 						});
 					})
 					.catch((error) => {
-						logger.error(
-							'pipeToRouter() | error creating PipeTransport pair:%o',
-							error);
+						logger.error({ err: error }, 'pipeToRouter() | error creating PipeTransport pair');
 
 						if (localPipeTransport)
 							localPipeTransport.close();
@@ -511,7 +509,7 @@ export class Router extends EventEmitter {
 				return { pipeConsumer, pipeProducer };
 			} catch (error) {
 				logger.error({ err: error },
-					'pipeToRouter() | error creating pipe Consumer/Producer pair:%o');
+					'pipeToRouter() | error creating pipe Consumer/Producer pair');
 
 				if (pipeConsumer)
 					pipeConsumer.close();
@@ -550,7 +548,7 @@ export class Router extends EventEmitter {
 				return { pipeDataConsumer, pipeDataProducer };
 			} catch (error) {
 				logger.error({ err: error },
-					'pipeToRouter() | error creating pipe Consumer/DataProducer pair:%o');
+					'pipeToRouter() | error creating pipe Consumer/DataProducer pair');
 
 				if (pipeDataConsumer)
 					pipeDataConsumer.close();

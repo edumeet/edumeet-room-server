@@ -110,7 +110,7 @@ export default class Room extends EventEmitter {
 		};
 
 		this.rejectRoomReady = (error: Error) => {
-			logger.error('roomReady() "rejected" [id: %s, error: %o]', this.id, error);
+			logger.error({ err: error }, 'roomReady() "rejected" [id: %s]', this.id);
 
 			reject(error);
 		};
@@ -322,7 +322,7 @@ export default class Room extends EventEmitter {
 			else
 				this.parkPeer(peer);
 		} catch (error) {
-			logger.error({ err: error }, 'addPeer() [error: %o]');
+			logger.error({ err: error }, 'addPeer() failed');
 
 			peer.close();
 		}
@@ -582,7 +582,7 @@ export default class Room extends EventEmitter {
 			
 			peer.rtpCapabilities = rtpCapabilities;
 		} catch (error) {
-			logger.error({ err: error }, 'assignRouter() [%o]');
+			logger.error({ err: error }, 'assignRouter() failed');
 
 			peer.notify({ method: 'noMediaServer' });
 

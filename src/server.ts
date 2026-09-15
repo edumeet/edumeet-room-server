@@ -73,7 +73,6 @@ if (loader.config) {
 		// react to reloads
 		loader.on('reloaded', async (newConfig) => {
 			logger.info('Config reloaded.');
-			logger.debug('Config reloaded:', newConfig);
 			if (newConfig.prometheus?.enabled === true && customMetricsService == undefined) {
 				// init here if was not enabled before
 				customMetricsService = new CustomMetricsService(serverManager, newConfig);
@@ -85,7 +84,7 @@ if (loader.config) {
 		});
 	
 		loader.on('error', (err) => {
-			logger.error('Config load error (keeping previous if exists):', err.message || err);
+			logger.error({ err }, 'Config load error (keeping previous if exists)');
 		});
 	} else if (loader.config.prometheus?.enabled === true) {
 		customMetricsService = new CustomMetricsService(serverManager, loader.config);
