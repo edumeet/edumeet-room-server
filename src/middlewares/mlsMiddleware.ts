@@ -18,8 +18,7 @@ const isEpoch = (value: unknown): value is number => Number.isInteger(value) && 
 const isPeerIdList = (value: unknown): value is string[] =>
 	Array.isArray(value) && value.every((id) => typeof id === 'string');
 
-// The MLS delivery service, living beside the pairwise relay in e2eeMiddleware so that a client can
-// use either. The server stores opaque GroupInfo and KeyPackage bytes, orders commits by epoch, and
+// The MLS delivery service. The server stores opaque GroupInfo and KeyPackage bytes, orders commits by epoch, and
 // relays commits, Welcomes and proposals with the sender id stamped by the server. It reads none
 // of it. A room participant that sends a malformed commit can still desynchronise the group, as it
 // can disrupt a room in other ways; the server is trusted for membership, not for secrecy.

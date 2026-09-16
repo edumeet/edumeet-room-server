@@ -6,7 +6,6 @@ import { randomUUID } from 'crypto';
 import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
 import { createPrivateChatMiddleware } from './middlewares/privateChatMiddleware';
-import { createE2eeMiddleware } from './middlewares/e2eeMiddleware';
 import { createMlsMiddleware } from './middlewares/mlsMiddleware';
 import { createCountdownTimerMiddleware } from './middlewares/countdownTimerMiddleware';
 import { createLockMiddleware } from './middlewares/lockMiddleware';
@@ -155,7 +154,6 @@ export default class Room extends EventEmitter {
 	#breakoutMiddleware: Middleware<PeerContext>;
 	#chatMiddleware: Middleware<PeerContext>;
 	#privateChatMiddleware: Middleware<PeerContext>;
-	#e2eeMiddleware: Middleware<PeerContext>;
 	#mlsMiddleware: Middleware<PeerContext>;
 	#fileMiddleware: Middleware<PeerContext>;
 	#countdownTimerMiddleware: Middleware<PeerContext>;
@@ -184,7 +182,6 @@ export default class Room extends EventEmitter {
 		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
 		this.#chatMiddleware = createChatMiddleware({ room: this });
 		this.#privateChatMiddleware = createPrivateChatMiddleware({ room: this });
-		this.#e2eeMiddleware = createE2eeMiddleware({ room: this });
 		this.#mlsMiddleware = createMlsMiddleware({ room: this });
 		this.#fileMiddleware = createFileMiddleware({ room: this });
 		this.#countdownTimerMiddleware = createCountdownTimerMiddleware({ room: this });
@@ -202,7 +199,6 @@ export default class Room extends EventEmitter {
 			this.#breakoutMiddleware,
 			this.#chatMiddleware,
 			this.#privateChatMiddleware,
-			this.#e2eeMiddleware,
 			this.#mlsMiddleware,
 			this.#fileMiddleware,
 			this.#countdownTimerMiddleware,
@@ -437,7 +433,6 @@ export default class Room extends EventEmitter {
 			this.#moderatorMiddleware,
 			this.#mediaMiddleware,
 			this.#lockMiddleware,
-			this.#e2eeMiddleware,
 			this.#mlsMiddleware,
 		);
 
