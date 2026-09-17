@@ -36,6 +36,7 @@ interface PeerOptions {
 	reconnectKey: string;
 	permissions?: string[];
 	meetingToken?: string;
+	headless?: boolean;
 }
 
 export interface PeerInfo {
@@ -48,6 +49,7 @@ export interface PeerInfo {
 	sendReactionTimestamp?: number;
 	sessionId: string;
 	recording: boolean;
+	headless: boolean;
 }
 
 export interface PeerContext {
@@ -89,6 +91,7 @@ export class Peer extends EventEmitter {
 
 	public displayName: string;
 	public readonly meetingToken?: string;
+	public readonly headless: boolean;
 	public picture?: string;
 
 	public recording = false;
@@ -134,6 +137,7 @@ export class Peer extends EventEmitter {
 		reconnectKey,
 		permissions,
 		meetingToken,
+		headless = false,
 	}: PeerOptions) {
 		logger.debug(
 			{ id, managedId, displayName, sessionId, reconnectKey },
@@ -149,6 +153,7 @@ export class Peer extends EventEmitter {
 		this.#managedId = managedId;
 		this.#reconnectKey = reconnectKey;
 		this.meetingToken = meetingToken;
+		this.headless = headless;
 
 		if (permissions?.length)
 			this.#permissions = new Set(permissions);
@@ -485,6 +490,7 @@ export class Peer extends EventEmitter {
 			sendReactionTimestamp: this.sendReactionTimestamp,
 			sessionId: this.sessionId,
 			recording: this.recording,
+			headless: this.headless,
 		};
 	}
 }

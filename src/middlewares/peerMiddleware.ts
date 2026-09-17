@@ -106,7 +106,7 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				peer.escapeMeeting = escapeMeeting;
 
 				if (escapeMeeting) {
-					if (!room.peers.items.some((p) => !p.escapeMeeting)) {
+					if (!room.participants.some((p) => !p.escapeMeeting)) {
 						room.notifyPeers('escapeMeeting', {});
 
 						room.close();

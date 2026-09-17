@@ -70,9 +70,10 @@ export default class ServerManager {
 		displayName?: string,
 		token?: string,
 		meetingToken?: string,
+		headless = false,
 	): Promise<void> {
 		logger.debug(
-			{ peerId, displayName, roomId, tenantFqdn, reconnectKey },
+			{ peerId, displayName, roomId, tenantFqdn, reconnectKey, headless },
 			'handleConnection() init params'
 		);
 
@@ -177,7 +178,7 @@ export default class ServerManager {
 			this.reconnectPermissionsCache.delete(reconnectKey);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken });
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless });
 
 		this.peers.set(peerId, peer);
 

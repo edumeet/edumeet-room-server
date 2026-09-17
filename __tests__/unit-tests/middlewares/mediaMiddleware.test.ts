@@ -9,7 +9,7 @@ afterEach(() => {
 	jest.clearAllMocks();
 });
 
-const produceDataContext = (label: string, endToEndEncryption: boolean) => {
+const produceDataContext = (label: string, endToEndEncryption: boolean, headless = false) => {
 	const produceData = jest.fn(async (options: { label: string }) => ({
 		id: 'dp1',
 		label: options.label,
@@ -23,6 +23,7 @@ const produceDataContext = (label: string, endToEndEncryption: boolean) => {
 	} as unknown as Room;
 	const peer = {
 		id: 'p1',
+		headless,
 		producingTransport: { produceData },
 		dataProducers: new Map(),
 	};
@@ -68,6 +69,15 @@ describe('produceData', () => {
 		const { sut, context, produceData } = produceDataContext(OBSERVER_SAMPLES_LABEL, true);
 
 		await expect(sut(context, next)).rejects.toThrow('end-to-end encrypted');
+
+		expect(produceData).not.toHaveBeenCalled();
+		expect(context.handled).toBe(false);
+	});
+
+	test('refuses a data producer from a headless peer', async () => {
+		const { sut, context, produceData } = produceDataContext('transcription', false, true);
+
+		await expect(sut(context, next)).rejects.toThrow('headless');
 
 		expect(produceData).not.toHaveBeenCalled();
 		expect(context.handled).toBe(false);

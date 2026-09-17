@@ -2,6 +2,7 @@ import { Peer } from '../Peer';
 import Room from '../Room';
 import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, MediaSourceType, RoomSettings } from './types';
 import { Logger } from 'edumeet-common';
+import { botProfile } from './botProfile';
 
 const logger = new Logger('authorization');
 
@@ -71,6 +72,12 @@ export const permittedProducer = (source: MediaSourceType, room: Room, peer: Pee
 };
 
 export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, isReconnect = false): void => {
+	if (peer.headless) {
+		peer.permissions = [ ...botProfile.permissions ];
+
+		return;
+	}
+
 	const hadPromotePermission = peer.hasPermission(Permission.PROMOTE_PEER);
 	const defaultPermissions = room.defaultRole?.permissions.map((p) => p.name) ?? [];
 	let shouldPromote = false;
@@ -107,7 +114,7 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 			shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 			shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
 		}
-	} else if (room.peers.empty) { // unmanaged rooms - fake admin
+	} else if (room.participants.length === 0) { // unmanaged rooms - fake admin
 		logger.debug('Is unmanaged room - first peer');
 
 		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK

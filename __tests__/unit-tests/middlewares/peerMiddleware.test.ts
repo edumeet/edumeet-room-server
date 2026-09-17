@@ -69,3 +69,40 @@ test('Should notify peers on a valid display name', async () => {
 	expect(room.notifyPeers).toHaveBeenCalled();
 	expect(context.handled).toBeTruthy();
 });
+
+describe('escapeMeeting', () => {
+	const voteRoom = (participants: { escapeMeeting: boolean }[]) => ({
+		id: 'id',
+		sessionId: 'id1',
+		notifyPeers: jest.fn(),
+		close: jest.fn(),
+		participants,
+	} as unknown as Room);
+
+	const vote = async (room: Room) => {
+		const sut = createPeerMiddleware({ room });
+		const peer = { id: 'peer1', escapeMeeting: false };
+		const context = { peer, message: { method: 'escapeMeeting', data: { escapeMeeting: true } }, handled: false } as unknown as PeerContext;
+
+		await sut(context, next);
+
+		return context;
+	};
+
+	test('closes the room once every participant has voted', async () => {
+		const room = voteRoom([ { escapeMeeting: true }, { escapeMeeting: true } ]);
+		const context = await vote(room);
+
+		expect(context.peer.escapeMeeting).toBe(true);
+		expect(room.notifyPeers).toHaveBeenCalledWith('escapeMeeting', {});
+		expect(room.close).toHaveBeenCalledTimes(1);
+	});
+
+	test('waits while a participant has not voted', async () => {
+		const room = voteRoom([ { escapeMeeting: true }, { escapeMeeting: false } ]);
+
+		await vote(room);
+
+		expect(room.close).not.toHaveBeenCalled();
+	});
+});

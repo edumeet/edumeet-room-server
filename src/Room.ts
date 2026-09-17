@@ -20,6 +20,7 @@ import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
 
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
+import { botProfile, RoomMiddlewareName } from './common/botProfile';
 import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
@@ -160,6 +161,7 @@ export default class Room extends EventEmitter {
 	#drawingMiddleware: Middleware<PeerContext>;
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
+	#middlewaresByName: Record<RoomMiddlewareName, Middleware<PeerContext>>;
 
 	constructor({ id, tenantId, name, mediaService }: RoomOptions) {
 		logger.debug('constructor() [id: %s, tenantId: %s]', id, tenantId);
@@ -187,6 +189,21 @@ export default class Room extends EventEmitter {
 		this.#countdownTimerMiddleware = createCountdownTimerMiddleware({ room: this });
 		this.#drawingMiddleware = createDrawingMiddleware({ room: this });
 		
+		this.#middlewaresByName = {
+			peer: this.#peerMiddleware,
+			lobby: this.#lobbyMiddleware,
+			moderator: this.#moderatorMiddleware,
+			media: this.#mediaMiddleware,
+			lock: this.#lockMiddleware,
+			mls: this.#mlsMiddleware,
+			breakout: this.#breakoutMiddleware,
+			chat: this.#chatMiddleware,
+			privateChat: this.#privateChatMiddleware,
+			file: this.#fileMiddleware,
+			countdownTimer: this.#countdownTimerMiddleware,
+			drawing: this.#drawingMiddleware,
+		};
+
 		this.#allMiddlewares = [
 			this.#lobbyPeerMiddleware,
 			this.#initialMediaMiddleware,
@@ -228,8 +245,19 @@ export default class Room extends EventEmitter {
 		this.emit('close');
 	}
 
+	// Bots neither keep a room open nor count as participants, so a room with only
+	// bots left is empty and closes; the bots are disconnected with it.
 	public get empty(): boolean {
-		return this.waitingPeers.empty && this.pendingPeers.empty && this.peers.empty && this.lobbyPeers.empty;
+		return ![
+			...this.waitingPeers.items,
+			...this.pendingPeers.items,
+			...this.peers.items,
+			...this.lobbyPeers.items,
+		].some((p) => !p.headless);
+	}
+
+	public get participants(): Peer[] {
+		return this.peers.items.filter((p) => !p.headless);
 	}
 
 	public addMediaNode(mediaNode: MediaNode): void {
@@ -426,6 +454,14 @@ export default class Room extends EventEmitter {
 
 		peer.pipeline.remove(this.#joinMiddleware);
 		this.pendingPeers.remove(peer);
+
+		if (peer.headless) {
+			peer.pipeline.use(...botProfile.middlewares.map((name) => this.#middlewaresByName[name]));
+			this.peers.add(peer);
+			this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
+
+			return;
+		}
 
 		peer.pipeline.use(
 			this.#peerMiddleware,

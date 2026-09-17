@@ -1,3 +1,4 @@
+import { botProfile } from '../common/botProfile';
 import { Logger, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
@@ -150,6 +151,9 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				// cannot open the channel.
 				if (room.endToEndEncryption && label === OBSERVER_SAMPLES_LABEL)
 					throw new Error('monitoring samples are not accepted in an end-to-end encrypted room');
+
+				if (peer.headless && !botProfile.produceData)
+					throw new Error('a headless peer does not produce data');
 
 				appData = {
 					...appData,

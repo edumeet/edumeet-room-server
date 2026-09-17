@@ -45,6 +45,7 @@ const makeRoom = (overrides: Record<string, unknown> = {}): Room => ({
 	defaultRole: undefined,
 	lobbyPeers: List<Peer>(),
 	peers: List<Peer>(),
+	participants: [] as Peer[],
 	promotePeer: jest.fn(),
 	...overrides,
 }) as unknown as Room;
@@ -122,6 +123,39 @@ describe('updatePeerPermissions() - webinar roles', () => {
 		// The computed role must actually block publishing.
 		expect(() => permittedProducer(MediaSourceType.MIC, room, peer)).toThrow('peer not authorized');
 		expect(() => permittedProducer(MediaSourceType.WEBCAM, room, peer)).toThrow('peer not authorized');
+	});
+});
+
+describe('updatePeerPermissions() - headless peers', () => {
+	test('A headless peer gets the bot profile even when it is the room owner', () => {
+		const peer = makePeer({ managedId: 'owner1', headless: true });
+		const room = makeRoom({ managedId: 'room1', owners: [ { userId: 'owner1' } ] });
+
+		updatePeerPermissions(room, peer);
+
+		expect(peer.permissions).toEqual([]);
+		expect(() => permittedProducer(MediaSourceType.MIC, room, peer)).toThrow('peer not authorized');
+	});
+
+	test('A headless peer joining an unmanaged room first does not become its admin', () => {
+		const bot = makePeer({ managedId: undefined, headless: true });
+		const room = makeRoom({ managedId: undefined });
+
+		updatePeerPermissions(room, bot);
+
+		expect(bot.permissions).toEqual([]);
+	});
+
+	test('The first participant after a headless peer still becomes the admin of an unmanaged room', () => {
+		const bot = makePeer({ managedId: undefined, headless: true });
+		const human = makePeer({ managedId: undefined });
+		const room = makeRoom({ managedId: undefined });
+
+		room.peers.add(bot);
+		updatePeerPermissions(room, human);
+
+		expect(human.hasPermission(Permission.MODERATE_ROOM)).toBe(true);
+		expect(human.hasPermission(Permission.BYPASS_ROOM_LOCK)).toBe(false);
 	});
 });
 

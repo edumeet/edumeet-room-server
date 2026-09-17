@@ -14,6 +14,7 @@ export const socketHandler = (socket: Socket) => {
 		token,
 		reconnectKey,
 		meetingToken,
+		headless,
 	} = socket.handshake.query;
 
 	logger.debug(
@@ -85,6 +86,7 @@ export const socketHandler = (socket: Socket) => {
 		displayName as string,
 		token as string,
 		normalizeMeetingToken(meetingToken),
+		headless === '1' || headless === 'true',
 	).catch((error) => {
 		logger.warn({ err: error }, 'socketHandler() - handleConnection()');
 

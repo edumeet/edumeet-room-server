@@ -19,6 +19,7 @@ class CustomMetrics {
 	private statsUpdate = 0;
 	private serverManager: ServerManager;
 	private mPeers: client.Gauge;
+	private mBots: client.Gauge;
 	private mRoomsMediaNode: client.Gauge;
 	private period:number = 10;
 	mClosedMediaNode: client.Gauge<'hostname' >;
@@ -64,6 +65,7 @@ class CustomMetrics {
 
 		// user/peer count for a roomId
 		this.mPeers = new client.Gauge({ name: 'edumeet_peers', help: 'user/peer count for a roomId', labelNames: [ 'roomId' ], registers: [ this.register ] });
+		this.mBots = new client.Gauge({ name: 'edumeet_bots', help: 'headless peer count (recorders, streamers) for a roomId', labelNames: [ 'roomId' ], registers: [ this.register ] });
 		// roomId and mediaNode pair (if set it is used)
 		this.mRoomsMediaNode = new client.Gauge({ name: 'edumeet_room_media_nodes', help: 'roomId and mediaNode pair (if set it is used)', labelNames: [ 'roomId', 'hostname' ], registers: [ this.register ] });
 
@@ -175,10 +177,14 @@ class CustomMetrics {
 		}
 
 		this.mPeers.reset();
+		this.mBots.reset();
 		this.mRoomsMediaNode.reset();
 
 		for (const [ roomId, room ] of this.serverManager.rooms) {
-			this.mPeers.labels(roomId).set(room.peers.length);
+			const participants = room.participants.length;
+
+			this.mPeers.labels(roomId).set(participants);
+			this.mBots.labels(roomId).set(room.peers.length - participants);
 			
 			if (room.mediaNodes && Array.isArray(room.mediaNodes.items)) {
 				const items = room.mediaNodes.items;
