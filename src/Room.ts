@@ -341,7 +341,9 @@ export default class Room extends EventEmitter {
 			// This will update the permissions of the peer based on what we possibly got from the management service
 			updatePeerPermissions(this, peer, false, isReconnect);
 
-			if (isAllowed(this, peer))
+			// A bot that was in the room and comes back from a long disconnect is
+			// admitted again; the lock is for newcomers.
+			if (isAllowed(this, peer) || (isReconnect && peer.headless))
 				this.allowPeer(peer);
 			else
 				this.parkPeer(peer);

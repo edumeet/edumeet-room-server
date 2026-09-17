@@ -227,7 +227,9 @@ export default class ServerManager {
 			// so stale entries will never match a fresh join.
 			const perms = peer.permissions;
 
-			if (perms.length > 0) {
+			// A bot has no permissions to restore, but its admission is what its
+			// long reconnect must get back, so it is cached all the same.
+			if (perms.length > 0 || peer.headless) {
 				this.reconnectPermissionsCache.set(peer.reconnectKey, perms);
 
 				setTimeout(

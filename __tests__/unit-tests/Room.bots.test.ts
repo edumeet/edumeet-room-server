@@ -97,3 +97,48 @@ describe('a headless peer in the room', () => {
 		expect(human.notify).toHaveBeenCalledWith({ method: 'peerClosed', data: { peerId: bot.id } });
 	});
 });
+
+describe('a headless peer coming back from a long disconnect', () => {
+	// eslint-disable-next-line no-unused-vars
+	type Admission = { allowPeer: (p: Peer) => void, parkPeer: (p: Peer) => void };
+
+	const lockedRoom = () => {
+		const room = makeRoom();
+		const admission = room as unknown as Admission;
+
+		room.locked = true;
+		const allowPeer = jest.spyOn(admission, 'allowPeer').mockImplementation(() => undefined);
+		const parkPeer = jest.spyOn(admission, 'parkPeer').mockImplementation(() => undefined);
+
+		room.resolveRoomReady();
+
+		return { room, allowPeer, parkPeer };
+	};
+
+	test('is parked by a locked room when it arrives for the first time', async () => {
+		const { room, allowPeer, parkPeer } = lockedRoom();
+
+		await room.addPeer(makePeer(true));
+
+		expect(parkPeer).toHaveBeenCalledTimes(1);
+		expect(allowPeer).not.toHaveBeenCalled();
+	});
+
+	test('is admitted again by a locked room on a reconnect', async () => {
+		const { room, allowPeer, parkPeer } = lockedRoom();
+
+		await room.addPeer(makePeer(true), true);
+
+		expect(allowPeer).toHaveBeenCalledTimes(1);
+		expect(parkPeer).not.toHaveBeenCalled();
+	});
+
+	test('does not let a participant through the lock on a reconnect', async () => {
+		const { room, allowPeer, parkPeer } = lockedRoom();
+
+		await room.addPeer(makePeer(), true);
+
+		expect(parkPeer).toHaveBeenCalledTimes(1);
+		expect(allowPeer).not.toHaveBeenCalled();
+	});
+});
