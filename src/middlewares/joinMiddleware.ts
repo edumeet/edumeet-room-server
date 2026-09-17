@@ -53,6 +53,11 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				room.joinPeer(peer);
 				context.handled = true;
 
+				if (peer.closed) break;
+
+				// The session the peer is actually in; a bot may have been placed in a breakout.
+				response.sessionId = peer.sessionId;
+
 				if (!peer.initialConsume && peer.consumingTransport) {
 					peer.initialConsume = true;
 

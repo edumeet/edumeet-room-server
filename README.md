@@ -438,6 +438,14 @@ When unset, those cases fall through to "no restriction" (every media node is el
 
 In the management server, each tenant can have an `allowedMediaNodeRegions` array (managed via the tenant editor in the client). When set and non-empty, it overrides the deployment-level default for rooms belonging to that tenant.
 
+## Bots
+
+A connection with `headless=1` in the query is a bot (a recorder, streamer or transcriber page). It is refused unless the room is open with at least one participant in it. Inside a tenant the room-server asks the management server's `bot-verify` service, sending the tenant, the bot token from the socket handshake `auth` payload (never from the URL) and the client address; the management server applies the tenant's bot policy, the token and its allowed address ranges. A management server without that service makes the room-server refuse every bot in a tenant, so upgrade the management server first. Outside a tenant, bots are admitted without a token.
+
+A bot records one session. A connection with `session=<breakout session id>` in the query is placed in that breakout room at join, whether or not anyone is in it yet; it is refused with `sessionNotOpen` when no such breakout room exists, and it is ended with `sessionClosed` when the breakout room is removed or ejected, while the participants are moved back to the main room as before. A moderator cannot move a bot between sessions. The join response carries the peer's actual `sessionId`.
+
+The client address is the first entry of `x-forwarded-for`, or the socket address without a proxy. The proxy configuration shipped with edumeet-docker overwrites that header with the PROXY-protocol address for the room-server, so a client cannot supply it; a proxy that appends to the header instead must be configured to overwrite it, or the address ranges of the bot tokens cannot be trusted.
+
 ## Notes
 
 - All file paths are relative to the application working directory unless otherwise specified.

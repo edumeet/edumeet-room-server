@@ -1,3 +1,6 @@
+import { asBotType, BotRejection } from './common/botProfile';
+import { resolveClientIp } from './common/clientAddress';
+import { IOServerConnection } from './common/IOServerConnection';
 import { BaseConnection, Logger, skipIfClosed } from 'edumeet-common';
 import { verifyPeer } from './common/token';
 import MediaService from './MediaService';
@@ -71,6 +74,9 @@ export default class ServerManager {
 		token?: string,
 		meetingToken?: string,
 		headless = false,
+		botToken?: string,
+		botTypeText?: string,
+		botSession?: string,
 	): Promise<void> {
 		logger.debug(
 			{ peerId, displayName, roomId, tenantFqdn, reconnectKey, headless },
@@ -118,6 +124,39 @@ export default class ServerManager {
 				logger.debug('handleConnection() reconnectKey not equal, rejecting new connection [peerId: %s]', peerId);
 				throw new Error('Invalid reconnectKey');
 			}
+		}
+
+		let botVerified = false;
+
+		if (headless) {
+			const address = resolveClientIp((connection as unknown as IOServerConnection).address) ?? '';
+			const rejectBot = (reason: BotRejection): void => {
+				logger.info('handleConnection() bot refused [roomId: %s, tenantId: %s, address: %s, reason: %s]', roomId, tenantId, address, reason);
+				connection.notify({ method: 'botRejected', data: { reason } });
+				connection.close();
+			};
+
+			// A bot never opens a room: it joins one that has participants in it.
+			if (!room || room.empty) return rejectBot('roomNotOpen');
+
+			if (tenantId > 0 && this.managementService) {
+				// verifyBot is skipped while the management service closes, and then answers nothing.
+				const verdict = await this.managementService.verifyBot({ tenantId, botToken, address });
+
+				if (!verdict?.allowed) return rejectBot(verdict?.reason ?? 'botsNotAllowed');
+
+				botVerified = verdict.verified;
+
+				// The room may have emptied and closed during the round trip; addPeer on a
+				// closed room does nothing and would leave the bot hanging without an answer.
+				room = this.rooms.get(`${tenantId}/${roomId}`);
+
+				if (!room || room.closed || room.empty) return rejectBot('roomNotOpen');
+			}
+
+			// A breakout room may be empty, it only has to exist; it is looked up again
+			// at join, when the bot is actually placed in it.
+			if (botSession && !room.breakoutRooms.get(botSession)) return rejectBot('sessionNotOpen');
 		}
 
 		if (!room) {
@@ -178,7 +217,7 @@ export default class ServerManager {
 			this.reconnectPermissionsCache.delete(reconnectKey);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless });
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless, botVerified, botType: asBotType(botTypeText), botSessionId: botSession });
 
 		this.peers.set(peerId, peer);
 

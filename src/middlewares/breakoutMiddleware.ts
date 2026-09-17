@@ -55,7 +55,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				if (!roomToEmpty)
 					throw new Error('BreakoutRoom not found');
 
-				roomToEmpty.getPeers().forEach((p) => changeRoom(room, p, true));
+				roomToEmpty.getPeers().forEach(leaveClosingSession);
 				roomToEmpty.emptyRoom();
 
 				context.handled = true;
@@ -73,7 +73,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				if (!roomToClose)
 					throw new Error('BreakoutRoom not found');
 
-				roomToClose.getPeers().forEach((p) => changeRoom(room, p, true));
+				roomToClose.getPeers().forEach(leaveClosingSession);
 				roomToClose.close();
 				room.notifyPeers('breakoutRoomClosed', { roomSessionId }, peer);
 
@@ -137,6 +137,9 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				if (!peerToBeMoved)
 					throw new Error('Peer not found');
 
+				if (peerToBeMoved.headless)
+					throw new Error('a bot stays in the session it was sent to');
+
 				// Move back to main room
 				if (roomSessionId === room.sessionId) {
 					if (peerToBeMoved.sessionId === roomSessionId)
@@ -197,6 +200,17 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 		// Create consumers for the peer in the new room
 		createConsumers(room, peer);
+	};
+
+	// A bot records the session it was sent to, so when that session ends the
+	// bot ends with it rather than following the participants to the main room.
+	const leaveClosingSession = (p: Peer): void => {
+		if (p.headless) {
+			p.notify({ method: 'botRejected', data: { reason: 'sessionClosed' } });
+			p.close();
+		} else {
+			changeRoom(room, p, true);
+		}
 	};
 
 	return middleware;

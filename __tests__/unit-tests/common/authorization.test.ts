@@ -137,6 +137,16 @@ describe('updatePeerPermissions() - headless peers', () => {
 		expect(() => permittedProducer(MediaSourceType.MIC, room, peer)).toThrow('peer not authorized');
 	});
 
+	test('A verified bot gets the lock bypass and nothing else', () => {
+		const peer = makePeer({ managedId: 'owner1', headless: true, botVerified: true });
+		const room = makeRoom({ managedId: 'room1', owners: [ { userId: 'owner1' } ] });
+
+		updatePeerPermissions(room, peer);
+
+		expect(peer.permissions).toEqual([ Permission.BYPASS_ROOM_LOCK ]);
+		expect(() => permittedProducer(MediaSourceType.WEBCAM, room, peer)).toThrow('peer not authorized');
+	});
+
 	test('A headless peer joining an unmanaged room first does not become its admin', () => {
 		const bot = makePeer({ managedId: undefined, headless: true });
 		const room = makeRoom({ managedId: undefined });

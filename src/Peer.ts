@@ -1,3 +1,4 @@
+import { BotType } from './common/botProfile';
 import { EventEmitter } from 'events';
 import { MediaSourceType, Role } from './common/types';
 import { Router } from './media/Router';
@@ -37,6 +38,9 @@ interface PeerOptions {
 	permissions?: string[];
 	meetingToken?: string;
 	headless?: boolean;
+	botVerified?: boolean;
+	botType?: BotType;
+	botSessionId?: string;
 }
 
 export interface PeerInfo {
@@ -50,6 +54,7 @@ export interface PeerInfo {
 	sessionId: string;
 	recording: boolean;
 	headless: boolean;
+	botType?: BotType;
 }
 
 export interface PeerContext {
@@ -92,6 +97,10 @@ export class Peer extends EventEmitter {
 	public displayName: string;
 	public readonly meetingToken?: string;
 	public readonly headless: boolean;
+	public readonly botVerified: boolean;
+	public readonly botType?: BotType;
+	// The breakout session a bot was sent to; a participant picks sessions itself.
+	public readonly botSessionId?: string;
 	public picture?: string;
 
 	public recording = false;
@@ -138,6 +147,9 @@ export class Peer extends EventEmitter {
 		permissions,
 		meetingToken,
 		headless = false,
+		botVerified = false,
+		botType,
+		botSessionId,
 	}: PeerOptions) {
 		logger.debug(
 			{ id, managedId, displayName, sessionId, reconnectKey },
@@ -154,6 +166,9 @@ export class Peer extends EventEmitter {
 		this.#reconnectKey = reconnectKey;
 		this.meetingToken = meetingToken;
 		this.headless = headless;
+		this.botVerified = headless && botVerified;
+		this.botType = headless ? botType : undefined;
+		this.botSessionId = headless ? botSessionId : undefined;
 
 		if (permissions?.length)
 			this.#permissions = new Set(permissions);
@@ -491,6 +506,7 @@ export class Peer extends EventEmitter {
 			sessionId: this.sessionId,
 			recording: this.recording,
 			headless: this.headless,
+			botType: this.botType,
 		};
 	}
 }

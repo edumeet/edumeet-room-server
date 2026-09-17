@@ -328,7 +328,8 @@ export default class Room extends EventEmitter {
 			if (this.closed) throw new RoomClosedError('room closed');
 			if (peer.closed) return;
 
-			if (!isReconnect || peer.meetingToken) {
+			// A verified bot is the tenant's own infrastructure and needs no invitation.
+			if (!peer.botVerified && (!isReconnect || peer.meetingToken)) {
 				const rejection = await admitMeetingToken(this, peer.meetingToken);
 
 				if (this.closed) throw new RoomClosedError('room closed');
@@ -458,27 +459,38 @@ export default class Room extends EventEmitter {
 		this.pendingPeers.remove(peer);
 
 		if (peer.headless) {
+			// Placed before the announcement, so peerInfo carries the right session.
+			if (peer.botSessionId) {
+				const breakout = this.breakoutRooms.get(peer.botSessionId);
+
+				if (!breakout) {
+					peer.notify({ method: 'botRejected', data: { reason: 'sessionNotOpen' } });
+					peer.close();
+
+					return;
+				}
+
+				breakout.addPeer(peer);
+				peer.sessionId = breakout.sessionId;
+			}
+
 			peer.pipeline.use(...botProfile.middlewares.map((name) => this.#middlewaresByName[name]));
-			this.peers.add(peer);
-			this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
+		} else {
+			peer.pipeline.use(
+				this.#peerMiddleware,
+				this.#lobbyMiddleware,
+				this.#moderatorMiddleware,
+				this.#mediaMiddleware,
+				this.#lockMiddleware,
+				this.#mlsMiddleware,
+			);
 
-			return;
+			if (this.breakoutsEnabled) peer.pipeline.use(this.#breakoutMiddleware);
+			if (this.chatEnabled) peer.pipeline.use(this.#chatMiddleware, this.#privateChatMiddleware);
+			if (this.filesharingEnabled) peer.pipeline.use(this.#fileMiddleware);
+			if (this.countdownTimerEnabled) peer.pipeline.use(this.#countdownTimerMiddleware);
+			if (this.drawingEnabled) peer.pipeline.use(this.#drawingMiddleware);
 		}
-
-		peer.pipeline.use(
-			this.#peerMiddleware,
-			this.#lobbyMiddleware,
-			this.#moderatorMiddleware,
-			this.#mediaMiddleware,
-			this.#lockMiddleware,
-			this.#mlsMiddleware,
-		);
-
-		if (this.breakoutsEnabled) peer.pipeline.use(this.#breakoutMiddleware);
-		if (this.chatEnabled) peer.pipeline.use(this.#chatMiddleware, this.#privateChatMiddleware);
-		if (this.filesharingEnabled) peer.pipeline.use(this.#fileMiddleware);
-		if (this.countdownTimerEnabled) peer.pipeline.use(this.#countdownTimerMiddleware);
-		if (this.drawingEnabled) peer.pipeline.use(this.#drawingMiddleware);
 
 		this.peers.add(peer);
 

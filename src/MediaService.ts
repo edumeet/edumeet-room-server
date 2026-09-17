@@ -1,3 +1,4 @@
+import { resolveClientIp } from './common/clientAddress';
 import Room from './Room';
 import { Peer } from './Peer';
 import { MediaNode } from './media/MediaNode';
@@ -515,28 +516,12 @@ export default class MediaService {
 	 * 2. Direct peer address
 	 */
 	private getClientIp(peer: Peer): string | undefined {
-		const { address, forwardedFor } = peer.getAddress();
+		const connectionAddress = peer.getAddress();
+		const ip = resolveClientIp(connectionAddress);
 
-		logger.debug(
-			{ peerId: peer.id, address, forwardedFor },
-			'getClientIp() received peer addresses'
-		);
+		logger.debug({ peerId: peer.id, ...connectionAddress, ip }, 'getClientIp() resolved client IP');
 
-		let ip: string | undefined;
-
-		if (forwardedFor) {
-			const ff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-
-			ip = ff.split(',')[0]?.trim();
-		}
-
-		if (!ip) {
-			ip = address;
-		}
-
-		logger.debug({ peerId: peer.id, ip }, 'getClientIp() resolved client IP');
-
-		return ip || undefined;
+		return ip;
 	}
 
 	/**

@@ -78,7 +78,8 @@ export default class BreakoutRoom extends EventEmitter {
 
 		peer.once('close', () => this.removePeer(peer));
 
-		peer.pipeline.use(...this.peerMiddlewares);
+		// A bot only listens here; it gets no chat or file handlers.
+		if (!peer.headless) peer.pipeline.use(...this.peerMiddlewares);
 		this.peers.add(peer);
 	}
 

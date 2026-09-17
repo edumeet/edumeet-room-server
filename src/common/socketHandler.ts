@@ -15,7 +15,11 @@ export const socketHandler = (socket: Socket) => {
 		reconnectKey,
 		meetingToken,
 		headless,
+		botType,
+		session,
 	} = socket.handshake.query;
+	// The bot token travels in the handshake body, never in the URL.
+	const botToken = socket.handshake.auth?.botToken;
 
 	logger.debug(
 		'socketHandler() - socket connection [socketId: %s, roomId: %s, peerId: %s, tenantFqdn: %s, reconnectKey: %s]',
@@ -87,6 +91,9 @@ export const socketHandler = (socket: Socket) => {
 		token as string,
 		normalizeMeetingToken(meetingToken),
 		headless === '1' || headless === 'true',
+		typeof botToken === 'string' && botToken ? botToken : undefined,
+		typeof botType === 'string' ? botType : undefined,
+		typeof session === 'string' && session ? session : undefined,
 	).catch((error) => {
 		logger.warn({ err: error }, 'socketHandler() - handleConnection()');
 

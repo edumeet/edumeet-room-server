@@ -15,6 +15,27 @@ describe('Server', () => {
 		jest.restoreAllMocks();
 	});
 
+	it('Passes the bot token from the handshake body and the bot type from the query', () => {
+		const socket = {
+			id: 'socketId',
+			handshake: {
+				query: { roomId: 'r', peerId: 'p', reconnectKey: 'k', headless: '1', botType: 'recorder' },
+				auth: { botToken: 'secret' },
+				headers: { host: 'tenant.example.com' },
+			},
+			on: jest.fn(),
+			once: jest.fn(),
+			removeAllListeners: jest.fn(),
+			disconnect: jest.fn(),
+		} as unknown as Socket;
+
+		socketHandler(socket);
+
+		const args = (global.serverManager.handleConnection as jest.Mock).mock.calls.at(-1);
+
+		expect(args.slice(8)).toEqual([ true, 'secret', 'recorder' ]);
+	});
+
 	it('Handles query parameters', () => {
 		const socket = {
 			id: 'socketId',

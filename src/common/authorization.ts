@@ -73,7 +73,7 @@ export const permittedProducer = (source: MediaSourceType, room: Room, peer: Pee
 
 export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, isReconnect = false): void => {
 	if (peer.headless) {
-		peer.permissions = [ ...botProfile.permissions ];
+		peer.permissions = [ ...(peer.botVerified ? botProfile.verifiedPermissions : botProfile.permissions) ];
 
 		return;
 	}

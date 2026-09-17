@@ -1,3 +1,4 @@
+import { BotVerdict } from './common/botProfile';
 import io, { Socket } from 'socket.io-client';
 import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
@@ -106,6 +107,7 @@ export default class ManagementService {
 	#rolePermissionsService: FeathersService;
 
 	#meetingsService: FeathersService;
+	#botVerifyService: FeathersService;
 
 	constructor({ managedRooms, managedPeers, mediaService }: ManagementServiceOptions) {
 		logger.debug('constructor()');
@@ -144,6 +146,7 @@ export default class ManagementService {
 		this.#rolePermissionsService = this.#client.service('rolePermissions');
 
 		this.#meetingsService = this.#client.service('meetings');
+		this.#botVerifyService = this.#client.service('bot-verify');
 
 		this.setupSocketLifecycle();
 
@@ -163,6 +166,26 @@ export default class ManagementService {
 
 		this.#client.logout().catch((err) => logger.warn({ err }, 'logout failed on close'));
 		this.#socket.disconnect();
+	}
+
+	// The tenant's bot policy, credentials and address ranges all live in the
+	// management server; a management server without the service (an older
+	// version) refuses every bot rather than letting them in unchecked.
+	@skipIfClosed
+	public async verifyBot(data: { tenantId: number; botToken?: string; address: string }): Promise<BotVerdict> {
+		logger.debug('verifyBot() [tenantId: %s, hasToken: %s]', data.tenantId, Boolean(data.botToken));
+
+		try {
+			const [ error ] = await this.ready;
+
+			if (error) throw error;
+
+			return await this.runAuthenticated(() => this.#botVerifyService.create(data)) as BotVerdict;
+		} catch (err) {
+			logger.error({ err }, 'verifyBot() management server unreachable, refused, or lacks the bot-verify service');
+
+			return { allowed: false, reason: 'botsNotAllowed' };
+		}
 	}
 
 	@skipIfClosed
