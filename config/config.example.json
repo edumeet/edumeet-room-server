@@ -72,6 +72,10 @@
 		"UA": "UA"
 	},
 	"defaultAllowedMediaNodeRegions": [],
+	"clientMonitoring": {
+		"roomInfo": false,
+		"obfuscateRoomName": false
+	},
 	"mediaNodes": [{
 		"hostname": "localhost",
 		"port": 3000,

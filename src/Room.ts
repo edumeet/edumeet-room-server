@@ -36,6 +36,7 @@ const logger = new Logger('Room');
 interface RoomOptions {
 	id: string;
 	tenantId: number;
+	tenantFqdn?: string;
 	name?: string;
 	mediaService: MediaService;
 }
@@ -67,6 +68,7 @@ export default class Room extends EventEmitter {
 	public readonly creationTimestamp = Date.now();
 
 	public tenantId: number;
+	public tenantFqdn?: string; // the host the room's first participant joined on
 	public allowedMediaNodeRegions?: string[]; // Possibly updated by the management service; undefined = no restriction
 
 	public managedId?: string; // Possibly updated by the management service
@@ -163,13 +165,14 @@ export default class Room extends EventEmitter {
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 	#middlewaresByName: Record<RoomMiddlewareName, Middleware<PeerContext>>;
 
-	constructor({ id, tenantId, name, mediaService }: RoomOptions) {
+	constructor({ id, tenantId, tenantFqdn, name, mediaService }: RoomOptions) {
 		logger.debug('constructor() [id: %s, tenantId: %s]', id, tenantId);
 
 		super();
 
 		this.id = id;
 		this.tenantId = tenantId;
+		this.tenantFqdn = tenantFqdn;
 		this.name = name;
 		this.mediaService = mediaService;
 

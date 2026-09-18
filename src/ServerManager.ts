@@ -162,7 +162,7 @@ export default class ServerManager {
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
 
-			room = new Room({ id: roomId, tenantId, mediaService: this.mediaService });
+			room = new Room({ id: roomId, tenantId, tenantFqdn, mediaService: this.mediaService });
 
 			this.rooms.set(`${tenantId}/${roomId}`, room);
 

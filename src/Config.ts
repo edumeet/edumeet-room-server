@@ -72,4 +72,10 @@ export interface Config {
 	mediaNodes?: MediaNodeConfig[];
 	countryToRegion?: Record<string, string | string[]>;
 	defaultAllowedMediaNodeRegions?: string[];
+	clientMonitoring?: ClientMonitoringConfig;
+}
+
+export interface ClientMonitoringConfig {
+	roomInfo?: boolean;
+	obfuscateRoomName?: boolean;
 }

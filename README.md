@@ -438,6 +438,27 @@ When unset, those cases fall through to "no restriction" (every media node is el
 
 In the management server, each tenant can have an `allowedMediaNodeRegions` array (managed via the tenant editor in the client). When set and non-empty, it overrides the deployment-level default for rooms belonging to that tenant.
 
+## Client Monitoring
+
+### `clientMonitoring`
+
+- **Type:** `object`, optional
+- **Description:** What the room server tells media nodes about a room, so that a node that stores client monitoring samples (see the media node README) can file them per tenant and room. By default it tells them nothing: a media node knows a room only by the random id of the room session. Whether clients send samples at all is a client setting (`clientMonitor.samplingPeriodInMs`), and display names in the samples are a client matter too (`obfuscateDisplayName`).
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `roomInfo` | `boolean` | `false` | Send every media node a room uses the tenant host (the host name the room's first participant joined on) and a label for the room. |
+| `obfuscateRoomName` | `boolean` | `false` | With `roomInfo` on, label the room by its session id instead of its name, so room names, which people choose freely, never reach a media node or its sample storage. |
+
+```json
+"clientMonitoring": {
+	"roomInfo": true,
+	"obfuscateRoomName": true
+}
+```
+
+Media nodes can be run by other organisations, which is why this is opt-in. It applies to end-to-end encrypted rooms like any other.
+
 ## Bots
 
 A connection with `headless=1` in the query is a bot (a recorder, streamer or transcriber page). It is refused unless the room is open with at least one participant in it. Inside a tenant the room-server asks the management server's `bot-verify` service, sending the tenant, the bot token from the socket handshake `auth` payload (never from the URL) and the client address; the management server applies the tenant's bot policy, the token and its allowed address ranges. A management server without that service makes the room-server refuse every bot in a tenant, so upgrade the management server first. Outside a tenant, bots are admitted without a token.

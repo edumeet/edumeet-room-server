@@ -21,6 +21,8 @@ const logger = new Logger('MediaNode');
 
 interface GetRouterOptions {
 	roomId: string;
+	tenantFqdn?: string;
+	roomLabel?: string;
 	appData?: Record<string, unknown>;
 }
 
@@ -165,7 +167,7 @@ export class MediaNode extends EventEmitter {
 		this.connection?.close();
 	}
 
-	public async getRouter({ roomId, appData }: GetRouterOptions): Promise<Router> {
+	public async getRouter({ roomId, tenantFqdn, roomLabel, appData }: GetRouterOptions): Promise<Router> {
 		logger.debug('getRouter() [roomId: %s]', roomId);
 
 		const requestUUID = randomUUID();
@@ -175,7 +177,7 @@ export class MediaNode extends EventEmitter {
 
 			const { id, rtpCapabilities } = await this.request({
 				method: 'getRouter',
-				data: { roomId }
+				data: { roomId, tenantFqdn, roomLabel }
 			}) as RouterOptions;
 
 			let router = this.routers.get(id);

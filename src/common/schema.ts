@@ -87,7 +87,11 @@ export const AppConfigSchema = z.object({
 			.toUpperCase(),
 		z.union([ z.string(), z.array(z.string()) ])
 	).optional(),
-	defaultAllowedMediaNodeRegions: z.array(z.string()).optional()
+	defaultAllowedMediaNodeRegions: z.array(z.string()).optional(),
+	clientMonitoring: z.object({
+		roomInfo: z.boolean().optional(),
+		obfuscateRoomName: z.boolean().optional()
+	}).optional()
 
 });
 export type AppConfigParsed = z.infer<typeof AppConfigSchema>;

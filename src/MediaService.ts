@@ -6,6 +6,7 @@ import { Router } from './media/Router';
 import { randomUUID } from 'crypto';
 import { KDTree, KDPoint, Logger, skipIfClosed } from 'edumeet-common';
 import { getConfig } from './Config';
+import { roomInfoForMonitoring } from './common/clientMonitoring';
 import * as geoip from 'geoip-lite';
 import { lookup as dnsLookup } from 'dns/promises';
 import { countryToRegions } from './common/regions';
@@ -228,6 +229,7 @@ export default class MediaService {
 					try {
 						const router = await mediaNode.getRouter({
 							roomId: room.sessionId,
+							...roomInfoForMonitoring(room, config.clientMonitoring),
 							appData: { pipePromises: new Map<string, Promise<void>>() }
 						});
 
