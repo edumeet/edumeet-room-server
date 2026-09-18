@@ -146,12 +146,6 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				if (!peer.producingTransport)
 					throw new Error(`no producing transport for peer "${peer.id}"`);
 
-				// The media node reads these samples, which is what an end-to-end encrypted room keeps
-				// from it. Refused here rather than left to the client so an old or altered client
-				// cannot open the channel.
-				if (room.endToEndEncryption && label === OBSERVER_SAMPLES_LABEL)
-					throw new Error('monitoring samples are not accepted in an end-to-end encrypted room');
-
 				if (peer.headless && !botProfile.produceData)
 					throw new Error('a headless peer does not produce data');
 
