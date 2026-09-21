@@ -467,6 +467,44 @@ A bot records one session. A connection with `session=<breakout session id>` in 
 
 The client address is the first entry of `x-forwarded-for`, or the socket address without a proxy. The proxy configuration shipped with edumeet-docker overwrites that header with the PROXY-protocol address for the room-server, so a client cannot supply it; a proxy that appends to the header instead must be configured to overwrite it, or the address ranges of the bot tokens cannot be trusted.
 
+### Bot jobs
+
+A tenant can let moderators start a recording, a live stream or a transcription from inside the
+room. The work is done by an outside service, a **provider**, which the tenant configures in the
+management server: one row per kind of job, holding the bot access token, the provider's https API
+address and the API key it issued. The contract that service implements is
+[BOT-PROVIDER-API.md](https://github.com/edumeet/edumeet/blob/main/BOT-PROVIDER-API.md).
+
+The room-server reads its tenant's providers once, when the room is created, alongside the room
+itself, and keeps them for as long as the room lives: later changes in the management server apply
+to the next room. A failure to read them, an older management server without the `bot-providers`
+service, a room outside a tenant, or a deployment without a management server all mean the same
+thing, no providers, and then there is no job API and no buttons in the room. Nothing else about
+bots changes: a bot started by hand works as before.
+
+Requests, all of them needing `MODERATE_ROOM`: `moderator:startBotJob` with the job type and, when
+the tenant has several providers of that type, which one; `moderator:stopBotJob` with the job id. A
+job runs in the session the moderator was in when starting it, so a moderator in a breakout room
+records that breakout room. Starting answers immediately with the job id and calls the provider
+behind the answer. The participants of a session are told about its jobs with `botJobs`, and
+moderators are told about a failure with `botJobFailed`; neither carries the provider's address or
+key. A room runs at most 10 jobs at once.
+
+The room-server calls a provider exactly twice per job, to start it and to stop it, and learns
+everything in between from the bot's own connection: joining, the `botStatus` notification the page
+sends, and leaving. Calls go over https with certificate validation, follow no redirect, give up
+after 10 seconds, and never appear in the log. The job states are `starting`, `joined`, `running`,
+`stopping`, `interrupted`, `ended` and `failed`, with the timers listed in the provider contract; a
+failure is logged at info level with the room, the job, its type, the credential and the reason,
+noting whether the bot reported it.
+
+A bot page carries its job id in the query. Only a bot whose token the management server verified
+may carry one, and only for a job started with that same credential. A job already finished is
+refused with `jobNotActive`, as is a second page for a job whose browser is connected; a page that
+reloads takes its job back over. A job id the room-server does not know, from a verified bot of one
+of the room's providers, recreates the job: this is how jobs survive a restart of the room-server,
+which for that reason never tells providers to stop when it shuts down.
+
 ## Notes
 
 - All file paths are relative to the application working directory unless otherwise specified.

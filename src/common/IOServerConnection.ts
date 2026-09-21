@@ -68,6 +68,11 @@ export class IOServerConnection extends BaseConnection {
 		this.emit('close');
 	}
 
+	// The socket dropped and the window for it to come back is still open.
+	public get disconnected(): boolean {
+		return Boolean(this.reconnectTimer);
+	}
+
 	public cancelClose(): void {
 		if (this.reconnectTimer) {
 			clearTimeout(this.reconnectTimer);

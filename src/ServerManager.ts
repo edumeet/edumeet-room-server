@@ -55,6 +55,10 @@ export default class ServerManager {
 		this.closed = true;
 
 		this.mediaService.close();
+		// Let go of the bot jobs before anything closes: a room that empties would stop
+		// them at their providers, and they are meant to run on for the bots that come
+		// back after a restart.
+		this.rooms.forEach((r) => r.botJobs.close({ keepJobs: true }));
 		this.peers.forEach((p) => p.close());
 		this.rooms.forEach((r) => r.close());
 
@@ -77,6 +81,7 @@ export default class ServerManager {
 		botToken?: string,
 		botTypeText?: string,
 		botSession?: string,
+		botJobId?: string,
 	): Promise<void> {
 		logger.debug(
 			{ peerId, displayName, roomId, tenantFqdn, reconnectKey, headless },
@@ -127,6 +132,8 @@ export default class ServerManager {
 		}
 
 		let botVerified = false;
+		let botCredentialId: number | undefined;
+		let jobId: string | undefined;
 
 		if (headless) {
 			const address = resolveClientIp((connection as unknown as IOServerConnection).address) ?? '';
@@ -146,6 +153,10 @@ export default class ServerManager {
 				if (!verdict?.allowed) return rejectBot(verdict?.reason ?? 'botsNotAllowed');
 
 				botVerified = verdict.verified;
+				botCredentialId = verdict.credentialId;
+
+				// A key that belongs to one kind of job cannot come in as another.
+				if (verdict.jobType && asBotType(botTypeText) !== verdict.jobType) return rejectBot('botTokenRejected');
 
 				// The room may have emptied and closed during the round trip; addPeer on a
 				// closed room does nothing and would leave the bot hanging without an answer.
@@ -157,6 +168,14 @@ export default class ServerManager {
 			// A breakout room may be empty, it only has to exist; it is looked up again
 			// at join, when the bot is actually placed in it.
 			if (botSession && !room.breakoutRooms.get(botSession)) return rejectBot('sessionNotOpen');
+
+			// Only a bot the tenant vouches for can belong to a job; from any other the id is dropped.
+			if (botJobId && botVerified) {
+				const { known, rejection } = room.botJobs.admit({ jobId: botJobId, credentialId: botCredentialId, botType: asBotType(botTypeText), sessionId: botSession });
+
+				if (rejection) return rejectBot(rejection);
+				if (known) jobId = botJobId;
+			}
 		}
 
 		if (!room) {
@@ -217,7 +236,7 @@ export default class ServerManager {
 			this.reconnectPermissionsCache.delete(reconnectKey);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless, botVerified, botType: asBotType(botTypeText), botSessionId: botSession });
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless, botVerified, botType: asBotType(botTypeText), botSessionId: botSession, jobId });
 
 		this.peers.set(peerId, peer);
 
@@ -321,8 +340,17 @@ export default class ServerManager {
 				room.allowedMediaNodeRegions = regions;
 			}
 
+			// Read once: a room does not follow later changes to its tenant's providers.
+			// Asked alongside the room, so opening a room waits no longer than before.
+			const botProviders = tenantId > 0 && this.managementService ? this.managementService.getBotProviders(tenantId) : undefined;
+
 			const managementService = this.managementService;
 			const managedRoom = await managementService?.getRoom(roomId, tenantId);
+
+			if (room.closed) return;
+
+			// getBotProviders never rejects; a failure reads as no providers.
+			if (botProviders) room.botProviders = await botProviders;
 
 			if (room.closed) return;
 

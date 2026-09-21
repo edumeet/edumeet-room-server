@@ -206,3 +206,134 @@ describe('a headless connection naming a breakout session', () => {
 		expect([ ...peers.values() ][0].botSessionId).toBe(breakout.sessionId);
 	});
 });
+
+describe('a bot that comes for a job', () => {
+	const jobId = '5b2f1c1e-0000-4000-8000-000000000000';
+	const recorder = { credentialId: 7, label: 'Acme Recorder', jobType: 'recorder' as const, apiUrl: 'https://rec.example.com', apiSecret: 'key' };
+	const verified = { allowed: true as const, verified: true, credentialId: 7, jobType: 'recorder' };
+
+	const connectJobBot = (manager: ServerManager, botType = 'recorder', id = jobId) => {
+		const connection = makeConnection();
+
+		return manager.handleConnection(connection, `bot-${Math.random()}`, 'r', 'tenant.example.edu', 'rk', 'Recorder', undefined, undefined, true, 'secret', botType, undefined, id)
+			.then(() => connection);
+	};
+
+	test('is let in with its job when the key is the provider\'s', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: verified as Verdict });
+		const room = openRoom();
+
+		room.botProviders = [ recorder ];
+		await connectJobBot(manager);
+
+		const bot = [ ...peers.values() ].find((p) => p.headless);
+
+		expect(bot?.jobId).toBe(jobId);
+		expect(room.botJobs.active).toEqual([ expect.objectContaining({ id: jobId, state: 'starting' }) ]);
+	});
+
+	test('comes in as a plain bot when the key belongs to no provider of the room', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: verified as Verdict });
+
+		openRoom();
+		await connectJobBot(manager);
+
+		expect([ ...peers.values() ].find((p) => p.headless)?.jobId).toBeUndefined();
+	});
+
+	test('is refused when its kind is not the kind its key is for', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: verified as Verdict });
+
+		openRoom().botProviders = [ recorder ];
+
+		const connection = await connectJobBot(manager, 'transcriber');
+
+		expect(connection.notify).toHaveBeenCalledWith({ method: 'botRejected', data: { reason: 'botTokenRejected' } });
+		expect([ ...peers.values() ].some((p) => p.headless)).toBe(false);
+	});
+
+	test('is refused for a job that is over', async () => {
+		const { manager, openRoom } = setup({ verdict: verified as Verdict });
+		const room = openRoom();
+
+		room.botProviders = [ recorder ];
+		room.botJobs.admit({ jobId, credentialId: 7, botType: 'recorder' });
+		room.botJobs.stop(jobId);
+
+		const connection = await connectJobBot(manager);
+
+		expect(connection.notify).toHaveBeenCalledWith({ method: 'botRejected', data: { reason: 'jobNotActive' } });
+	});
+
+	test('carries no job when the tenant did not vouch for it', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: { allowed: true, verified: false } });
+
+		openRoom().botProviders = [ recorder ];
+		await connectJobBot(manager);
+
+		expect([ ...peers.values() ].find((p) => p.headless)?.jobId).toBeUndefined();
+	});
+});
+
+describe('a room server that shuts down', () => {
+	test('lets go of the bot jobs before anything closes, so they are left with their providers', () => {
+		const { manager, openRoom, peers } = setup();
+		const room = openRoom();
+		const order: string[] = [];
+
+		jest.spyOn(room.botJobs, 'close').mockImplementation((options) => { order.push(options?.keepJobs ? 'jobs kept' : 'jobs stopped'); });
+		jest.spyOn(room.peers.items[0], 'close').mockImplementation(() => { order.push('peer'); });
+
+		(manager as unknown as { mediaService: { close: () => void } }).mediaService = { close: jest.fn() };
+
+		peers.set('human', room.peers.items[0]);
+		manager.close();
+
+		expect(order.slice(0, 2)).toEqual([ 'jobs kept', 'peer' ]);
+	});
+});
+
+describe('the providers of a new room', () => {
+	const openBy = async (tenantId: number) => {
+		const getBotProviders = jest.fn(async () => [ { credentialId: 7, label: 'Acme', jobType: 'recorder', apiUrl: 'https://rec.example.com', apiSecret: 'key' } ]);
+		const managementService = {
+			getTenantFromFqdn: jest.fn(async () => tenantId),
+			getTenant: jest.fn(async () => undefined),
+			getRoom: jest.fn(async () => undefined),
+			getBotProviders,
+		} as unknown as ManagementService;
+		const rooms = new Map<string, Room>();
+		const manager = new ServerManager({
+			mediaService: {} as unknown as MediaService,
+			peers: new Map(),
+			rooms,
+			managedPeers: new Map(),
+			managedRooms: new Map(),
+			managementService,
+		});
+
+		jest.spyOn(Room.prototype, 'addPeer').mockResolvedValue(undefined);
+		await manager.handleConnection(makeConnection(), 'human', 'r', 'tenant.example.edu', 'rk', 'Anna');
+
+		const room = rooms.get(`${tenantId}/r`) as Room;
+
+		await room.roomReady;
+
+		return { room, getBotProviders };
+	};
+
+	test('are read once for a room of a tenant', async () => {
+		const { room, getBotProviders } = await openBy(7);
+
+		expect(getBotProviders).toHaveBeenCalledTimes(1);
+		expect(getBotProviders).toHaveBeenCalledWith(7);
+		expect(room.botProviders).toHaveLength(1);
+	});
+
+	test('are not asked for a room that belongs to no tenant', async () => {
+		const { room, getBotProviders } = await openBy(0);
+
+		expect(getBotProviders).not.toHaveBeenCalled();
+		expect(room.botProviders).toEqual([]);
+	});
+});

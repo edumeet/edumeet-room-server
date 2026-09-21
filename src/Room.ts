@@ -20,10 +20,12 @@ import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
 
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
-import { botProfile, RoomMiddlewareName } from './common/botProfile';
+import { botProfile, BotProvider, RoomMiddlewareName } from './common/botProfile';
+import { createBotJobsMiddleware } from './middlewares/botJobsMiddleware';
 import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
+import BotJobs from './BotJobs';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 import { MeetingTokenRejection, admitMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
@@ -70,6 +72,8 @@ export default class Room extends EventEmitter {
 	public tenantId: number;
 	public tenantFqdn?: string; // the host the room's first participant joined on
 	public allowedMediaNodeRegions?: string[]; // Possibly updated by the management service; undefined = no restriction
+	public botProviders: BotProvider[] = []; // Read from the management service when the room is created
+	public readonly botJobs = new BotJobs(this);
 
 	public managedId?: string; // Possibly updated by the management service
 	public name?: string; // Possibly updated by the management service
@@ -161,6 +165,7 @@ export default class Room extends EventEmitter {
 	#fileMiddleware: Middleware<PeerContext>;
 	#countdownTimerMiddleware: Middleware<PeerContext>;
 	#drawingMiddleware: Middleware<PeerContext>;
+	#botJobsMiddleware: Middleware<PeerContext>;
 
 	#allMiddlewares: Middleware<PeerContext>[] = [];
 	#middlewaresByName: Record<RoomMiddlewareName, Middleware<PeerContext>>;
@@ -191,6 +196,7 @@ export default class Room extends EventEmitter {
 		this.#fileMiddleware = createFileMiddleware({ room: this });
 		this.#countdownTimerMiddleware = createCountdownTimerMiddleware({ room: this });
 		this.#drawingMiddleware = createDrawingMiddleware({ room: this });
+		this.#botJobsMiddleware = createBotJobsMiddleware({ room: this });
 		
 		this.#middlewaresByName = {
 			peer: this.#peerMiddleware,
@@ -223,6 +229,7 @@ export default class Room extends EventEmitter {
 			this.#fileMiddleware,
 			this.#countdownTimerMiddleware,
 			this.#drawingMiddleware,
+			this.#botJobsMiddleware,
 		];
 	}
 
@@ -231,6 +238,7 @@ export default class Room extends EventEmitter {
 		logger.debug('close() [id: %s]', this.id);
 
 		this.closed = true;
+		this.botJobs.close();
 
 		this.pendingPeers.items.forEach((p) => p.close());
 		this.peers.items.forEach((p) => p.close());
@@ -397,6 +405,10 @@ export default class Room extends EventEmitter {
 			}
 		});
 
+		// A job may have changed state while the connection was away.
+		if (!peer.headless && this.botProviders.length > 0)
+			peer.notify({ method: 'botJobs', data: { sessionId: peer.sessionId, jobs: this.botJobs.inSession(peer.sessionId) } });
+
 		this.assignRouter(peer);
 	}
 
@@ -478,6 +490,7 @@ export default class Room extends EventEmitter {
 			}
 
 			peer.pipeline.use(...botProfile.middlewares.map((name) => this.#middlewaresByName[name]));
+			if (peer.jobId) peer.pipeline.use(this.#botJobsMiddleware);
 		} else {
 			peer.pipeline.use(
 				this.#peerMiddleware,
@@ -493,6 +506,7 @@ export default class Room extends EventEmitter {
 			if (this.filesharingEnabled) peer.pipeline.use(this.#fileMiddleware);
 			if (this.countdownTimerEnabled) peer.pipeline.use(this.#countdownTimerMiddleware);
 			if (this.drawingEnabled) peer.pipeline.use(this.#drawingMiddleware);
+			if (this.botProviders.length > 0) peer.pipeline.use(this.#botJobsMiddleware);
 		}
 
 		this.peers.add(peer);
@@ -502,6 +516,10 @@ export default class Room extends EventEmitter {
 		// This replaces per-consumer sessionIdChanged listeners with a single
 		// listener per peer, avoiding O(n) listener accumulation.
 		peer.on('sessionIdChanged', () => {
+			// The jobs a participant sees are the ones of the session it is in.
+			if (!peer.headless && this.botProviders.length > 0)
+				peer.notify({ method: 'botJobs', data: { sessionId: peer.sessionId, jobs: this.botJobs.inSession(peer.sessionId) } });
+
 			// Consumers on this peer (this peer is the consumer)
 			for (const consumer of peer.consumers.values()) {
 				const producerPeer = this.peers.items.find((p) => p.id === consumer.appData.producerPeerId);
@@ -534,6 +552,8 @@ export default class Room extends EventEmitter {
 		});
 
 		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
+
+		if (peer.jobId) this.botJobs.attach(peer);
 	}
 
 	@skipIfClosed

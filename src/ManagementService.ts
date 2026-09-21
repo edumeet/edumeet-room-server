@@ -1,4 +1,4 @@
-import { BotVerdict } from './common/botProfile';
+import { BotProvider, BotVerdict, asBotProviders } from './common/botProfile';
 import io, { Socket } from 'socket.io-client';
 import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
@@ -39,6 +39,8 @@ import { safePromise } from './common/safePromise';
 
 const config = getConfig();
 const logger = new Logger('ManagementService');
+
+const BOT_PROVIDERS_TIMEOUT_MS = 5_000;
 
 interface ManagementServiceOptions {
 	managedRooms: Map<string, Room>;
@@ -108,6 +110,7 @@ export default class ManagementService {
 
 	#meetingsService: FeathersService;
 	#botVerifyService: FeathersService;
+	#botProvidersService: FeathersService;
 
 	constructor({ managedRooms, managedPeers, mediaService }: ManagementServiceOptions) {
 		logger.debug('constructor()');
@@ -147,6 +150,7 @@ export default class ManagementService {
 
 		this.#meetingsService = this.#client.service('meetings');
 		this.#botVerifyService = this.#client.service('bot-verify');
+		this.#botProvidersService = this.#client.service('bot-providers');
 
 		this.setupSocketLifecycle();
 
@@ -185,6 +189,35 @@ export default class ManagementService {
 			logger.error({ err }, 'verifyBot() management server unreachable, refused, or lacks the bot-verify service');
 
 			return { allowed: false, reason: 'botsNotAllowed' };
+		}
+	}
+
+	// A room without providers has no job API, so every failure here reads as none:
+	// an older management server, one that is unreachable, or a tenant without any.
+	public async getBotProviders(tenantId: number): Promise<BotProvider[]> {
+		logger.debug('getBotProviders() [tenantId: %s]', tenantId);
+
+		try {
+			const [ error ] = await this.ready;
+
+			if (error) throw error;
+
+			// Every room of a tenant waits for this answer before it opens, so it is
+			// given a few seconds and no more.
+			const found = await Promise.race([
+				this.runAuthenticated(() => this.#botProvidersService.find({ query: { tenantId } })) as Promise<unknown>,
+				new Promise<never>((_, reject) => {
+					setTimeout(() => reject(new Error('bot-providers did not answer in time')), BOT_PROVIDERS_TIMEOUT_MS).unref?.();
+				})
+			]);
+			
+			return asBotProviders(found);
+		} catch (err) {
+			// A management server from before bot providers simply has no such service.
+			if ((err as { name?: string })?.name === 'NotFound') logger.debug('getBotProviders() the management server has no bot providers');
+			else logger.warn({ err }, 'getBotProviders() no providers read, the room has no bot jobs');
+
+			return [];
 		}
 	}
 

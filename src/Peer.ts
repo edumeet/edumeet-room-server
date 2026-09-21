@@ -41,6 +41,7 @@ interface PeerOptions {
 	botVerified?: boolean;
 	botType?: BotType;
 	botSessionId?: string;
+	jobId?: string;
 }
 
 export interface PeerInfo {
@@ -101,6 +102,8 @@ export class Peer extends EventEmitter {
 	public readonly botType?: BotType;
 	// The breakout session a bot was sent to; a participant picks sessions itself.
 	public readonly botSessionId?: string;
+	// The job a provider started this bot for; only a verified bot carries one.
+	public readonly jobId?: string;
 	public picture?: string;
 
 	public recording = false;
@@ -150,6 +153,7 @@ export class Peer extends EventEmitter {
 		botVerified = false,
 		botType,
 		botSessionId,
+		jobId,
 	}: PeerOptions) {
 		logger.debug(
 			{ id, managedId, displayName, sessionId, reconnectKey },
@@ -169,6 +173,7 @@ export class Peer extends EventEmitter {
 		this.botVerified = headless && botVerified;
 		this.botType = headless ? botType : undefined;
 		this.botSessionId = headless ? botSessionId : undefined;
+		this.jobId = this.botVerified ? jobId : undefined;
 
 		if (permissions?.length)
 			this.#permissions = new Set(permissions);
@@ -394,6 +399,11 @@ export class Peer extends EventEmitter {
 	public set escapeMeeting(value: boolean) {
 		this.#escapeMeeting = value;
 		this.escapeMeetingTimestamp = Date.now();
+	}
+
+	// Every connection has dropped and is only waiting out its reconnect window.
+	public get connectionLost(): boolean {
+		return this.connections.length > 0 && this.connections.items.every((c) => (c as { disconnected?: boolean }).disconnected === true);
 	}
 
 	@skipIfClosed

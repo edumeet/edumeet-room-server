@@ -144,6 +144,8 @@ export const createModeratorMiddleware = ({ room }: { room: Room; }): Middleware
 				if (!kickPeer)
 					throw new Error(`peer with id "${peerId}" not found`);
 
+				// A bot that runs a job is removed by stopping the job, which tells its provider.
+				room.botJobs.kicked(kickPeer);
 				kickPeer.notify({ method: 'moderator:kick', data: {} });
 				kickPeer.close();
 				context.handled = true;

@@ -55,6 +55,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				if (!roomToEmpty)
 					throw new Error('BreakoutRoom not found');
 
+				room.botJobs.stopSession(roomSessionId);
 				roomToEmpty.getPeers().forEach(leaveClosingSession);
 				roomToEmpty.emptyRoom();
 
@@ -73,6 +74,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				if (!roomToClose)
 					throw new Error('BreakoutRoom not found');
 
+				room.botJobs.stopSession(roomSessionId);
 				roomToClose.getPeers().forEach(leaveClosingSession);
 				roomToClose.close();
 				room.notifyPeers('breakoutRoomClosed', { roomSessionId }, peer);

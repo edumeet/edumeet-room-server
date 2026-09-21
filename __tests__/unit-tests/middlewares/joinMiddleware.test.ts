@@ -17,6 +17,7 @@ const setup = (permissions: Permission[]) => {
 	const room = {
 		sessionId: SESSION_ID,
 		lobbyPeers,
+		botProviders: [],
 		chatHistory: [],
 		fileHistory: [],
 		countdownTimer: {},
