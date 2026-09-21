@@ -71,6 +71,8 @@ export const botProfile = {
 	// The literal rather than the enum member: authorization imports this file,
 	// so reading the enum here would run into an import cycle.
 	verifiedPermissions: [ 'BYPASS_ROOM_LOCK' as Permission ] as Permission[],
-	produceData: false,
+	// Monitoring samples go to the media node only and are never handed to another
+	// peer, so a bot may send them: its receiving side is the recording's input.
+	dataChannels: [ 'observertc-samples' ] as string[],
 	middlewares: [ 'media', 'mls' ] as RoomMiddlewareName[],
 };

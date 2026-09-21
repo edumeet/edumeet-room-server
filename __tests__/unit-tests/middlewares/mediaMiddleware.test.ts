@@ -76,11 +76,23 @@ describe('produceData', () => {
 	});
 
 	test('refuses a data producer from a headless peer', async () => {
-		const { sut, context, produceData } = produceDataContext('transcription', false, true);
+		for (const label of [ 'transcription', 'chat', 'files', '' ]) {
+			const { sut, context, produceData } = produceDataContext(label, false, true);
 
-		await expect(sut(context, next)).rejects.toThrow('headless');
+			await expect(sut(context, next)).rejects.toThrow('headless');
 
-		expect(produceData).not.toHaveBeenCalled();
-		expect(context.handled).toBe(false);
+			expect(produceData).not.toHaveBeenCalled();
+			expect(context.handled).toBe(false);
+		}
+	});
+
+	test('lets a headless peer send monitoring samples, which reach no other peer', async () => {
+		const { sut, context, produceData, room } = produceDataContext('observertc-samples', false, true);
+
+		await sut(context, next);
+
+		expect(produceData).toHaveBeenCalledTimes(1);
+		expect(context.handled).toBe(true);
+		expect(room.getPeers).not.toHaveBeenCalled();
 	});
 });

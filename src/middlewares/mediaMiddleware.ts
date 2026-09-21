@@ -146,7 +146,7 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				if (!peer.producingTransport)
 					throw new Error(`no producing transport for peer "${peer.id}"`);
 
-				if (peer.headless && !botProfile.produceData)
+				if (peer.headless && !botProfile.dataChannels.includes(label))
 					throw new Error('a headless peer does not produce data');
 
 				appData = {
