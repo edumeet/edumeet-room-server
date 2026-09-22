@@ -493,7 +493,9 @@ behind the answer. The participants of a session are told about its jobs with `b
 moderators are told about a failure with `botJobFailed`; neither carries the provider's address or
 key. A room runs at most 10 jobs at once.
 
-The start call carries the people to tell about the recording: the owners of the room (known since
+The start call carries `room.mainSessionId`, the main room's session, on every job, the same for a
+job in a breakout room of that meeting, so a provider can group the recordings of one meeting.
+It also carries the people to tell about the recording: the owners of the room (known since
 the room was created) and the moderator who started the job, resolved to addresses with one
 `users.find` by id in the management server, each address once; a lookup that fails leaves the job
 running without recipients. It also carries the tenant's `locale`, read with the tenant when the room

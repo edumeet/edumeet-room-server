@@ -83,7 +83,7 @@ describe('starting a bot job', () => {
 		const [ provider, body ] = startProviderJob.mock.calls[0];
 
 		expect(provider).toBe(recorder);
-		expect(body).toMatchObject({ jobId, type: 'recorder', room: { host: 'meet.example.org', roomId: 'lecture 1', sessionId: room.sessionId } });
+		expect(body).toMatchObject({ jobId, type: 'recorder', room: { host: 'meet.example.org', roomId: 'lecture 1', sessionId: room.sessionId, mainSessionId: room.sessionId } });
 
 		const url = new URL(body.room.url);
 
@@ -207,7 +207,9 @@ describe('starting a bot job', () => {
 
 		const body = startProviderJob.mock.calls[0][1];
 
-		expect(body.room).toMatchObject({ sessionId: breakout.sessionId, sessionName: 'Group A' });
+		// The main room's session goes along, so the provider can tie this recording to the meeting's.
+		expect(body.room).toMatchObject({ sessionId: breakout.sessionId, mainSessionId: room.sessionId, sessionName: 'Group A' });
+		expect(body.room.mainSessionId).not.toBe(breakout.sessionId);
 		expect(new URL(body.room.url).searchParams.get('session')).toBe(breakout.sessionId);
 	});
 });

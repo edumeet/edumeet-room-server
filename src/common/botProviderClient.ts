@@ -14,6 +14,7 @@ export interface BotJobRequest {
 		host: string;
 		roomId: string;
 		sessionId: string;
+		mainSessionId: string;
 		sessionName?: string;
 	};
 	recipients?: BotRecipient[];

@@ -3,7 +3,7 @@ import { startProviderJob, stopProviderJob, BotProviderError, PROVIDER_TIMEOUT_M
 import { BotProvider } from '../../../src/common/botProfile';
 
 const provider: BotProvider = { credentialId: 7, label: 'Acme', jobType: 'recorder', apiUrl: 'https://rec.example.com/', apiSecret: 'acme-key' };
-const job = { jobId: 'j1', type: 'recorder' as const, room: { url: 'https://meet.example.org/r', host: 'meet.example.org', roomId: 'r', sessionId: 's' } };
+const job = { jobId: 'j1', type: 'recorder' as const, room: { url: 'https://meet.example.org/r', host: 'meet.example.org', roomId: 'r', sessionId: 's', mainSessionId: 's' } };
 
 const answer = (status: number) => ({ status, body: { cancel: jest.fn(async () => undefined) } });
 const fetchMock = jest.fn();

@@ -108,6 +108,9 @@ export default class BotJobs {
 						host,
 						roomId: this.#room.id,
 						sessionId: job.sessionId,
+						// The same for every job of one meeting, breakout rooms included, so the
+						// provider can put their recordings into one notice.
+						mainSessionId: this.#room.sessionId,
 						...(breakout?.name ? { sessionName: breakout.name } : {})
 					},
 					...(recipients.length > 0 ? { recipients } : {}),
