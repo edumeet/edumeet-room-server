@@ -4,7 +4,7 @@ import { Peer, PeerContext } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import BreakoutRoom from '../../src/BreakoutRoom';
 import { BOT_JOB_TIMERS, MAX_ACTIVE_BOT_JOBS } from '../../src/BotJobs';
-import { BotProvider, asBotProviders, asJobId } from '../../src/common/botProfile';
+import { BotProvider, asBotProviders, asBotRecipients, asJobId, asRecipientIds } from '../../src/common/botProfile';
 import { Permission } from '../../src/common/authorization';
 import { createJoinMiddleware } from '../../src/middlewares/joinMiddleware';
 import * as providerClient from '../../src/common/botProviderClient';
@@ -29,7 +29,7 @@ const makeRoom = (providers: BotProvider[] = [ recorder ]): Room => {
 };
 
 const makeHuman = (room: Room, moderator = true): Peer => {
-	const peer = new Peer({ id: `h-${created.length}`, sessionId: room.sessionId, reconnectKey: 'k' });
+	const peer = new Peer({ id: `h-${created.length}`, sessionId: room.sessionId, reconnectKey: 'k', managedId: moderator ? `u-${created.length}` : undefined });
 
 	jest.spyOn(peer, 'notify').mockImplementation(() => undefined);
 	if (moderator) peer.permissions = [ Permission.MODERATE_ROOM, Permission.CREATE_ROOM ];
@@ -106,8 +106,7 @@ describe('starting a bot job, the edges', () => {
 		expect(stopProviderJob).toHaveBeenCalledTimes(1);
 
 		accept();
-		await Promise.resolve();
-		await Promise.resolve();
+		for (let i = 0; i < 20; i++) await Promise.resolve();
 		expect(stopProviderJob).toHaveBeenCalledTimes(2);
 	});
 
@@ -123,8 +122,7 @@ describe('starting a bot job, the edges', () => {
 		await request(anna, 'moderator:startBotJob', { type: 'recorder' });
 		jest.advanceTimersByTime(BOT_JOB_TIMERS.join + 1);
 		refuse(new Error('late'));
-		await Promise.resolve();
-		await Promise.resolve();
+		for (let i = 0; i < 20; i++) await Promise.resolve();
 
 		expect(methods(anna).filter((m) => m === 'botJobFailed')).toHaveLength(1);
 	});
@@ -429,5 +427,21 @@ describe('the join response', () => {
 		expect('botProviders' in await join(makeRoom(), newPeer({ headless: true }))).toBe(false);
 		expect('botProviders' in await join(makeRoom([]), newPeer())).toBe(false);
 		expect('botJobs' in await join(makeRoom([]), newPeer())).toBe(false);
+	});
+});
+
+describe('what a users lookup is made of and gives back', () => {
+	test('asks for each positive integer id once, however it was written', () => {
+		expect(asRecipientIds([ '7', '7', ' 8 ', '0', '-1', 'x', '', '9.5', '10' ])).toEqual([ 7, 8, 10 ]);
+		expect(asRecipientIds([])).toEqual([]);
+	});
+
+	test('keeps only the rows that carry an address, from a page or a plain list', () => {
+		const rows = [ { id: 1, email: ' a@example.org ' }, { id: 2, email: '' }, { id: 3, email: '   ' }, { id: 4 }, { id: 5, email: 5 }, null ];
+
+		// trimmed: an address with stray whitespace around it is not one a provider can send to
+		expect(asBotRecipients(rows)).toEqual([ { email: 'a@example.org' } ]);
+		expect(asBotRecipients({ total: 1, data: rows })).toEqual([ { email: 'a@example.org' } ]);
+		for (const nothing of [ undefined, null, {}, 'rows', { data: 'rows' } ]) expect(asBotRecipients(nothing)).toEqual([]);
 	});
 });

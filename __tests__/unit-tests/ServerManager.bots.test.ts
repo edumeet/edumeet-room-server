@@ -337,3 +337,36 @@ describe('the providers of a new room', () => {
 		expect(room.botProviders).toEqual([]);
 	});
 });
+
+describe('what a new room learns from its tenant', () => {
+	test('its language, and a way to look up the addresses of its people', async () => {
+		const getBotRecipients = jest.fn(async () => [ { email: 'a@example.org' } ]);
+		const managementService = {
+			getTenantFromFqdn: jest.fn(async () => 7),
+			getTenant: jest.fn(async () => ({ id: 7, name: 't', locale: 'pl' })),
+			getRoom: jest.fn(async () => undefined),
+			getBotProviders: jest.fn(async () => []),
+			getBotRecipients,
+		} as unknown as ManagementService;
+		const rooms = new Map<string, Room>();
+		const manager = new ServerManager({
+			mediaService: {} as unknown as MediaService,
+			peers: new Map(),
+			rooms,
+			managedPeers: new Map(),
+			managedRooms: new Map(),
+			managementService,
+		});
+
+		jest.spyOn(Room.prototype, 'addPeer').mockResolvedValue(undefined);
+		await manager.handleConnection(makeConnection(), 'human', 'r', 'tenant.example.edu', 'rk', 'Anna');
+
+		const room = rooms.get('7/r') as Room;
+
+		await room.roomReady;
+
+		expect(room.locale).toBe('pl');
+		expect(await room.resolveBotRecipients?.([ '1', '2' ])).toEqual([ { email: 'a@example.org' } ]);
+		expect(getBotRecipients).toHaveBeenCalledWith(7, [ '1', '2' ]);
+	});
+});

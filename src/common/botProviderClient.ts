@@ -1,5 +1,5 @@
 import { Logger } from 'edumeet-common';
-import type { BotProvider, BotType } from './botProfile';
+import type { BotProvider, BotRecipient, BotType } from './botProfile';
 
 const logger = new Logger('botProviderClient');
 
@@ -16,6 +16,8 @@ export interface BotJobRequest {
 		sessionId: string;
 		sessionName?: string;
 	};
+	recipients?: BotRecipient[];
+	locale?: string;
 }
 
 export class BotProviderError extends Error {

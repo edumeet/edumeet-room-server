@@ -20,7 +20,7 @@ import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
 
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
-import { botProfile, BotProvider, RoomMiddlewareName } from './common/botProfile';
+import { botProfile, BotProvider, BotRecipient, RoomMiddlewareName } from './common/botProfile';
 import { createBotJobsMiddleware } from './middlewares/botJobsMiddleware';
 import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
@@ -73,6 +73,9 @@ export default class Room extends EventEmitter {
 	public tenantFqdn?: string; // the host the room's first participant joined on
 	public allowedMediaNodeRegions?: string[]; // Possibly updated by the management service; undefined = no restriction
 	public botProviders: BotProvider[] = []; // Read from the management service when the room is created
+	public locale?: string; // The tenant's language for the mail sent about this room, read with the tenant
+	// eslint-disable-next-line no-unused-vars
+	public resolveBotRecipients?: (userIds: string[]) => Promise<BotRecipient[]>;
 	public readonly botJobs = new BotJobs(this);
 
 	public managedId?: string; // Possibly updated by the management service

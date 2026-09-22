@@ -484,13 +484,20 @@ service, a room outside a tenant, or a deployment without a management server al
 thing, no providers, and then there is no job API and no buttons in the room. Nothing else about
 bots changes: a bot started by hand works as before.
 
-Requests, all of them needing `MODERATE_ROOM`: `moderator:startBotJob` with the job type and, when
-the tenant has several providers of that type, which one; `moderator:stopBotJob` with the job id. A
+Requests, all of them needing `MODERATE_ROOM` and a signed-in peer (one with a `managedId`, since the
+recording is delivered to people by their accounts): `moderator:startBotJob` with the job type and,
+when the tenant has several providers of that type, which one; `moderator:stopBotJob` with the job id. A
 job runs in the session the moderator was in when starting it, so a moderator in a breakout room
 records that breakout room. Starting answers immediately with the job id and calls the provider
 behind the answer. The participants of a session are told about its jobs with `botJobs`, and
 moderators are told about a failure with `botJobFailed`; neither carries the provider's address or
 key. A room runs at most 10 jobs at once.
+
+The start call carries the people to tell about the recording: the owners of the room (known since
+the room was created) and the moderator who started the job, resolved to addresses with one
+`users.find` by id in the management server, each address once; a lookup that fails leaves the job
+running without recipients. It also carries the tenant's `locale`, read with the tenant when the room
+was created. A transcriber declares no video capability, so no video consumer is created for it.
 
 The room-server calls a provider exactly twice per job, to start it and to stop it, and learns
 everything in between from the bot's own connection: joining, the `botStatus` notification the page

@@ -28,7 +28,7 @@ const makeRoom = (providers: BotProvider[] = [ recorder ]): Room => {
 };
 
 const makeHuman = (room: Room, moderator = true): Peer => {
-	const peer = new Peer({ id: `h-${created.length}`, sessionId: room.sessionId, reconnectKey: 'k' });
+	const peer = new Peer({ id: `h-${created.length}`, sessionId: room.sessionId, reconnectKey: 'k', managedId: moderator ? `u-${created.length}` : undefined });
 
 	jest.spyOn(peer, 'notify').mockImplementation(() => undefined);
 	if (moderator) peer.permissions = [ Permission.MODERATE_ROOM ];
@@ -124,6 +124,20 @@ describe('starting a bot job', () => {
 		await expect(request(guest, 'moderator:startBotJob', { type: 'recorder' })).rejects.toThrow('peer not authorized');
 		await expect(request(anna, 'moderator:startBotJob', { type: 'streamer' })).rejects.toThrow('no such bot provider');
 		await expect(request(anna, 'moderator:startBotJob', { type: 'dancer' })).rejects.toThrow('unknown bot job type');
+		expect(startProviderJob).not.toHaveBeenCalled();
+	});
+
+	test('takes someone signed in, whatever their permissions', async () => {
+		const room = makeRoom();
+		const anonymous = new Peer({ id: 'anon', sessionId: room.sessionId, reconnectKey: 'k' });
+
+		jest.spyOn(anonymous, 'notify').mockImplementation(() => undefined);
+		anonymous.permissions = [ Permission.MODERATE_ROOM ];
+		created.push(anonymous);
+		room.joinPeer(anonymous);
+
+		await expect(request(anonymous, 'moderator:startBotJob', { type: 'recorder' })).rejects.toThrow('peer not authorized');
+		await expect(request(anonymous, 'moderator:stopBotJob', { jobId: '5b2f1c1e-0000-4000-8000-000000000000' })).rejects.toThrow('peer not authorized');
 		expect(startProviderJob).not.toHaveBeenCalled();
 	});
 
@@ -572,5 +586,107 @@ describe('a room with bot jobs', () => {
 
 		guest.sessionId = room.sessionId;
 		expect(lastJobs(guest)[0]).toMatchObject({ id: response.jobId });
+	});
+});
+
+describe('who is told about the recording', () => {
+	const owners = [ { id: 1, roomId: 'r', userId: 'u-owner' }, { id: 2, roomId: 'r', userId: 'u-other' } ];
+	const started = async (room: Room) => {
+		const anna = makeHuman(room);
+		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		await Promise.resolve();
+		await Promise.resolve();
+
+		return { anna, jobId: response.jobId as string, body: startProviderJob.mock.calls[0]?.[1] };
+	};
+
+	test('the owners of the room and the one who started it, each once', async () => {
+		const room = makeRoom();
+
+		room.owners = owners;
+		room.resolveBotRecipients = jest.fn(async (ids) => ids.map((id) => ({ email: `${id}@example.org` })));
+
+		const { anna, body } = await started(room);
+
+		expect(room.resolveBotRecipients).toHaveBeenCalledWith([ 'u-owner', 'u-other', anna.managedId ]);
+		expect(body.recipients).toEqual([ { email: 'u-owner@example.org' }, { email: 'u-other@example.org' }, { email: `${anna.managedId}@example.org` } ]);
+	});
+
+	test('an owner who starts it is listed once, and two accounts with one address too', async () => {
+		const room = makeRoom();
+
+		room.owners = [ { id: 1, roomId: 'r', userId: 'u-0' } ];
+		room.resolveBotRecipients = jest.fn(async () => [ { email: 'Teacher@Example.org' }, { email: 'teacher@example.org ' }, { email: '' } ]);
+
+		const { anna, body } = await started(room);
+
+		expect(anna.managedId).toBe('u-0');
+		expect(room.resolveBotRecipients).toHaveBeenCalledWith([ 'u-0' ]);
+		expect(body.recipients).toEqual([ { email: 'Teacher@Example.org' } ]);
+	});
+
+	test('only the one who started it, in a room that has no owners', async () => {
+		const room = makeRoom();
+
+		room.resolveBotRecipients = jest.fn(async (ids) => ids.map((id) => ({ email: `${id}@example.org` })));
+
+		const { anna, body } = await started(room);
+
+		expect(room.resolveBotRecipients).toHaveBeenCalledWith([ anna.managedId ]);
+		expect(body.recipients).toEqual([ { email: `${anna.managedId}@example.org` } ]);
+	});
+
+	test('carries the language of the tenant, and nothing when the tenant has none', async () => {
+		const room = makeRoom();
+
+		room.locale = 'pl';
+		expect((await started(room)).body.locale).toBe('pl');
+
+		startProviderJob.mockClear();
+		expect('locale' in (await started(makeRoom())).body).toBe(false);
+	});
+
+	test('does not reach the provider when the job was ended while the addresses were still being looked up', async () => {
+		const room = makeRoom();
+		// eslint-disable-next-line no-unused-vars
+		let answer: (r: { email: string }[]) => void = () => undefined;
+
+		room.owners = owners;
+		room.resolveBotRecipients = () => new Promise((resolve) => { answer = resolve; });
+
+		const anna = makeHuman(room);
+		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		await request(anna, 'moderator:stopBotJob', { jobId: response.jobId });
+		answer([ { email: 'late@example.org' } ]);
+		for (let i = 0; i < 20; i++) await Promise.resolve();
+
+		expect(startProviderJob).not.toHaveBeenCalled();
+		expect(stopProviderJob).toHaveBeenCalledTimes(1);
+	});
+
+	test('still starts the job when the addresses cannot be looked up, or nobody can look them up', async () => {
+		const failing = makeRoom();
+
+		failing.owners = owners;
+		failing.resolveBotRecipients = jest.fn(async () => { throw new Error('management down'); });
+
+		const first = await started(failing);
+
+		expect(first.body).toBeDefined();
+		expect('recipients' in first.body).toBe(false);
+		expect(state(failing, first.jobId)).toBe('starting');
+
+		startProviderJob.mockClear();
+
+		const alone = makeRoom();
+
+		alone.owners = owners;
+
+		const second = await started(alone);
+
+		expect(second.body).toBeDefined();
+		expect('recipients' in second.body).toBe(false);
 	});
 });

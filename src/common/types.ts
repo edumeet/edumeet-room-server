@@ -129,6 +129,7 @@ export type ManagedTenant = {
 	description?: string;
 	hideUserDetails?: boolean;
 	allowedMediaNodeRegions?: string[];
+	locale?: string | null;
 };
 
 export type ManagedRoom = {

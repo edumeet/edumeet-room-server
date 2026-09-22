@@ -23,6 +23,27 @@ export type BotVerdict =
 	| { allowed: true; verified: boolean; label?: string; credentialId?: number; jobType?: BotType }
 	| { allowed: false; reason: BotRejection };
 
+// Somebody the provider tells that a recording exists.
+export interface BotRecipient {
+	email: string;
+}
+
+// The ids a lookup is worth making for: the management server's own are positive
+// integers, and asking twice for one is asking once.
+export const asRecipientIds = (userIds: string[]): number[] =>
+	[ ...new Set(userIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)) ];
+
+// What a users lookup answered, kept only where there is an address.
+export const asBotRecipients = (found: unknown): BotRecipient[] => {
+	const rows = Array.isArray(found) ? found : (found as { data?: unknown[] } | undefined)?.data ?? [];
+	const recipients: BotRecipient[] = [];
+
+	for (const row of rows as Record<string, unknown>[])
+		if (typeof row?.email === 'string' && row.email.trim()) recipients.push({ email: row.email.trim() });
+
+	return recipients;
+};
+
 // A tenant's provider of one kind of job, as the management server hands it out.
 export interface BotProvider {
 	credentialId: number;

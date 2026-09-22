@@ -65,12 +65,18 @@ export const createConsumer = async (
 		rtpCapabilities: consumerPeer.rtpCapabilities
 	});
 
-	if (!canConsume)
-		return logger.warn(
-			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
+	if (!canConsume) {
+		// A peer that declared no codec of this kind (a transcriber takes audio only)
+		// is refusing it on purpose; only an unexpected refusal is worth a warning.
+		const declined = !consumerPeer.rtpCapabilities.codecs?.some((codec) => codec.kind === producer.kind);
+
+		return logger[declined ? 'debug' : 'warn'](
+			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s, declined: %s]',
 			producerPeer.id,
-			producer.id
+			producer.id,
+			declined
 		);
+	}
 
 	const consumingTransport = consumerPeer.consumingTransport;
 

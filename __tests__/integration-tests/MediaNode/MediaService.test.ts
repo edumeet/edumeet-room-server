@@ -1,90 +1,82 @@
-import LoadBalancer from '../../../src/LoadBalancer';
+import 'jest';
+import { KDPoint, KDTree, SocketMessage } from 'edumeet-common';
+import MediaService from '../../../src/MediaService';
+import { MediaNode } from '../../../src/media/MediaNode';
 import { Peer } from '../../../src/Peer';
 import Room from '../../../src/Room';
-import MediaService from '../../../src/MediaService';
-import { Config } from '../../../src/Config';
-import { KDPoint, KDTree } from 'edumeet-common';
+import { startFakeMediaNode } from './fakeMediaNode';
 
 /**
- * Requires mediaNode running with config
- * hostname: 127.0.0.1
- * port: 3001
- * secret: secret1
+ * No external dependencies: the media node this suite talks to is a socket.io server it
+ * starts itself on a free port.
  */
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
-test('MediaService.getRouter() should throw on no mediaNodes', async () => {
-	const config = {
-		mediaNodes: []
-	} as unknown as Config;
+const serviceWith = (nodes: MediaNode[]): MediaService => {
 	const kdTree = new KDTree([]);
-	const defaultClientPosition = new KDPoint([ 50, 10 ]);
-	const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
-	const sut = MediaService.create(loadBalancer, kdTree, config);
 
-	const roomOptions = {
-		id: 'roomId',
-		tenantId: 'id',
-		mediaService: sut,
-	};
-	const room = new Room(roomOptions);
-	const peerOptions = {
-		id: 'peerId',
-		sessionId: 'roomId',
-	};
-	const peer = new Peer(peerOptions);
-	const clientAddress = {
-		address: '127.0.0.1',
-		forwardedFor: undefined
-	};
+	nodes.forEach((mediaNode) => kdTree.addNode(new KDPoint(mediaNode.kdPoint.position, { mediaNode })));
+	kdTree.rebalance();
 
-	jest.spyOn(peer, 'getAddress').mockReturnValue(clientAddress);
+	return new MediaService({ kdTree, mediaNodes: [], defaultClientPosition: new KDPoint([ 50, 10 ]) });
+};
 
-	await expect(sut.getRouter(room, peer)).rejects.toThrow();
+const roomAndPeer = (mediaService: MediaService): { room: Room, peer: Peer } => {
+	const room = new Room({ id: 'roomId', name: 'name', tenantId: 1, mediaService });
+	const peer = new Peer({ id: 'peerId', sessionId: room.sessionId, reconnectKey: 'key' });
+
+	// A peer only learns its address from its signaling connection, which this suite has none of.
+	jest.spyOn(peer, 'getAddress').mockReturnValue({ address: '127.0.0.1', forwardedFor: undefined });
+
+	return { room, peer };
+};
+
+test('a deployment with no media nodes tells the peer there is no media server', async () => {
+	const sut = serviceWith([]);
+	const { room, peer } = roomAndPeer(sut);
+
+	await expect(sut.getRouter(room, peer)).rejects.toThrow('no media nodes available');
+
+	peer.close();
+	room.close();
 	sut.close();
 });
 
-test('getRouter() should get router', async () => {
-	const config = {
-		mediaNodes: [
-			{
-				hostname: '127.0.0.1',
-				port: 3001,
-				secret: 'secret1',
-				latitude: 55.676,
-				longitude: 12.568
-			}
-		]
-	} as unknown as Config;
-	const kdTree = new KDTree([]);
+test('a peer gets a router from the media node, asked for by the session of its room', async () => {
+	const asked: SocketMessage[] = [];
+	const fake = await startFakeMediaNode({
+		onRequest: (request, respond) => {
+			asked.push(request);
+			respond(null, { id: 'routerId', rtpCapabilities: {} });
+		}
+	});
+	const mediaNode = new MediaNode({
+		id: 'mediaNodeId',
+		hostname: fake.host,
+		port: fake.port,
+		secret: 'secret',
+		turnports: [],
+		kdPoint: new KDPoint([ 50, 10 ])
+	});
+	const sut = serviceWith([ mediaNode ]);
+	const { room, peer } = roomAndPeer(sut);
 
-	const defaultClientPosition = new KDPoint([ 50, 10 ]);
-	const loadBalancer = new LoadBalancer({ kdTree, defaultClientPosition });
-	const sut = MediaService.create(loadBalancer, kdTree, config);
+	const [ router, servedBy ] = await sut.getRouter(room, peer);
 
-	const roomOptions = {
-		id: 'roomId',
-		tenantId: 'id',
-		mediaService: sut,
-	};
-	const room = new Room(roomOptions);
-	const peerOptions = {
-		id: 'peerId',
-		sessionId: 'roomId'
-	};
-	const peer = new Peer(peerOptions);
-	const clientAddress = {
-		address: '127.0.0.1',
-		forwardedFor: undefined
-	};
+	expect(servedBy).toBe(mediaNode);
+	expect(router.id).toBe('routerId');
+	expect(router.closed).toBe(false);
+	expect(router.appData).toHaveProperty('pipePromises');
 
-	jest.spyOn(peer, 'getAddress').mockReturnValue(clientAddress);
+	// The room is asked for by its session, not by its name: a room reopened under the
+	// same name is a new session on the media node.
+	expect(asked.map((request) => request.method)).toContain('getRouter');
+	expect(asked[0].data?.roomId).toBe(room.sessionId);
 
-	const router = await sut.getRouter(room, peer);
-
-	expect(router.closed).toBeFalsy();
-	expect(router.appData).toBeDefined();
 	router.close();
+	peer.close();
+	room.close();
 	sut.close();
+	await fake.close();
 });

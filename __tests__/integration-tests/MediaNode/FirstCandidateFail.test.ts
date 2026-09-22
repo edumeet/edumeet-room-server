@@ -1,146 +1,73 @@
-import { IOServerConnection, KDPoint } from 'edumeet-common';
-import https from 'https';
-import { Server as IOServer } from 'socket.io';
-import MediaNode from '../../../src/media/MediaNode';
-import { AddressInfo, ListenOptions } from 'net';
-import { readFileSync } from 'fs';
-import path from 'path';
+import 'jest';
+import { KDPoint, KDTree } from 'edumeet-common';
 import MediaService from '../../../src/MediaService';
-import LoadBalancer from '../../../src/LoadBalancer';
-import Room from '../../../src/Room';
+import { MediaNode } from '../../../src/media/MediaNode';
 import { Peer } from '../../../src/Peer';
-import { ConnectionStatus } from '../../../src/media/MediaNodeHealth';
+import Room from '../../../src/Room';
+import { FakeMediaNode, RequestHandler, startFakeMediaNode } from './fakeMediaNode';
 
 /**
- * Either:
- * 1.) Run this test with valid tls certs in createServer().
- * 2.) Run the tests with NODE_TLS_REJECT_UNAUTHORIZED=0.
+ * No external dependencies: every media node in this suite is a socket.io server it
+ * starts itself on a free port.
  */
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
-const init = async (): Promise<{
-	httpsServer: https.Server,
-	ioServer: IOServer,
-	addressInfo: AddressInfo
-}> => {
-	const options: ListenOptions = {
-		host: 'localhost',
-		port: Math.floor((Math.random() * (60000)) + 3000)
-	};
-	let count = 0; // Used to simulate network error.
+const serves: RequestHandler = (request, respond) =>
+	respond(null, { id: `router-${request.data?.roomId}`, rtpCapabilities: {} });
 
-	const httpsServer = https.createServer({
-		cert: readFileSync(path.join(process.cwd(), './certs/edumeet-demo-cert.pem')),
-		key: readFileSync(path.join(process.cwd(), './certs/edumeet-demo-key.pem'))
-	}, (req, res) => {
-		// This will make the first candidate retry its connection while we accept the second candidate.
-		res.writeHead(count === 1 ? 200 : 400, { 'Content-Type': 'text/plain' });
-		count++;
-		res.end();
-	}).listen(options);
+const refuses: RequestHandler = (_request, respond) => respond('Server error', null);
 
-	return new Promise((resolve) => {
-		httpsServer.on('listening', () => {
-			const addressInfo = httpsServer.address() as AddressInfo;
-			const ioServer = new IOServer(httpsServer);
-		
-			resolve({
-				httpsServer,
-				ioServer,
-				addressInfo
-			});
-		});
-	});
+const nodeAt = (fake: FakeMediaNode, id: string, position: number[]): MediaNode => new MediaNode({
+	id,
+	hostname: fake.host,
+	port: fake.port,
+	secret: 'secret',
+	turnports: [],
+	kdPoint: new KDPoint(position)
+});
 
-};
+test('a candidate that answers with an error is passed over for the next one, and the rest are left alone', async () => {
+	// The nearest node refuses, the second serves, the third must never be asked.
+	const failing = await startFakeMediaNode({ onRequest: refuses });
+	const working = await startFakeMediaNode({ onRequest: serves });
+	const spare = await startFakeMediaNode({ onRequest: serves });
 
-test('MediaService.getRouter() should stop trying on successful candidate', async () => {
-	const { httpsServer: httpServer, ioServer, addressInfo } = await init();
+	const first = nodeAt(failing, 'first', [ 50, 10 ]);
+	const second = nodeAt(working, 'second', [ 51, 10 ]);
+	const third = nodeAt(spare, 'third', [ 60, 10 ]);
 
-	let tries = 0; // Used to simulate network error
+	const askFirst = jest.spyOn(first, 'getRouter');
+	const askSecond = jest.spyOn(second, 'getRouter');
+	const askThird = jest.spyOn(third, 'getRouter');
 
-	ioServer.on('connection', (socket) => {
-		const serverSocket = new IOServerConnection(socket);
+	const kdTree = new KDTree([]);
 
-		serverSocket.notify({
-			method: 'mediaNodeReady',
-			data: {
-				workers: 2,
-				load: 0.1
-			}
-		});
+	[ first, second, third ].forEach((mediaNode) => kdTree.addNode(new KDPoint(mediaNode.kdPoint.position, { mediaNode })));
+	kdTree.rebalance();
 
-		serverSocket.on('request', (_, respond) => {
-			// We let the first request timeout to simulate network error.
-			if (tries === 1) respond({ load: 0.2 });
-			tries++;
-		});
-	});
+	const sut = new MediaService({ kdTree, mediaNodes: [], defaultClientPosition: new KDPoint([ 50, 10 ]) });
+	const room = new Room({ id: 'roomId', name: 'name', tenantId: 1, mediaService: sut });
+	const peer = new Peer({ id: 'peerId', sessionId: room.sessionId, reconnectKey: 'key' });
 
-	const mediaNode1 = new MediaNode({
-		id: 'mediaNodeId',
-		hostname: addressInfo.address,
-		port: addressInfo.port,
-		secret: 'secret',
-		kdPoint: new KDPoint([ 50, 10 ])
-	});
-	const spyGetRouterMediaNode1 = jest.spyOn(mediaNode1, 'getRouter');
-	const mediaNode2 = new MediaNode({
-		id: 'mediaNodeId',
-		hostname: addressInfo.address,
-		port: addressInfo.port,
-		secret: 'secret',
-		kdPoint: new KDPoint([ 50, 10 ])
-	});
-	const spyGetRouterMediaNode2 = jest.spyOn(mediaNode2, 'getRouter');
-	const spyGetRouterMediaNode3 = jest.fn();
-	const mediaNode3 = {
-		getRouter: spyGetRouterMediaNode3 } as unknown as MediaNode;
+	// A peer only learns its address from its signaling connection, which this suite has none of.
+	jest.spyOn(peer, 'getAddress').mockReturnValue({ address: '127.0.0.1', forwardedFor: undefined });
 
-	const loadBalancer = {
-		getCandidates: jest.fn().mockReturnValue([ mediaNode1, mediaNode2, mediaNode3 ])
-	} as unknown as LoadBalancer;
-	const sut = new MediaService({ loadBalancer });
+	const [ router, mediaNode ] = await sut.getRouter(room, peer);
 
-	const room = new Room({
-		id: 'id',
-		name: 'name',
-		tenantId: 'id',
-		mediaService: sut,
-	});
-	const peer = new Peer({
-		id: 'id',
-		sessionId: 'id'
-	});
-	
-	const spyGet = jest.spyOn(https, 'get'); // used when MediaNode is retrying the connection.
+	expect(mediaNode).toBe(second);
+	expect(router.closed).toBe(false);
+	expect(router.appData).toHaveProperty('pipePromises');
 
-	await expect(sut.getRouter(room, peer)).resolves.not.toThrow();
-	expect(mediaNode1.connectionStatus).toBe(ConnectionStatus.RETRYING);
-	expect(mediaNode2.connectionStatus).toBe(ConnectionStatus.OK);
-	expect(spyGetRouterMediaNode1).toHaveBeenCalled();
-	expect(spyGetRouterMediaNode2).toHaveBeenCalled();
-	expect(spyGetRouterMediaNode3).not.toHaveBeenCalled();
+	expect(askFirst).toHaveBeenCalled();
+	expect(askSecond).toHaveBeenCalled();
+	expect(askThird).not.toHaveBeenCalled();
 
-	// Wait for our MediaNode to get a healthy connection.
-	await (async () => {
-		return new Promise((resolve) => {
-			const interval = setInterval(() => {
-				if (mediaNode1.connectionStatus === ConnectionStatus.OK) {
-					clearInterval(interval);
-					resolve({});
-				} 
-			}, 25);
-		});
-	})();
+	// A node that answers at all is reachable: an error is the room's problem, not the node's.
+	expect(first.healthy).toBe(true);
 
-	expect(mediaNode1.connectionStatus).toBe(ConnectionStatus.OK);
-	expect(spyGet).toHaveBeenCalledTimes(2);
-
-	mediaNode1.close();
-	mediaNode2.close();
-	ioServer.close();
-	httpServer.close();
+	peer.close();
+	room.close();
 	sut.close();
+	await Promise.all([ failing.close(), working.close(), spare.close() ]);
 });

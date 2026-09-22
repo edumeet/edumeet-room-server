@@ -1,182 +1,107 @@
+import 'jest';
 import { KDPoint, KDTree } from 'edumeet-common';
-import LoadBalancer from '../../src/LoadBalancer';
-import MediaNode from '../../src/media/MediaNode';
-import { Router } from '../../src/media/Router';
 import MediaService from '../../src/MediaService';
+import { MediaNode } from '../../src/media/MediaNode';
 import { Peer } from '../../src/Peer';
 import Room from '../../src/Room';
-import { ConnectionStatus } from '../../src/media/MediaNodeHealth';
 
-const mockMediaService = {} as unknown as MediaService;
-const mockObserver = { on: jest.fn() };
-const mockCreateObserver = jest.fn().mockReturnValue(mockObserver);
-const nodeClose1 = {
-	load: 0.2,
-	id: 'id1',
-	connectionStatus: ConnectionStatus.OK,
-	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
-} as unknown as MediaNode;
-const kdPointClose1 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose1 });
-const nodeClose2 = {
-	load: 0.4,
-	id: 'id2',
-	connectionStatus: ConnectionStatus.OK,
-	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
-} as unknown as MediaNode;
-const kdPointClose2 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose2 });
-const nodeClose3 = {
-	load: 0.1,
-	id: 'id3',
-	connectionStatus: ConnectionStatus.OK,
-	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
-} as unknown as MediaNode;
-const kdPointClose3 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose3 });
-const nodeClose4 = {
-	load: 0.1,
-	id: 'id3',
-	connectionStatus: ConnectionStatus.OK,
-	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
+/**
+ * Candidate selection through the real Room, which is what holds a room's media nodes
+ * and decides what stickiness means. What the ordering rules are in isolation is
+ * covered by the unit suite (MediaService.getCandidates).
+ *
+ * The client position falls back to the service default, since a loopback address has
+ * no location: every distance below is measured from there.
+ */
 
-} as unknown as MediaNode;
-const kdPointClose4 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose4 });
-const nodeClose5 = {
-	load: 0.1,
-	id: 'id3',
-	connectionStatus: ConnectionStatus.OK,
-	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
-} as unknown as MediaNode;
-const kdPointClose5 = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: nodeClose5 });
-const nodeFarAway = {
-	load: 0.1,
-	id: 'id3',
-	connectionStatus: ConnectionStatus.OK,
-	kdPoint: new KDPoint([ 16.8833,	 101.8833 ])
-} as unknown as MediaNode;
-const nodeHighLoad = {
-	load: 0.9,
-	id: 'id4',
-	connectionStatus: ConnectionStatus.OK,
-	kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
-} as unknown as MediaNode;
-const kdPointHighLoad = new KDPoint([ 48.8543, 2.3527 ], { mediaNode: nodeHighLoad });
+const HERE = [ 50, 10 ];
+const NEARBY = [ 50.5, 10 ];
+const FAR_AWAY = [ 16, 101 ]; // several thousand kilometres, well past the distance threshold
 
-const clientDirect = { address: '5.44.192.0', forwardedFor: undefined };
-const clientReverseProxy = { address: '10.244.0.1', forwardedFor: '5.44.192.0' };
+const node = (id: string, position: number[], { load = 0, healthy = true } = {}): MediaNode => ({
+	id,
+	hostname: `${id}.invalid`,
+	port: 3443,
+	healthy,
+	draining: false,
+	load,
+	kdPoint: new KDPoint(position),
+	close: () => undefined
+}) as unknown as MediaNode;
 
-test('Should use sticky strategy', () => {
-	const defaultClientPosition = new KDPoint([ 16, 101 ]);
-	const kdTree = new KDTree([ kdPointClose1, kdPointClose2 ]);
-	const sut = new LoadBalancer({ kdTree, defaultClientPosition });
-	const peerDirect = { getAddress: () => { return clientDirect; } } as unknown as Peer;
-	const peerReverseProxy = {
-		getAddress: () => {
-			return clientReverseProxy; 
-		} } as unknown as Peer;
-	const room = new Room({
-		id: 'id',
-		name: 'name',
-		tenantId: '1',
-		mediaService: mockMediaService
-	});
+const serviceWith = (nodes: MediaNode[]): MediaService => {
+	const kdTree = new KDTree([]);
 
-	let candidates = sut.getCandidates(room, peerDirect);
+	nodes.forEach((mediaNode) => kdTree.addNode(new KDPoint(mediaNode.kdPoint.position, { mediaNode })));
+	kdTree.rebalance();
 
-	expect(candidates.length).toBe(2);
+	return new MediaService({ kdTree, mediaNodes: [], defaultClientPosition: new KDPoint(HERE) });
+};
 
-	const activeRoom = new Room({
-		id: 'id',
-		name: 'name',
-		tenantId: '1',
-		mediaService: mockMediaService
-	});
-	const router = { mediaNode: nodeClose3, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
+const ask = (mediaService: MediaService, sticky?: MediaNode): { candidates: MediaNode[], room: Room, peer: Peer } => {
+	const room = new Room({ id: 'roomId', name: 'name', tenantId: 1, mediaService });
+	const peer = new Peer({ id: 'peerId', sessionId: room.sessionId, reconnectKey: 'key' });
 
-	activeRoom.addRouter(router);
-	candidates = sut.getCandidates(activeRoom, peerReverseProxy);
+	// A peer only learns its address from its signaling connection, which this suite has none of.
+	jest.spyOn(peer, 'getAddress').mockReturnValue({ address: '127.0.0.1', forwardedFor: undefined });
 
-	expect(candidates.length).toBe(3);
-	expect(candidates[0]).toBe(nodeClose3);
+	if (sticky) room.addMediaNode(sticky);
+
+	return { candidates: mediaService.getCandidates(mediaService.kdTree, room, peer), room, peer };
+};
+
+const done = (mediaService: MediaService, room: Room, peer: Peer): void => {
+	peer.close();
+	room.close();
+	mediaService.close();
+};
+
+test('a room stays on the media node it is already on', () => {
+	const inUse = node('inUse', NEARBY);
+	const nearer = node('nearer', HERE);
+	const sut = serviceWith([ inUse, nearer ]);
+
+	const { candidates, room, peer } = ask(sut, inUse);
+
+	expect(candidates[0]).toBe(inUse);
+	expect(candidates).toContain(nearer);
+
+	done(sut, room, peer);
 });
 
-test('Geo strategy should reject active room outside threshold', () => {
-	const defaultClientPosition = new KDPoint([ 50, 11 ]);
-	const kdTree = new KDTree([
-		kdPointClose1,
-		kdPointClose2,
-		kdPointClose3,
-		kdPointClose4,
-		kdPointClose5,
-	]);
-	const sut = new LoadBalancer({ kdTree, defaultClientPosition });
-	const peerDirect = { getAddress: () => { return clientDirect; } } as unknown as Peer;
-	const activeRoom = new Room({
-		id: 'id',
-		name: 'name',
-		tenantId: '1',
-		mediaService: mockMediaService,
-	});
-	const spyGetActiveMediaNodes = jest.spyOn(activeRoom, 'getActiveMediaNodes');
+test('a room leaves a media node that is far away when a much closer one is free', () => {
+	const inUse = node('inUse', FAR_AWAY);
+	const nearer = node('nearer', HERE);
+	const sut = serviceWith([ inUse, nearer ]);
 
-	const router = { mediaNode: nodeFarAway, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
+	const { candidates, room, peer } = ask(sut, inUse);
 
-	activeRoom.addRouter(router);
-	const candidates = sut.getCandidates(activeRoom, peerDirect);
+	expect(candidates[0]).toBe(nearer);
+	expect(candidates.indexOf(inUse)).toBeGreaterThan(0);
 
-	expect(candidates.length).toBe(5);
-	expect(spyGetActiveMediaNodes).toHaveBeenCalledTimes(1);
-	expect(candidates).not.toContain(nodeFarAway);
+	done(sut, room, peer);
 });
 
-test('Should use load strategy', () => {
-	const defaultClientPosition = new KDPoint([ 40, 40 ]);
-	const kdTree = new KDTree([ kdPointClose1 ]);
-	const sut = new LoadBalancer({ kdTree, defaultClientPosition });
-	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
-	const activeRoom = new Room({
-		id: 'id',
-		name: 'name',
-		tenantId: '1',
-		mediaService: mockMediaService
-	});
+test('a media node under heavy load is the last thing offered, even to a room already on it', () => {
+	const busy = node('busy', HERE, { load: 90 });
+	const quiet = node('quiet', NEARBY);
+	const sut = serviceWith([ busy, quiet ]);
 
-	const router = { mediaNode: nodeHighLoad, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
+	const { candidates, room, peer } = ask(sut, busy);
 
-	activeRoom.addRouter(router);
+	expect(candidates[0]).toBe(quiet);
+	expect(candidates.at(-1)).toBe(busy);
 
-	const candidates = sut.getCandidates(activeRoom, peer);
-
-	expect(candidates.length).toBe(1);
-	expect(candidates).not.toContain(kdPointHighLoad);
+	done(sut, room, peer);
 });
 
-test('Should filter on media-node health', () => {
-	const unhealthyMediaNode = {
-		load: 0.2,
-		id: 'id1',
-		health: false,
-		kdPoint: new KDPoint([ 48.8543,	 2.3527 ])
-	} as unknown as MediaNode;
-	const kdPoint = new KDPoint([ 48.8543,	 2.3527 ], { mediaNode: unhealthyMediaNode });
-	const defaultClientPosition = new KDPoint([ 40, 40 ]);
-	
-	// KDTree will consider the unhealthy MediaNode and should filter it out.
-	const kdTree = new KDTree([ kdPoint ]);
-	const sut = new LoadBalancer({ kdTree, defaultClientPosition });
-	const peer = { getAddress: () => { return clientDirect; } } as unknown as Peer;
-	const activeRoom = new Room({
-		id: 'id',
-		name: 'name',
-		tenantId: '1',
-		mediaService: mockMediaService
-	});
+test('an unhealthy media node is not offered at all, not even as a last resort', () => {
+	const down = node('down', HERE, { healthy: false });
+	const sut = serviceWith([ down ]);
 
-	const router = { mediaNode: unhealthyMediaNode, createActiveSpeakerObserver: mockCreateObserver } as unknown as Router;
+	const { candidates, room, peer } = ask(sut, down);
 
-	// This will make the MediaNode sticky candidate, which should be filtered out.
-	activeRoom.addRouter(router);
+	expect(candidates).toEqual([]);
 
-	const candidates = sut.getCandidates(activeRoom, peer);
-
-	expect(candidates.length).toBe(0);
-	expect(candidates).not.toContain(kdPoint);
+	done(sut, room, peer);
 });

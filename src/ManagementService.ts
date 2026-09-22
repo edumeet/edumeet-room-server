@@ -1,4 +1,4 @@
-import { BotProvider, BotVerdict, asBotProviders } from './common/botProfile';
+import { BotProvider, BotRecipient, BotVerdict, asBotProviders, asBotRecipients, asRecipientIds } from './common/botProfile';
 import io, { Socket } from 'socket.io-client';
 import { Application, FeathersService, feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
@@ -41,6 +41,8 @@ const config = getConfig();
 const logger = new Logger('ManagementService');
 
 const BOT_PROVIDERS_TIMEOUT_MS = 5_000;
+// The management server pages at 50 at most.
+const RECIPIENTS_PAGE = 50;
 
 interface ManagementServiceOptions {
 	managedRooms: Map<string, Room>;
@@ -219,6 +221,36 @@ export default class ManagementService {
 
 			return [];
 		}
+	}
+
+	// The addresses of the people a recording is for. The ids are the room server's
+	// own (the owners of the room and the one who started the job), and are looked up
+	// as they are: a super admin who owns a room belongs to no tenant.
+	public async getBotRecipients(tenantId: number, userIds: string[]): Promise<BotRecipient[]> {
+		const ids = asRecipientIds(userIds);
+
+		if (ids.length === 0 || !tenantId) return [];
+
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
+
+		const recipients: BotRecipient[] = [];
+
+		for (let start = 0; start < ids.length; start += RECIPIENTS_PAGE) {
+			const page = ids.slice(start, start + RECIPIENTS_PAGE);
+			// Bounded like the providers lookup: a job must not wait on a hung management server.
+			const result = await Promise.race([
+				this.runAuthenticated(() => this.#usersService.find({ query: { id: { $in: page }, $limit: page.length } })) as Promise<unknown>,
+				new Promise<never>((_, reject) => {
+					setTimeout(() => reject(new Error('users lookup did not answer in time')), BOT_PROVIDERS_TIMEOUT_MS).unref?.();
+				})
+			]);
+
+			recipients.push(...asBotRecipients(result));
+		}
+
+		return recipients;
 	}
 
 	@skipIfClosed

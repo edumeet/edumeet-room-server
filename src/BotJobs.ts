@@ -3,7 +3,7 @@ import { Logger } from 'edumeet-common';
 import type Room from './Room';
 import type { Peer } from './Peer';
 import { Permission } from './common/authorization';
-import { BotProvider, BotRejection, BotType } from './common/botProfile';
+import { BotProvider, BotRecipient, BotRejection, BotType } from './common/botProfile';
 import { startProviderJob, stopProviderJob } from './common/botProviderClient';
 
 const logger = new Logger('BotJobs');
@@ -94,28 +94,64 @@ export default class BotJobs {
 
 		const host = this.#host();
 
-		startProviderJob(provider, {
-			jobId: job.id,
-			type,
-			room: {
-				url: this.#botUrl(job, host, Boolean(breakout)),
-				host,
-				roomId: this.#room.id,
-				sessionId: job.sessionId,
-				...(breakout?.name ? { sessionName: breakout.name } : {})
-			}
-		}).then(() => {
-			// Stopped while the provider was still answering: it may not have known the job yet.
-			if (over(job.state) || job.state === 'stopping') this.#tellProvider(job);
-		}, () => {
-			if (!over(job.state)) this.#fail(job, 'providerError');
-		});
+		// Looked up in the background so the moderator's request is answered at once. A job
+		// ended while the addresses were still being looked up is not started at all.
+		this.#recipients(moderator.managedId)
+			.then((recipients) => {
+				if (over(job.state)) return false;
+
+				return startProviderJob(provider, {
+					jobId: job.id,
+					type,
+					room: {
+						url: this.#botUrl(job, host, Boolean(breakout)),
+						host,
+						roomId: this.#room.id,
+						sessionId: job.sessionId,
+						...(breakout?.name ? { sessionName: breakout.name } : {})
+					},
+					...(recipients.length > 0 ? { recipients } : {}),
+					...(this.#room.locale ? { locale: this.#room.locale } : {})
+				}).then(() => true);
+			})
+			.then((posted) => {
+				// Stopped while the provider was still answering: it may not have known the job yet.
+				if (posted && (over(job.state) || job.state === 'stopping')) this.#tellProvider(job);
+			}, () => {
+				if (!over(job.state)) this.#fail(job, 'providerError');
+			});
 
 		return job.id;
 	}
 
 	#host(): string {
 		return (this.#room.tenantFqdn ?? '').toLowerCase().replace(/\.$/, '');
+	}
+
+	// The owners of the room and whoever started the job, each once. Nothing here may
+	// stop the job: a recording that nobody is told about beats no recording.
+	async #recipients(startedBy?: string): Promise<BotRecipient[]> {
+		const ids = new Set(this.#room.owners.map((owner) => String(owner.userId)));
+
+		if (startedBy) ids.add(startedBy);
+		if (ids.size === 0 || !this.#room.resolveBotRecipients) return [];
+
+		try {
+			const seen = new Set<string>();
+
+			return (await this.#room.resolveBotRecipients([ ...ids ])).filter(({ email }) => {
+				const key = email.trim().toLowerCase();
+
+				if (!key || seen.has(key)) return false;
+				seen.add(key);
+
+				return true;
+			});
+		} catch (err) {
+			logger.warn({ err, roomId: this.#room.id }, 'recipients() not resolved, the job starts without them');
+
+			return [];
+		}
 	}
 
 	public stop(jobId: string): void {

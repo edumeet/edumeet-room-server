@@ -336,6 +336,13 @@ export default class ServerManager {
 				? tenant.allowedMediaNodeRegions
 				: config.defaultAllowedMediaNodeRegions;
 
+			if (typeof tenant?.locale === 'string' && tenant.locale) room.locale = tenant.locale;
+
+			const recipientsSource = this.managementService;
+
+			if (tenantId > 0 && recipientsSource)
+				room.resolveBotRecipients = (userIds) => recipientsSource.getBotRecipients(tenantId, userIds);
+
 			if (regions?.length) {
 				room.allowedMediaNodeRegions = regions;
 			}
