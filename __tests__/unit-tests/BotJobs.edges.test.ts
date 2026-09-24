@@ -4,7 +4,7 @@ import { Peer, PeerContext } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import BreakoutRoom from '../../src/BreakoutRoom';
 import { BOT_JOB_TIMERS, MAX_ACTIVE_BOT_JOBS } from '../../src/BotJobs';
-import { BotProvider, asBotProviders, asBotRecipients, asJobId, asRecipientIds } from '../../src/common/botProfile';
+import { BotProvider, asBotProviders, asBotRecipients, asBotTypes, asJobId, asProviderBotJobs, asRecipientIds } from '../../src/common/botProfile';
 import { Permission } from '../../src/common/authorization';
 import { createJoinMiddleware } from '../../src/middlewares/joinMiddleware';
 import * as providerClient from '../../src/common/botProviderClient';
@@ -12,12 +12,14 @@ import * as providerClient from '../../src/common/botProviderClient';
 jest.mock('../../src/common/botProviderClient', () => ({
 	startProviderJob: jest.fn(async () => undefined),
 	stopProviderJob: jest.fn(async () => undefined),
+	getProviderBotJobs: jest.fn(async () => []),
 }));
 
 const startProviderJob = providerClient.startProviderJob as jest.Mock;
 const stopProviderJob = providerClient.stopProviderJob as jest.Mock;
+const getProviderBotJobs = providerClient.getProviderBotJobs as jest.Mock;
 
-const recorder: BotProvider = { credentialId: 7, label: 'Acme Recorder', jobType: 'recorder', apiUrl: 'https://rec.example.com', apiSecret: 'key' };
+const recorder: BotProvider = { credentialId: 7, label: 'Acme Recorder', jobTypes: [ 'recorder' ], apiUrl: 'https://rec.example.com', apiSecret: 'key' };
 const created: Peer[] = [];
 
 const makeRoom = (providers: BotProvider[] = [ recorder ]): Room => {
@@ -39,8 +41,8 @@ const makeHuman = (room: Room, moderator = true): Peer => {
 	return peer;
 };
 
-const makeBot = (room: Room, jobId: string, botSessionId?: string): Peer => {
-	const peer = new Peer({ id: `b-${created.length}`, sessionId: room.sessionId, reconnectKey: 'k', headless: true, botVerified: true, botType: 'recorder', botSessionId, jobId });
+const makeBot = (room: Room, botId: string, botSessionId?: string): Peer => {
+	const peer = new Peer({ id: `b-${created.length}`, sessionId: room.sessionId, reconnectKey: 'k', headless: true, botVerified: true, botType: 'recorder', botSessionId, botId });
 
 	jest.spyOn(peer, 'notify').mockImplementation(() => undefined);
 	created.push(peer);
@@ -58,18 +60,24 @@ const request = async (peer: Peer, method: string, data: Record<string, unknown>
 
 const state = (room: Room, jobId: string) => room.botJobs.active.find((j) => j.id === jobId)?.state;
 const methods = (peer: Peer) => (peer.notify as jest.Mock).mock.calls.map(([ n ]) => n.method);
+const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
+const lastBotId = (): string => startProviderJob.mock.calls[startProviderJob.mock.calls.length - 1][1].botId;
 
 const running = async (room = makeRoom()) => {
 	const anna = makeHuman(room);
 	const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
 	const jobId = response.jobId as string;
-	const bot = makeBot(room, jobId);
 
-	room.botJobs.admit({ jobId, credentialId: 7, botType: 'recorder' });
+	await flush();
+
+	const botId = lastBotId();
+	const bot = makeBot(room, botId);
+
+	await room.botJobs.admit({ botId, credentialId: 7, botType: 'recorder' });
 	room.joinPeer(bot);
 	await request(bot, 'botStatus', { state: 'running' });
 
-	return { room, anna, jobId, bot };
+	return { room, anna, jobId, bot, botId };
 };
 
 beforeEach(() => {
@@ -77,6 +85,8 @@ beforeEach(() => {
 	startProviderJob.mockReset();
 	startProviderJob.mockImplementation(async () => undefined);
 	stopProviderJob.mockClear();
+	getProviderBotJobs.mockReset();
+	getProviderBotJobs.mockImplementation(async () => []);
 });
 
 afterEach(() => {
@@ -132,8 +142,13 @@ describe('starting a bot job, the edges', () => {
 		const anna = makeHuman(room);
 		const ids: string[] = [];
 
-		for (let i = 0; i < MAX_ACTIVE_BOT_JOBS; i++) ids.push((await request(anna, 'moderator:startBotJob', { type: 'recorder' })).response.jobId as string);
+		for (let i = 0; i < MAX_ACTIVE_BOT_JOBS; i++) {
+			anna.sessionId = `s-${i}`;
+			ids.push((await request(anna, 'moderator:startBotJob', { type: 'recorder' })).response.jobId as string);
+		}
 
+		anna.sessionId = 's-last';
+		await expect(request(anna, 'moderator:startBotJob', { type: 'recorder' })).rejects.toThrow('too many bot jobs');
 		await request(anna, 'moderator:stopBotJob', { jobId: ids[0] });
 		await expect(request(anna, 'moderator:startBotJob', { type: 'recorder' })).resolves.toBeDefined();
 	});
@@ -182,9 +197,12 @@ describe('stopping a bot job, the edges', () => {
 		anna.sessionId = breakout.sessionId;
 
 		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
-		const bot = makeBot(room, response.jobId as string, breakout.sessionId);
 
-		room.botJobs.admit({ jobId: response.jobId as string, credentialId: 7, botType: 'recorder', sessionId: breakout.sessionId });
+		await flush();
+
+		const bot = makeBot(room, lastBotId(), breakout.sessionId);
+
+		await room.botJobs.admit({ botId: lastBotId(), credentialId: 7, botType: 'recorder', sessionId: breakout.sessionId });
 		room.joinPeer(bot);
 		anna.sessionId = room.sessionId;
 
@@ -270,27 +288,31 @@ describe('the bot of a job, the edges', () => {
 		const anna = makeHuman(room);
 		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
 		const jobId = response.jobId as string;
-		const bot = makeBot(room, jobId);
 
-		room.botJobs.admit({ jobId, credentialId: 7, botType: 'recorder' });
+		await flush();
+
+		const botId = lastBotId();
+		const bot = makeBot(room, botId);
+
+		await room.botJobs.admit({ botId, credentialId: 7, botType: 'recorder' });
 		room.joinPeer(bot);
 		bot.close();
 		expect(state(room, jobId)).toBe('interrupted');
 
-		const back = makeBot(room, jobId);
+		const back = makeBot(room, botId);
 
-		room.botJobs.admit({ jobId, credentialId: 7, botType: 'recorder' });
+		await room.botJobs.admit({ botId, credentialId: 7, botType: 'recorder' });
 		room.joinPeer(back);
 		expect(state(room, jobId)).toBe('joined');
 	});
 
-	test('is not attached to a job that is already over', async () => {
-		const { room, anna, jobId, bot } = await running();
+	test('is not attached to a bot that is already over', async () => {
+		const { room, anna, jobId, bot, botId } = await running();
 
 		await request(anna, 'moderator:stopBotJob', { jobId });
 		bot.close();
 
-		const late = makeBot(room, jobId);
+		const late = makeBot(room, botId);
 
 		room.joinPeer(late);
 		expect(room.botJobs.active).toEqual([]);
@@ -299,50 +321,44 @@ describe('the bot of a job, the edges', () => {
 	});
 });
 
-describe('a job the room server does not know, the edges', () => {
+describe('a bot the room server does not know, the edges', () => {
 	const unknown = '5b2f1c1e-0000-4000-8000-000000000000';
 
-	test('is not taken over from a bot that says it is another kind than its key is for', () => {
+	test('is not taken over from a bot that says it is a kind its key is not for', async () => {
 		const room = makeRoom();
 
 		makeHuman(room);
-		expect(room.botJobs.admit({ jobId: unknown, credentialId: 7, botType: 'streamer' })).toEqual({ known: false });
-		expect(room.botJobs.active).toEqual([]);
+		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7, botType: 'streamer' })).toEqual({ known: false });
+		expect(getProviderBotJobs).not.toHaveBeenCalled();
 	});
 
-	test('is taken over into the breakout room the bot was sent to', () => {
+	test('is taken over into the breakout room the bot was sent to', async () => {
 		const room = makeRoom();
 		const breakout = new BreakoutRoom({ parent: room, name: 'Group A' });
 
 		room.breakoutRooms.set(breakout.sessionId, breakout);
 		makeHuman(room);
+		getProviderBotJobs.mockImplementation(async () => [ { jobId: '6c3a2d2f-0000-4000-8000-00000000000a', type: 'recorder' } ]);
 
-		expect(room.botJobs.admit({ jobId: unknown, credentialId: 7, botType: 'recorder', sessionId: breakout.sessionId })).toEqual({ known: true });
+		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7, botType: 'recorder', sessionId: breakout.sessionId })).toEqual({ known: true });
 		expect(room.botJobs.inSession(breakout.sessionId)).toHaveLength(1);
 		expect(room.botJobs.inSession(room.sessionId)).toHaveLength(0);
 	});
 
-	test('is refused when the room already runs as many jobs as it may', async () => {
+	test('takes over no more jobs than the room may run', async () => {
 		const room = makeRoom();
 		const anna = makeHuman(room);
 
-		for (let i = 0; i < MAX_ACTIVE_BOT_JOBS; i++) await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+		for (let i = 0; i < MAX_ACTIVE_BOT_JOBS; i++) {
+			anna.sessionId = `s-${i}`;
+			await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+		}
 
-		expect(room.botJobs.admit({ jobId: unknown, credentialId: 7, botType: 'recorder' })).toEqual({ known: true, rejection: 'jobNotActive' });
+		getProviderBotJobs.mockImplementation(async () => [ { jobId: '6c3a2d2f-0000-4000-8000-00000000000a', type: 'recorder' } ]);
+		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7, sessionId: 's-other' })).toEqual({ known: true, rejection: 'jobNotActive' });
 	});
 
-	test('fails like any other when its bot then never joins', () => {
-		const room = makeRoom();
-		const anna = makeHuman(room);
-
-		room.botJobs.admit({ jobId: unknown, credentialId: 7, botType: 'recorder' });
-		jest.advanceTimersByTime(BOT_JOB_TIMERS.join + 1);
-
-		expect(state(room, unknown)).toBeUndefined();
-		expect(methods(anna)).toContain('botJobFailed');
-	});
-
-	test('forgets the oldest finished jobs rather than remembering every one', async () => {
+	test('forgets the oldest finished bots and jobs rather than remembering every one', async () => {
 		const room = makeRoom();
 		const anna = makeHuman(room);
 		let first = '';
@@ -350,26 +366,41 @@ describe('a job the room server does not know, the edges', () => {
 		for (let i = 0; i < 120; i++) {
 			const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
 
-			if (!first) first = response.jobId as string;
+			await flush();
+			if (!first) first = lastBotId();
 			await request(anna, 'moderator:stopBotJob', { jobId: response.jobId });
 		}
 
-		// long forgotten, so it reads as a job this room server never knew
-		expect(room.botJobs.admit({ jobId: first, credentialId: 99, botType: 'recorder' })).toEqual({ known: false });
+		// long forgotten, so it reads as a bot this room server never knew
+		expect(await room.botJobs.admit({ botId: first, credentialId: 99, botType: 'recorder' })).toEqual({ known: false });
 	});
 });
 
 describe('what the management server hands over', () => {
 	test('is kept only where it is a provider that can be called', () => {
-		const good = { credentialId: '7', label: 'Acme', jobType: 'recorder', apiUrl: 'https://rec.example.com', apiSecret: 'key' };
+		const good = { credentialId: '7', label: 'Acme', jobTypes: [ 'streamer', 'recorder' ], apiUrl: 'https://rec.example.com', apiSecret: 'key' };
 
-		expect(asBotProviders([ good ])).toEqual([ { credentialId: 7, label: 'Acme', jobType: 'recorder', apiUrl: 'https://rec.example.com', apiSecret: 'key' } ]);
+		expect(asBotProviders([ good ])).toEqual([ { credentialId: 7, label: 'Acme', jobTypes: [ 'recorder', 'streamer' ], apiUrl: 'https://rec.example.com', apiSecret: 'key' } ]);
 		expect(asBotProviders([ { ...good, label: '' } ])[0].label).toBe('Bot');
+		expect(asBotProviders([ { ...good, jobTypes: [ 'dancer', 'recorder' ] } ])[0].jobTypes).toEqual([ 'recorder' ]);
 
-		for (const bad of [ { ...good, jobType: 'dancer' }, { ...good, apiUrl: 'http://rec.example.com' }, { ...good, apiUrl: undefined }, { ...good, apiSecret: '' }, { ...good, apiSecret: 5 }, { ...good, credentialId: 'x' }, { ...good, credentialId: 0 }, null, 'row' ])
+		for (const bad of [ { ...good, jobTypes: [ 'dancer' ] }, { ...good, jobTypes: [] }, { ...good, jobTypes: 'recorder' }, { ...good, jobTypes: undefined }, { ...good, apiUrl: 'http://rec.example.com' }, { ...good, apiUrl: undefined }, { ...good, apiSecret: '' }, { ...good, apiSecret: 5 }, { ...good, credentialId: 'x' }, { ...good, credentialId: 0 }, null, 'row' ])
 			expect(asBotProviders([ bad ])).toEqual([]);
 
 		for (const notAList of [ undefined, null, {}, 'rows', { data: [ good ] } ]) expect(asBotProviders(notAList)).toEqual([]);
+	});
+
+	test('a list of kinds holds the known ones, each once, in a fixed order', () => {
+		expect(asBotTypes([ 'streamer', 'recorder', 'streamer', 'dancer' ])).toEqual([ 'recorder', 'streamer' ]);
+		for (const nothing of [ undefined, null, 'recorder', {}, [] ]) expect(asBotTypes(nothing)).toEqual([]);
+	});
+
+	test('what a provider says a returning bot runs is kept only where it names a job and a kind', () => {
+		const good = { jobId: '6C3A2D2F-0000-4000-8000-00000000000A', type: 'recorder' };
+
+		expect(asProviderBotJobs({ jobs: [ good, { jobId: 'x', type: 'recorder' }, { jobId: good.jobId, type: 'dancer' }, null, 'job' ] }))
+			.toEqual([ { jobId: '6c3a2d2f-0000-4000-8000-00000000000a', type: 'recorder' } ]);
+		for (const nothing of [ undefined, null, {}, [], { jobs: 'x' }, [ good ] ]) expect(asProviderBotJobs(nothing)).toEqual([]);
 	});
 
 	test('a job id is a uuid and nothing else', () => {
@@ -417,7 +448,7 @@ describe('the join response', () => {
 	test('names the providers without their address or key, and the jobs of the session', async () => {
 		const response = await join(makeRoom(), newPeer());
 
-		expect(response.botProviders).toEqual([ { id: 7, label: 'Acme Recorder', jobType: 'recorder' } ]);
+		expect(response.botProviders).toEqual([ { id: 7, label: 'Acme Recorder', jobTypes: [ 'recorder' ] } ]);
 		expect(response.botJobs).toEqual([]);
 		expect(JSON.stringify(response)).not.toContain('rec.example.com');
 		expect(JSON.stringify(response)).not.toContain('"key"');

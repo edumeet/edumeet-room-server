@@ -6,6 +6,15 @@ import MediaService from '../../src/MediaService';
 import ManagementService from '../../src/ManagementService';
 import BreakoutRoom from '../../src/BreakoutRoom';
 import { BaseConnection } from 'edumeet-common';
+import * as providerClient from '../../src/common/botProviderClient';
+
+jest.mock('../../src/common/botProviderClient', () => ({
+	...jest.requireActual('../../src/common/botProviderClient'),
+	stopProviderJob: jest.fn(async () => undefined),
+	getProviderBotJobs: jest.fn(async () => []),
+}));
+
+const getProviderBotJobs = providerClient.getProviderBotJobs as jest.Mock;
 
 type Verdict = { allowed: true; verified: boolean } | { allowed: false; reason: string };
 
@@ -207,19 +216,25 @@ describe('a headless connection naming a breakout session', () => {
 	});
 });
 
-describe('a bot that comes for a job', () => {
-	const jobId = '5b2f1c1e-0000-4000-8000-000000000000';
-	const recorder = { credentialId: 7, label: 'Acme Recorder', jobType: 'recorder' as const, apiUrl: 'https://rec.example.com', apiSecret: 'key' };
-	const verified = { allowed: true as const, verified: true, credentialId: 7, jobType: 'recorder' };
+describe('a bot that comes for its jobs', () => {
+	const botId = '5b2f1c1e-0000-4000-8000-000000000000';
+	const jobId = '6c3a2d2f-0000-4000-8000-00000000000a';
+	const recorder = { credentialId: 7, label: 'Acme Recorder', jobTypes: [ 'recorder' as const ], apiUrl: 'https://rec.example.com', apiSecret: 'key' };
+	const verified = { allowed: true as const, verified: true, credentialId: 7, jobTypes: [ 'recorder' ] };
 
-	const connectJobBot = (manager: ServerManager, botType = 'recorder', id = jobId) => {
+	beforeEach(() => {
+		getProviderBotJobs.mockReset();
+		getProviderBotJobs.mockImplementation(async () => [ { jobId, type: 'recorder' } ]);
+	});
+
+	const connectJobBot = (manager: ServerManager, botType: string | undefined = 'recorder', id = botId) => {
 		const connection = makeConnection();
 
 		return manager.handleConnection(connection, `bot-${Math.random()}`, 'r', 'tenant.example.edu', 'rk', 'Recorder', undefined, undefined, true, 'secret', botType, undefined, id)
 			.then(() => connection);
 	};
 
-	test('is let in with its job when the key is the provider\'s', async () => {
+	test('is let in with the jobs its provider names when the key is the provider\'s', async () => {
 		const { manager, openRoom, peers } = setup({ verdict: verified as Verdict });
 		const room = openRoom();
 
@@ -228,8 +243,33 @@ describe('a bot that comes for a job', () => {
 
 		const bot = [ ...peers.values() ].find((p) => p.headless);
 
-		expect(bot?.jobId).toBe(jobId);
+		expect(bot?.botId).toBe(botId);
 		expect(room.botJobs.active).toEqual([ expect.objectContaining({ id: jobId, state: 'starting' }) ]);
+	});
+
+	test('may leave its kind unsaid, as a bot that does several does', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: { ...verified, jobTypes: [ 'recorder', 'streamer' ] } as Verdict });
+
+		openRoom().botProviders = [ { ...recorder, jobTypes: [ 'recorder', 'streamer' ] } ];
+		await connectJobBot(manager, undefined);
+
+		expect([ ...peers.values() ].find((p) => p.headless)?.botId).toBe(botId);
+	});
+
+	test('is refused when the room closes while its provider is asked about it', async () => {
+		const { manager, openRoom } = setup({ verdict: verified as Verdict });
+		const room = openRoom();
+
+		room.botProviders = [ recorder ];
+		getProviderBotJobs.mockImplementationOnce(async () => {
+			room.close();
+
+			return [ { jobId, type: 'recorder' } ];
+		});
+
+		const connection = await connectJobBot(manager);
+
+		expect(connection.notify).toHaveBeenCalledWith(expect.objectContaining({ method: 'botRejected' }));
 	});
 
 	test('comes in as a plain bot when the key belongs to no provider of the room', async () => {
@@ -238,7 +278,7 @@ describe('a bot that comes for a job', () => {
 		openRoom();
 		await connectJobBot(manager);
 
-		expect([ ...peers.values() ].find((p) => p.headless)?.jobId).toBeUndefined();
+		expect([ ...peers.values() ].find((p) => p.headless)?.botId).toBeUndefined();
 	});
 
 	test('is refused when its kind is not the kind its key is for', async () => {
@@ -252,12 +292,12 @@ describe('a bot that comes for a job', () => {
 		expect([ ...peers.values() ].some((p) => p.headless)).toBe(false);
 	});
 
-	test('is refused for a job that is over', async () => {
+	test('is refused once its jobs are over', async () => {
 		const { manager, openRoom } = setup({ verdict: verified as Verdict });
 		const room = openRoom();
 
 		room.botProviders = [ recorder ];
-		room.botJobs.admit({ jobId, credentialId: 7, botType: 'recorder' });
+		await room.botJobs.admit({ botId, credentialId: 7, botType: 'recorder' });
 		room.botJobs.stop(jobId);
 
 		const connection = await connectJobBot(manager);
@@ -271,7 +311,7 @@ describe('a bot that comes for a job', () => {
 		openRoom().botProviders = [ recorder ];
 		await connectJobBot(manager);
 
-		expect([ ...peers.values() ].find((p) => p.headless)?.jobId).toBeUndefined();
+		expect([ ...peers.values() ].find((p) => p.headless)?.botId).toBeUndefined();
 	});
 });
 
@@ -295,7 +335,7 @@ describe('a room server that shuts down', () => {
 
 describe('the providers of a new room', () => {
 	const openBy = async (tenantId: number) => {
-		const getBotProviders = jest.fn(async () => [ { credentialId: 7, label: 'Acme', jobType: 'recorder', apiUrl: 'https://rec.example.com', apiSecret: 'key' } ]);
+		const getBotProviders = jest.fn(async () => [ { credentialId: 7, label: 'Acme', jobTypes: [ 'recorder' ], apiUrl: 'https://rec.example.com', apiSecret: 'key' } ]);
 		const managementService = {
 			getTenantFromFqdn: jest.fn(async () => tenantId),
 			getTenant: jest.fn(async () => undefined),

@@ -2,7 +2,7 @@ import { Socket } from 'socket.io';
 import { Logger } from 'edumeet-common';
 import { IOServerConnection } from './IOServerConnection';
 import { normalizeMeetingToken } from './meetingToken';
-import { asJobId } from './botProfile';
+import { asBotId } from './botProfile';
 
 const logger = new Logger('socketHandler');
 
@@ -18,7 +18,7 @@ export const socketHandler = (socket: Socket) => {
 		headless,
 		botType,
 		session,
-		jobId,
+		botId,
 	} = socket.handshake.query;
 	// The bot token travels in the handshake body, never in the URL.
 	const botToken = socket.handshake.auth?.botToken;
@@ -96,7 +96,7 @@ export const socketHandler = (socket: Socket) => {
 		typeof botToken === 'string' && botToken ? botToken : undefined,
 		typeof botType === 'string' ? botType : undefined,
 		typeof session === 'string' && session ? session : undefined,
-		asJobId(jobId),
+		asBotId(botId),
 	).catch((error) => {
 		logger.warn({ err: error }, 'socketHandler() - handleConnection()');
 

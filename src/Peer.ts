@@ -41,7 +41,7 @@ interface PeerOptions {
 	botVerified?: boolean;
 	botType?: BotType;
 	botSessionId?: string;
-	jobId?: string;
+	botId?: string;
 }
 
 export interface PeerInfo {
@@ -102,8 +102,8 @@ export class Peer extends EventEmitter {
 	public readonly botType?: BotType;
 	// The breakout session a bot was sent to; a participant picks sessions itself.
 	public readonly botSessionId?: string;
-	// The job a provider started this bot for; only a verified bot carries one.
-	public readonly jobId?: string;
+	// The bot a provider started for this room's jobs; only a verified bot carries one.
+	public readonly botId?: string;
 	public picture?: string;
 
 	public recording = false;
@@ -153,7 +153,7 @@ export class Peer extends EventEmitter {
 		botVerified = false,
 		botType,
 		botSessionId,
-		jobId,
+		botId,
 	}: PeerOptions) {
 		logger.debug(
 			{ id, managedId, displayName, sessionId, reconnectKey },
@@ -173,7 +173,7 @@ export class Peer extends EventEmitter {
 		this.botVerified = headless && botVerified;
 		this.botType = headless ? botType : undefined;
 		this.botSessionId = headless ? botSessionId : undefined;
-		this.jobId = this.botVerified ? jobId : undefined;
+		this.botId = this.botVerified ? botId : undefined;
 
 		if (permissions?.length)
 			this.#permissions = new Set(permissions);

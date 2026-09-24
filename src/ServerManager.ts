@@ -81,7 +81,7 @@ export default class ServerManager {
 		botToken?: string,
 		botTypeText?: string,
 		botSession?: string,
-		botJobId?: string,
+		botIdText?: string,
 	): Promise<void> {
 		logger.debug(
 			{ peerId, displayName, roomId, tenantFqdn, reconnectKey, headless },
@@ -133,7 +133,7 @@ export default class ServerManager {
 
 		let botVerified = false;
 		let botCredentialId: number | undefined;
-		let jobId: string | undefined;
+		let botId: string | undefined;
 
 		if (headless) {
 			const address = resolveClientIp((connection as unknown as IOServerConnection).address) ?? '';
@@ -155,8 +155,10 @@ export default class ServerManager {
 				botVerified = verdict.verified;
 				botCredentialId = verdict.credentialId;
 
-				// A key that belongs to one kind of job cannot come in as another.
-				if (verdict.jobType && asBotType(botTypeText) !== verdict.jobType) return rejectBot('botTokenRejected');
+				// A key for some kinds of job cannot come in as another kind.
+				const claimed = asBotType(botTypeText);
+
+				if (verdict.jobTypes?.length && claimed && !verdict.jobTypes.includes(claimed)) return rejectBot('botTokenRejected');
 
 				// The room may have emptied and closed during the round trip; addPeer on a
 				// closed room does nothing and would leave the bot hanging without an answer.
@@ -169,12 +171,15 @@ export default class ServerManager {
 			// at join, when the bot is actually placed in it.
 			if (botSession && !room.breakoutRooms.get(botSession)) return rejectBot('sessionNotOpen');
 
-			// Only a bot the tenant vouches for can belong to a job; from any other the id is dropped.
-			if (botJobId && botVerified) {
-				const { known, rejection } = room.botJobs.admit({ jobId: botJobId, credentialId: botCredentialId, botType: asBotType(botTypeText), sessionId: botSession });
+			// Only a bot the tenant vouches for can run jobs; from any other the id is dropped.
+			if (botIdText && botVerified) {
+				const { known, rejection } = await room.botJobs.admit({ botId: botIdText, credentialId: botCredentialId, botType: asBotType(botTypeText), sessionId: botSession });
 
 				if (rejection) return rejectBot(rejection);
-				if (known) jobId = botJobId;
+				if (known) botId = botIdText;
+
+				// Asking the provider about a returning bot takes a round trip too.
+				if (room.closed || room.empty) return rejectBot('roomNotOpen');
 			}
 		}
 
@@ -236,7 +241,7 @@ export default class ServerManager {
 			this.reconnectPermissionsCache.delete(reconnectKey);
 		}
 
-		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless, botVerified, botType: asBotType(botTypeText), botSessionId: botSession, jobId });
+		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless, botVerified, botType: asBotType(botTypeText), botSessionId: botSession, botId });
 
 		this.peers.set(peerId, peer);
 

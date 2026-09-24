@@ -7,7 +7,7 @@ import Room from '../Room';
 const logger = new Logger('BotJobsMiddleware');
 
 // Two callers share this middleware and never the same methods: a moderator starts
-// and stops jobs, and the bot of a job reports how the job is doing. A job runs in
+// and stops jobs, and the bot that runs them reports how they are doing. A job runs in
 // the session the moderator is in when starting it, so no session id is read from
 // the message. The moderator has to be signed in: the recording is delivered to
 // people by their accounts, and somebody accountable must be behind it.
@@ -55,9 +55,9 @@ export const createBotJobsMiddleware = ({ room }: { room: Room; }): Middleware<P
 			}
 
 			case 'botStatus': {
-				if (!peer.headless || !peer.jobId) break;
+				if (!peer.headless || !peer.botId) break;
 
-				room.botJobs.status(peer, message.data?.state, message.data?.reason);
+				room.botJobs.status(peer, message.data?.state, message.data?.reason, message.data?.type);
 				context.handled = true;
 
 				break;

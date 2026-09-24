@@ -1,11 +1,32 @@
 import 'jest';
-import { startProviderJob, stopProviderJob, BotProviderError, PROVIDER_TIMEOUT_MS } from '../../../src/common/botProviderClient';
+import { getProviderBotJobs, startProviderJob, stopProviderJob, BotProviderError, PROVIDER_ANSWER_LIMIT, PROVIDER_TIMEOUT_MS } from '../../../src/common/botProviderClient';
 import { BotProvider } from '../../../src/common/botProfile';
 
-const provider: BotProvider = { credentialId: 7, label: 'Acme', jobType: 'recorder', apiUrl: 'https://rec.example.com/', apiSecret: 'acme-key' };
-const job = { jobId: 'j1', type: 'recorder' as const, room: { url: 'https://meet.example.org/r', host: 'meet.example.org', roomId: 'r', sessionId: 's', mainSessionId: 's' } };
+const provider: BotProvider = { credentialId: 7, label: 'Acme', jobTypes: [ 'recorder' ], apiUrl: 'https://rec.example.com/', apiSecret: 'acme-key' };
+const job = { jobId: 'j1', type: 'recorder' as const, botId: 'b1', room: { url: 'https://meet.example.org/r', host: 'meet.example.org', roomId: 'r', sessionId: 's', mainSessionId: 's' } };
 
 const answer = (status: number) => ({ status, body: { cancel: jest.fn(async () => undefined) } });
+// An answer with a body that is read in chunks, as fetch hands it over.
+const answerWith = (status: number, text: string) => {
+	const bytes = new TextEncoder().encode(text);
+	let sent = false;
+
+	return {
+		status,
+		body: {
+			cancel: jest.fn(async () => undefined),
+			getReader: () => ({
+				read: async () => {
+					if (sent) return { done: true, value: undefined };
+					sent = true;
+
+					return { done: false, value: bytes };
+				},
+				cancel: jest.fn(async () => undefined),
+			}),
+		},
+	};
+};
 const fetchMock = jest.fn();
 
 beforeEach(() => {
@@ -53,5 +74,31 @@ describe('calling a bot provider', () => {
 
 		fetchMock.mockResolvedValue(answer(503));
 		await expect(stopProviderJob(provider, 'j1')).rejects.toThrow(BotProviderError);
+	});
+
+	test('asks which jobs a returning bot runs in this room, and reads only a short, sensible answer', async () => {
+		const room = { host: 'meet.example.org', roomId: 'r' };
+		const jobId = '6c3a2d2f-0000-4000-8000-00000000000a';
+
+		fetchMock.mockResolvedValue(answerWith(200, JSON.stringify({ jobs: [ { jobId, type: 'recorder' }, { jobId: 'x', type: 'recorder' } ] })));
+		expect(await getProviderBotJobs(provider, 'b/1', { host: 'meet.example.org', roomId: 'lecture 1&x' })).toEqual([ { jobId, type: 'recorder' } ]);
+
+		const [ url, init ] = fetchMock.mock.calls[0];
+
+		expect(String(url)).toBe('https://rec.example.com/v1/bots/b%2F1?host=meet.example.org&roomId=lecture+1%26x');
+		expect(init).toMatchObject({ method: 'GET', redirect: 'error' });
+		expect(init.headers).toEqual({ 'Authorization': 'Bearer acme-key' });
+
+		fetchMock.mockResolvedValue(answer(404));
+		expect(await getProviderBotJobs(provider, 'b1', room)).toEqual([]);
+
+		fetchMock.mockResolvedValue(answer(500));
+		await expect(getProviderBotJobs(provider, 'b1', room)).rejects.toThrow(BotProviderError);
+
+		fetchMock.mockResolvedValue(answerWith(200, 'not json'));
+		await expect(getProviderBotJobs(provider, 'b1', room)).rejects.toThrow('not JSON');
+
+		fetchMock.mockResolvedValue(answerWith(200, 'x'.repeat(PROVIDER_ANSWER_LIMIT + 1)));
+		await expect(getProviderBotJobs(provider, 'b1', room)).rejects.toThrow('too large');
 	});
 });

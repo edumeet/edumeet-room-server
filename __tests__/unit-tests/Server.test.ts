@@ -36,6 +36,30 @@ describe('Server', () => {
 		expect(args.slice(8)).toEqual([ true, 'secret', 'recorder' ]);
 	});
 
+	it('Passes a bot id from the query only when it is a uuid, and not the job id of the old contract', () => {
+		const botId = '5B2F1C1E-0000-4000-8000-000000000000';
+		const connect = (query: Record<string, string>) => {
+			socketHandler({
+				id: 'socketId',
+				handshake: {
+					query: { roomId: 'r', peerId: 'p', reconnectKey: 'k', headless: '1', ...query },
+					auth: { botToken: 'secret' },
+					headers: { host: 'tenant.example.com' },
+				},
+				on: jest.fn(),
+				once: jest.fn(),
+				removeAllListeners: jest.fn(),
+				disconnect: jest.fn(),
+			} as unknown as Socket);
+
+			return (global.serverManager.handleConnection as jest.Mock).mock.calls.at(-1)[12];
+		};
+
+		expect(connect({ botId })).toBe(botId.toLowerCase());
+		expect(connect({ botId: '../etc' })).toBeUndefined();
+		expect(connect({ jobId: botId })).toBeUndefined();
+	});
+
 	it('Handles query parameters', () => {
 		const socket = {
 			id: 'socketId',

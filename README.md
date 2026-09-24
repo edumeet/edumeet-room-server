@@ -463,7 +463,7 @@ Media nodes can be run by other organisations, which is why this is opt-in. It a
 
 A connection with `headless=1` in the query is a bot (a recorder, streamer or transcriber page). It is refused unless the room is open with at least one participant in it. Inside a tenant the room-server asks the management server's `bot-verify` service, sending the tenant, the bot token from the socket handshake `auth` payload (never from the URL) and the client address; the management server applies the tenant's bot policy, the token and its allowed address ranges. A management server without that service makes the room-server refuse every bot in a tenant, so upgrade the management server first. Outside a tenant, bots are admitted without a token.
 
-A bot sends nothing but one thing: when the deployment collects client monitoring samples, a bot sends its samples like any client, over the one data channel a bot may open (`observertc-samples`, which goes to the media node and is never handed to another peer). Its samples carry `headless: true`, its `botType` and, for a job, the `jobId`, so the figures of a recorder are not read as a participant's. What they hold is the receiving side only: what the recorder actually got.
+A bot sends nothing but one thing: when the deployment collects client monitoring samples, a bot sends its samples like any client, over the one data channel a bot may open (`observertc-samples`, which goes to the media node and is never handed to another peer). Its samples carry `headless: true`, its `botType` and, for a bot that runs jobs, the `botId`, so the figures of a recorder are not read as a participant's. What they hold is the receiving side only: what the recorder actually got.
 
 A bot records one session. A connection with `session=<breakout session id>` in the query is placed in that breakout room at join, whether or not anyone is in it yet; it is refused with `sessionNotOpen` when no such breakout room exists, and it is ended with `sessionClosed` when the breakout room is removed or ejected, while the participants are moved back to the main room as before. A moderator cannot move a bot between sessions. The join response carries the peer's actual `sessionId`.
 
@@ -473,8 +473,8 @@ The client address is the first entry of `x-forwarded-for`, or the socket addres
 
 A tenant can let moderators start a recording, a live stream or a transcription from inside the
 room. The work is done by an outside service, a **provider**, which the tenant configures in the
-management server: one row per kind of job, holding the bot access token, the provider's https API
-address and the API key it issued. The contract that service implements is
+management server: one row per provider, holding the kinds of job it offers, the bot access token,
+the provider's https API address and the API key it issued. The contract that service implements is
 [BOT-PROVIDER-API.md](https://github.com/edumeet/edumeet/blob/main/BOT-PROVIDER-API.md).
 
 The room-server reads its tenant's providers once, when the room is created, alongside the room
@@ -488,8 +488,18 @@ Requests, all of them needing `MODERATE_ROOM` and a signed-in peer (one with a `
 recording is delivered to people by their accounts): `moderator:startBotJob` with the job type and,
 when the tenant has several providers of that type, which one; `moderator:stopBotJob` with the job id. A
 job runs in the session the moderator was in when starting it, so a moderator in a breakout room
-records that breakout room. Starting answers immediately with the job id and calls the provider
-behind the answer. The participants of a session are told about its jobs with `botJobs`, and
+records that breakout room, and a session runs at most one job of each kind (`bot job already
+running`). Starting answers immediately with the job id and calls the provider behind the answer.
+
+A provider sends **one bot per session**, and that bot does every job of that provider there: the
+room-server gives each bot an id of its own, sends it with every job, and a second kind started in a
+session where the provider's bot is already present goes to that bot, which takes it on at once.
+Stopping one job ends that job at the provider and leaves the bot for the others; the bot leaves with
+its last job. A job that comes while its bot is leaving gets a new bot. A bot of a provider that
+offers more than one kind is sent without a `botType`, so it takes audio and video, since it may be
+asked to record later; only a transcription-only provider's bot is told it is a transcriber and takes
+audio alone. The participants of a session are told about its jobs with `botJobs` (each with its kind, the
+provider's label and the provider's id, so a client can tell which jobs share a bot), and
 moderators are told about a failure with `botJobFailed`; neither carries the provider's address or
 key. A room runs at most 10 jobs at once.
 
@@ -499,22 +509,31 @@ It also carries the people to tell about the recording: the owners of the room (
 the room was created) and the moderator who started the job, resolved to addresses with one
 `users.find` by id in the management server, each address once; a lookup that fails leaves the job
 running without recipients. It also carries the tenant's `locale`, read with the tenant when the room
-was created. A transcriber declares no video capability, so no video consumer is created for it.
+was created. A transcriber page declares no video capability, so no video consumer is created for it.
 
-The room-server calls a provider exactly twice per job, to start it and to stop it, and learns
-everything in between from the bot's own connection: joining, the `botStatus` notification the page
-sends, and leaving. Calls go over https with certificate validation, follow no redirect, give up
-after 10 seconds, and never appear in the log. The job states are `starting`, `joined`, `running`,
-`stopping`, `interrupted`, `ended` and `failed`, with the timers listed in the provider contract; a
-failure is logged at info level with the room, the job, its type, the credential and the reason,
-noting whether the bot reported it.
+The room-server calls a provider twice per job, to start it and to stop it, and learns everything
+in between from the bot's own connection: joining, the `botStatus` notification the page sends, and
+leaving. The join, running, heartbeat, reconnect and leave timers of the provider contract belong to
+the bot, and every job of a bot shows the bot's state. `botStatus` with `finished` or `failed` and a
+`type` is about that one kind of job, which ends (`finished`, nothing is sent to the provider) or
+fails (the provider is told to stop it, the moderators are told); without a `type` it is about the
+whole bot and every job it runs. A status naming a kind the bot does not run is ignored. Calls go
+over https with certificate validation, follow no redirect, give up after 10 seconds, and never
+appear in the log. A failure is logged at info level with the room, the job or bot, its kinds, the
+credential and the reason, noting whether the bot reported it; a bot that fails as a whole tells the
+moderators once.
 
-A bot page carries its job id in the query. Only a bot whose token the management server verified
-may carry one, and only for a job started with that same credential. A job already finished is
-refused with `jobNotActive`, as is a second page for a job whose browser is connected; a page that
-reloads takes its job back over. A job id the room-server does not know, from a verified bot of one
-of the room's providers, recreates the job: this is how jobs survive a restart of the room-server,
-which for that reason never tells providers to stop when it shuts down.
+A bot page carries its bot id in the query (`botId`). Only a bot whose token the management server
+verified may carry one, and only for a bot started with that same credential. A bot already
+finished is refused with `jobNotActive`, as is a second page for a bot whose browser is connected; a
+page that reloads takes its bot back over. A bot id the room-server does not know, from a verified
+bot of one of the room's providers, is the one case where the room-server reads an answer from a
+provider: it asks `GET /v1/bots/<botId>?host=<host>&roomId=<room>` once which jobs that bot runs
+in this room, and recreates them (at most
+one per kind, only kinds the provider offers, and no job it already knows). A provider that knows
+none, cannot be reached, or answers nonsense gets its bot refused with `jobNotActive`, and the bot id
+is remembered so it is not asked again. This is how jobs survive a restart of the room-server, which
+for that reason never tells providers to stop when it shuts down.
 
 ## Notes
 
