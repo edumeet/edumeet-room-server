@@ -18,7 +18,7 @@
 		"test:watch": "jest --watch"
 	},
 	"devDependencies": {
-		"@tsconfig/node24": "^24.0.4",
+		"@tsconfig/node24": "^24.0.5",
 		"@types/debug": "^4.1.13",
 		"@types/fast-stats": "^0.0.35",
 		"@types/geoip-lite": "^1.4.4",
@@ -27,17 +27,17 @@
 		"@types/node": "^24.13.3",
 		"@typescript-eslint/eslint-plugin": "^8.65.0",
 		"@typescript-eslint/parser": "^8.65.0",
-		"eslint": "^9.39.5",
+		"eslint": "^10.12.0",
 		"jest": "^30.4.2",
 		"nodemon": "^3.1.14",
-		"ts-jest": "^29.4.12",
+		"ts-jest": "^29.4.14",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@feathersjs/authentication-client": "^5.0.46",
-		"@feathersjs/feathers": "^5.0.46",
-		"@feathersjs/socketio-client": "^5.0.46",
+		"@feathersjs/authentication-client": "^5.0.50",
+		"@feathersjs/feathers": "^5.0.50",
+		"@feathersjs/socketio-client": "^5.0.50",
 		"chokidar": "^5.0.0",
 		"debug": "^4.4.3",
 		"edumeet-common": "github:edumeet/edumeet-common#0.7.0",
@@ -46,10 +46,10 @@
 		"h264-profile-level-id": "^1.1.1",
 		"jsonwebtoken": "^9.0.3",
 		"mediasoup": "^3.27.1",
-		"moment": "^2.30.1",
+		"moment": "^2.31.0",
 		"prom-client": "^15.1.3",
-		"socket.io": "^4.8.3",
-		"socket.io-client": "^4.8.3",
+		"socket.io": "^4.8.4",
+		"socket.io-client": "^4.8.4",
 		"zod": "^4.4.3"
 	},
 	"optionalDependencies": {
