@@ -18,6 +18,8 @@
 		"test:watch": "jest --watch"
 	},
 	"devDependencies": {
+		"@eslint/eslintrc": "^3.3.7",
+		"@eslint/js": "^10.0.1",
 		"@tsconfig/node24": "^24.0.5",
 		"@types/debug": "^4.1.13",
 		"@types/fast-stats": "^0.0.35",
@@ -28,6 +30,7 @@
 		"@typescript-eslint/eslint-plugin": "^8.65.0",
 		"@typescript-eslint/parser": "^8.65.0",
 		"eslint": "^10.12.0",
+		"globals": "^17.13.0",
 		"jest": "^30.4.2",
 		"nodemon": "^3.1.14",
 		"ts-jest": "^29.4.14",
