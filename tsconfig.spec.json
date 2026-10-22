@@ -1,6 +1,9 @@
 {
 	"extends": "./src/tsconfig.json",
 	"compilerOptions": {
+		// @tsconfig/node24 pins types to ["node"], which leaves the jest globals
+		// (describe, test, expect) undeclared in the suites.
+		"types": [ "node", "jest" ],
 		// ts-jest can fall back to classic module resolution (it warns that hybrid
 		// Node16/NodeNext module kind is only fully supported with isolatedModules).
 		// Classic resolution ignores mediasoup's package `exports` map, so the

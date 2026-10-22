@@ -36,6 +36,68 @@ const produceDataContext = (label: string, endToEndEncryption: boolean, headless
 	return { sut: createMediaMiddleware({ room }), context, produceData, room };
 };
 
+const produceContext = (source: string, kind: string) => {
+	const produceDeduped = jest.fn(async (options: { rtpParameters: { encodings: { ssrc: number, dtx?: boolean }[] } }) => ({
+		options,
+		producer: {
+			id: 'prod1',
+			appData: {},
+			once: jest.fn(),
+			on: jest.fn(),
+		},
+		reused: false,
+	}));
+	const room = {
+		sessionId: 's1',
+		getPeers: jest.fn(() => []),
+	} as unknown as Room;
+	const peer = {
+		id: 'p1',
+		hasPermission: jest.fn(() => true),
+		producingTransport: { produceDeduped },
+		producers: new Map(),
+		notify: jest.fn(),
+	};
+	const rtpParameters = { encodings: [ { ssrc: 1 }, { ssrc: 2 } ] };
+	const message = {
+		method: 'produce',
+		data: { sessionId: 's1', kind, rtpParameters, appData: { source } },
+	};
+	const context = { peer, message, response: {}, handled: false } as unknown as PeerContext;
+
+	return { sut: createMediaMiddleware({ room }), context, produceDeduped, rtpParameters };
+};
+
+describe('produce dtx', () => {
+	test('marks screen share video encodings as dtx', async () => {
+		const { sut, context, produceDeduped } = produceContext('screen', 'video');
+
+		await sut(context, next);
+
+		expect(produceDeduped).toHaveBeenCalledTimes(1);
+		expect(produceDeduped.mock.calls[0][0].rtpParameters.encodings)
+			.toEqual([ { ssrc: 1, dtx: true }, { ssrc: 2, dtx: true } ]);
+	});
+
+	test('leaves webcam video encodings untouched', async () => {
+		const { sut, context, produceDeduped } = produceContext('webcam', 'video');
+
+		await sut(context, next);
+
+		expect(produceDeduped.mock.calls[0][0].rtpParameters.encodings)
+			.toEqual([ { ssrc: 1 }, { ssrc: 2 } ]);
+	});
+
+	test('leaves screen audio encodings untouched', async () => {
+		const { sut, context, produceDeduped } = produceContext('screenaudio', 'audio');
+
+		await sut(context, next);
+
+		expect(produceDeduped.mock.calls[0][0].rtpParameters.encodings)
+			.toEqual([ { ssrc: 1 }, { ssrc: 2 } ]);
+	});
+});
+
 describe('produceData', () => {
 	test('creates a data producer for transcripts in a plain room', async () => {
 		const { sut, context, produceData } = produceDataContext('transcription', false);

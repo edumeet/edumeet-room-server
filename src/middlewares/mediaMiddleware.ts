@@ -7,6 +7,7 @@ import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { LayerWatcher } from '../common/layerWatcher';
 import { LayerReporter } from '../common/layerReporter';
+import { RtpEncodingParameters } from 'mediasoup/types';
 
 const logger = new Logger('MediaMiddleware');
 
@@ -36,6 +37,16 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 				if (!peer.producingTransport)
 					throw new Error(`no producing transport for peer "${peer.id}"`);
+
+				// Static screen content can stop producing frames for longer than the
+				// RTP inactivity check allows, which would drop the stream score to 0.
+				// mediasoup-client 3.25 no longer forwards the encoding dtx flag, so it
+				// has to be set here instead of by the client.
+				if (kind === 'video' && appData.source === 'screen') {
+					rtpParameters.encodings?.forEach(
+						(encoding: RtpEncodingParameters) => (encoding.dtx = true)
+					);
+				}
 
 				const layerWatcher = kind === 'video' ? new LayerWatcher() : undefined;
 

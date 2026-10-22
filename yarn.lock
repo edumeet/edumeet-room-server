@@ -2511,7 +2511,7 @@ __metadata:
     h264-profile-level-id: "npm:^1.1.1"
     jest: "npm:^30.4.2"
     jsonwebtoken: "npm:^9.0.3"
-    mediasoup: "npm:^3.27.1"
+    mediasoup: "npm:^3.30.1"
     moment: "npm:^2.31.0"
     nodemon: "npm:^3.1.14"
     prom-client: "npm:^15.1.3"
@@ -4276,9 +4276,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mediasoup@npm:^3.27.1":
-  version: 3.27.1
-  resolution: "mediasoup@npm:3.27.1"
+"mediasoup@npm:^3.30.1":
+  version: 3.30.1
+  resolution: "mediasoup@npm:3.30.1"
   dependencies:
     debug: "npm:^4.4.3"
     flatbuffers: "npm:^25.9.23"
@@ -4286,7 +4286,7 @@ __metadata:
     node-fetch: "npm:^3.3.2"
     supports-color: "npm:^11.0.0"
     tar: "npm:^7.5.22"
-  checksum: 10c0/cb9863c02dd207a207dec57ca30e2fe69e5c3a8ccd59895e4cfbace6b01189f5267d79c9338673cfec65b3ab04bf47c509233f87ef8bb34da0865adf695d564b
+  checksum: 10c0/8c6cd0eea10899594a9361945cd3c994db6ec405bc4ce089c35475c348a6f1a94d98f6e4a34e43813ecd95616c7f424b84986e1da3b80ec4e6e466864c0a250b
   languageName: node
   linkType: hard
 
