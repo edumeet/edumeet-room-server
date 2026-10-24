@@ -76,6 +76,30 @@ describe('calling a bot provider', () => {
 		await expect(stopProviderJob(provider, 'j1')).rejects.toThrow(BotProviderError);
 	});
 
+	test('says which failures to stop a job may pass', async () => {
+		const retryable = async (): Promise<boolean> => stopProviderJob(provider, 'j1').then(() => {
+			throw new Error('stopped');
+		}, (err: BotProviderError) => err.retryable);
+
+		for (const status of [ 500, 502, 503, 504, 408, 429 ]) {
+			fetchMock.mockResolvedValue(answer(status));
+			expect(await retryable()).toBe(true);
+		}
+
+		for (const status of [ 400, 401, 403, 405, 409, 422 ]) {
+			fetchMock.mockResolvedValue(answer(status));
+			expect(await retryable()).toBe(false);
+		}
+
+		fetchMock.mockRejectedValue(new Error('connect ECONNREFUSED 10.0.0.5:443'));
+		expect(await retryable()).toBe(true);
+
+		fetchMock.mockRejectedValue(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+		expect(await retryable()).toBe(true);
+
+		await expect(stopProviderJob({ ...provider, apiUrl: 'http://rec.example.com' }, 'j1')).rejects.toMatchObject({ retryable: false });
+	});
+
 	test('asks which jobs a returning bot runs in this room, and reads only a short, sensible answer', async () => {
 		const room = { host: 'meet.example.org', roomId: 'r' };
 		const jobId = '6c3a2d2f-0000-4000-8000-00000000000a';

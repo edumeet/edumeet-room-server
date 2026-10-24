@@ -24,12 +24,19 @@ export interface BotJobRequest {
 	locale?: string;
 }
 
+// `retryable` marks a failure that may pass: the provider could not be reached, did
+// not answer in time, or answered with a server error.
 export class BotProviderError extends Error {
-	constructor(message: string) {
+	public readonly retryable: boolean;
+
+	constructor(message: string, retryable = false) {
 		super(message);
 		this.name = 'BotProviderError';
+		this.retryable = retryable;
 	}
 }
+
+const passing = (status: number): boolean => status >= 500 || status === 408 || status === 429;
 
 const readCapped = async (response: Response): Promise<string> => {
 	const reader = response.body?.getReader();
@@ -96,7 +103,7 @@ const call = async (provider: BotProvider, method: 'POST' | 'DELETE' | 'GET', pa
 
 		logger.warn({ err, credentialId: provider.credentialId, method, host: url.host }, 'call() provider request failed');
 
-		throw new BotProviderError('provider request failed');
+		throw new BotProviderError('provider request failed', true);
 	}
 };
 
@@ -117,7 +124,7 @@ export const stopProviderJob = async (provider: BotProvider, jobId: string): Pro
 	if ((status < 200 || status > 299) && status !== 404) {
 		logger.warn({ credentialId: provider.credentialId, status }, 'stopProviderJob() provider refused to stop the job');
 
-		throw new BotProviderError('provider refused to stop the job');
+		throw new BotProviderError('provider refused to stop the job', passing(status));
 	}
 };
 

@@ -4,7 +4,8 @@ import type Room from './Room';
 import type { Peer } from './Peer';
 import { Permission } from './common/authorization';
 import { asBotType, BotProvider, BotRecipient, BotRejection, BotType } from './common/botProfile';
-import { getProviderBotJobs, startProviderJob, stopProviderJob } from './common/botProviderClient';
+import { getProviderBotJobs, startProviderJob } from './common/botProviderClient';
+import { stopProviderJobPersistently } from './common/botProviderStop';
 
 const logger = new Logger('BotJobs');
 
@@ -580,7 +581,7 @@ export default class BotJobs {
 	}
 
 	#tellProvider(job: BotJob): void {
-		stopProviderJob(job.bot.provider, job.id).catch(() => undefined);
+		stopProviderJobPersistently(job.bot.provider, job.id);
 	}
 
 	#announce(sessionId: string): void {

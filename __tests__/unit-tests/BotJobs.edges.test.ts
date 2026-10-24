@@ -221,6 +221,19 @@ describe('stopping a bot job, the edges', () => {
 		expect(state(room, jobId)).toBe('running');
 		expect(stopProviderJob).not.toHaveBeenCalled();
 	});
+
+	test('is told to the provider again after the room has closed, while the provider cannot be reached', async () => {
+		const { room, jobId } = await running();
+
+		stopProviderJob.mockRejectedValueOnce(Object.assign(new Error('provider request failed'), { retryable: true }));
+		room.close();
+		await flush();
+		expect(stopProviderJob).toHaveBeenCalledTimes(1);
+
+		await jest.advanceTimersByTimeAsync(10_000);
+		expect(stopProviderJob).toHaveBeenCalledTimes(2);
+		expect(stopProviderJob).toHaveBeenLastCalledWith(recorder, jobId);
+	});
 });
 
 describe('the bot of a job, the edges', () => {
