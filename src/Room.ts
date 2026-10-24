@@ -493,7 +493,7 @@ export default class Room extends EventEmitter {
 			}
 
 			peer.pipeline.use(...botProfile.middlewares.map((name) => this.#middlewaresByName[name]));
-			if (peer.botId) peer.pipeline.use(this.#botJobsMiddleware);
+			peer.pipeline.use(this.#botJobsMiddleware);
 		} else {
 			peer.pipeline.use(
 				this.#peerMiddleware,

@@ -55,9 +55,11 @@ export const createBotJobsMiddleware = ({ room }: { room: Room; }): Middleware<P
 			}
 
 			case 'botStatus': {
-				if (!peer.headless || !peer.botId) break;
+				if (!peer.headless) break;
 
-				room.botJobs.status(peer, message.data?.state, message.data?.reason, message.data?.type);
+				// Every bot page reports itself running. One that runs no jobs here is heard and
+				// ignored, rather than filling the log with a report nobody handles.
+				if (peer.botId) room.botJobs.status(peer, message.data?.state, message.data?.reason, message.data?.type);
 				context.handled = true;
 
 				break;

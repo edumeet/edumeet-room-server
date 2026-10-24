@@ -523,7 +523,9 @@ appear in the log. A failure is logged at info level with the room, the job or b
 credential and the reason, noting whether the bot reported it; a bot that fails as a whole tells the
 moderators once.
 
-A bot page carries its bot id in the query (`botId`). Only a bot whose token the management server
+Every bot page reports itself running every 20 seconds (`botStatus`); a bot that runs no jobs
+here is heard and ignored, so its reports do not reach the log. A bot page carries its bot id in
+the query (`botId`). Only a bot whose token the management server
 verified may carry one, and only for a bot started with that same credential. A bot already
 finished is refused with `jobNotActive`, as is a second page for a bot whose browser is connected; a
 page that reloads takes its bot back over. A bot id the room-server does not know, from a verified

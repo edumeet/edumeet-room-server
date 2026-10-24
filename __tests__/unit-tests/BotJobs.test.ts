@@ -336,7 +336,7 @@ describe('the bot of a job', () => {
 		expect(state(room, jobId)).toBe('joined');
 	});
 
-	test('is not heard when it carries no job', async () => {
+	test('is heard and ignored when it carries no job, and cannot start one', async () => {
 		const room = makeRoom();
 
 		makeHuman(room);
@@ -347,8 +347,19 @@ describe('the bot of a job', () => {
 		created.push(plain);
 		room.joinPeer(plain);
 
-		expect((await request(plain, 'botStatus', { state: 'running' })).handled).toBe(false);
-		expect((await request(plain, 'moderator:startBotJob', { type: 'recorder' })).handled).toBe(false);
+		// every bot page reports itself running; a bot without jobs must not fill the log
+		expect((await request(plain, 'botStatus', { state: 'running' })).handled).toBe(true);
+		expect((await request(plain, 'botStatus', { state: 'failed', reason: 'x' })).handled).toBe(true);
+		expect(room.botJobs.active).toEqual([]);
+		await expect(request(plain, 'moderator:startBotJob', { type: 'recorder' })).rejects.toThrow('peer not authorized');
+		expect(startProviderJob).not.toHaveBeenCalled();
+	});
+
+	test('leaves a report from a participant unhandled, as before', async () => {
+		const room = makeRoom();
+		const anna = makeHuman(room);
+
+		expect((await request(anna, 'botStatus', { state: 'running' })).handled).toBe(false);
 	});
 
 	test('drops a bot id that did not come from a verified bot', () => {
