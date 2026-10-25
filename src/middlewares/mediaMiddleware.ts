@@ -3,7 +3,7 @@ import { Logger, Middleware } from 'edumeet-common';
 import { permittedProducer } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { createConsumer, createDataConsumer, OBSERVER_SAMPLES_LABEL } from '../common/consuming';
-import { PeerContext } from '../Peer';
+import { Peer, PeerContext } from '../Peer';
 import Room from '../Room';
 import { LayerWatcher } from '../common/layerWatcher';
 import { LayerReporter } from '../common/layerReporter';
@@ -26,6 +26,28 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 		if (!thisSession(room, message))
 			return next();
+
+		// The peer-to-peer messages pass between two participants of the same session, never from
+		// or to a bot, which only watches; whoever sends media must be allowed to share it. A
+		// participant's browser may still offer a bot that has just joined a call of two, before
+		// it leaves peer-to-peer for the bot: that is dropped without a word.
+		const relayTarget = (peerId: string): Peer | undefined => {
+			const remotePeer = room.peers.get(peerId);
+
+			if (!remotePeer || !peer.sameSession(remotePeer))
+				throw new Error(`peer with id "${peerId}" not found`);
+
+			if (peer.headless)
+				throw new Error('peer not authorized');
+
+			if (remotePeer.headless) {
+				logger.debug('peer-to-peer message to a bot dropped [method: %s, peerId: %s]', message.method, peer.id);
+
+				return undefined;
+			}
+
+			return remotePeer;
+		};
 
 		switch (message.method) {
 			case 'produce': {
@@ -292,10 +314,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'peerLoad': {
 				const { rtpCapabilities, peerId } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'peerLoad',
@@ -309,10 +334,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'peerConnect': {
 				const { dtlsParameters, iceParameters, peerId, direction } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'peerConnect',
@@ -326,10 +354,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'candidate': {
 				const { candidate, peerId, direction } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'candidate',
@@ -343,12 +374,15 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'peerProduce': {
 				const { id, kind, rtpParameters, appData, peerId } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
 
-				permittedProducer(appData.source, room, remotePeer);
+					break;
+				}
+
+				permittedProducer(appData.source, room, peer);
 
 				remotePeer.notify({
 					method: 'peerProduce',
@@ -362,10 +396,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'peerCloseProducer': {
 				const { producerId, peerId } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'peerCloseProducer',
@@ -379,10 +416,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'peerPauseProducer': {
 				const { producerId, peerId } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'peerPauseProducer',
@@ -396,10 +436,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'peerResumeProducer': {
 				const { producerId, peerId } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'peerResumeProducer',
@@ -413,10 +456,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'pausePeerConsumer': {
 				const { consumerId, peerId } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'pausePeerConsumer',
@@ -430,10 +476,13 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 			case 'resumePeerConsumer': {
 				const { consumerId, peerId } = message.data;
-				const remotePeer = room.peers.get(peerId);
+				const remotePeer = relayTarget(peerId);
 
-				if (!remotePeer)
-					throw new Error(`peer with id "${peerId}" not found`);
+				if (!remotePeer) {
+					context.handled = true;
+
+					break;
+				}
 
 				remotePeer.notify({
 					method: 'resumePeerConsumer',

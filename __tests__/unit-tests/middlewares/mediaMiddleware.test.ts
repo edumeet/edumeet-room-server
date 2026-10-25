@@ -158,3 +158,66 @@ describe('produceData', () => {
 		expect(room.getPeers).not.toHaveBeenCalled();
 	});
 });
+
+describe('the peer-to-peer messages', () => {
+	const relayContext = (method: string, { sender = {}, receiver = {}, data = {} }: { sender?: Record<string, unknown>; receiver?: Record<string, unknown>; data?: Record<string, unknown> } = {}) => {
+		const remote = { id: 'p2', sessionId: 's1', headless: false, notify: jest.fn(), ...receiver };
+		const peers = new Map([ [ 'p2', remote ] ]);
+		const room = { sessionId: 's1', peers: { get: (id: string) => peers.get(id) } } as unknown as Room;
+		const peer = { id: 'p1', sessionId: 's1', headless: false, hasPermission: jest.fn(() => true), sameSession: (other: { sessionId: string }) => other.sessionId === 's1', ...sender };
+		const message = { method, data: { sessionId: 's1', peerId: 'p2', ...data } };
+		const context = { peer, message, response: {}, handled: false } as unknown as PeerContext;
+
+		return { sut: createMediaMiddleware({ room }), context, remote, peer };
+	};
+	const methods = [ 'peerLoad', 'peerConnect', 'candidate', 'peerCloseProducer', 'peerPauseProducer', 'peerResumeProducer', 'pausePeerConsumer', 'resumePeerConsumer' ];
+
+	test.each(methods)('pass %s between two participants of the session', async (method) => {
+		const { sut, context, remote } = relayContext(method);
+
+		await sut(context, next);
+
+		expect(remote.notify).toHaveBeenCalledWith(expect.objectContaining({ method }));
+		expect(context.handled).toBe(true);
+	});
+
+	test.each([ ...methods, 'peerProduce' ])('pass no %s from a bot or to another session', async (method) => {
+		const data = { id: 'x', kind: 'audio', rtpParameters: {}, appData: { source: 'mic' } };
+
+		for (const [ setup, error ] of [ [ { sender: { headless: true } }, 'peer not authorized' ], [ { receiver: { sessionId: 'breakout' } }, 'not found' ] ] as const) {
+			const { sut, context, remote } = relayContext(method, { ...setup, data });
+
+			await expect(sut(context, next)).rejects.toThrow(error);
+			expect(remote.notify).not.toHaveBeenCalled();
+		}
+	});
+
+	test.each([ ...methods, 'peerProduce' ])('drop %s to a bot without an error', async (method) => {
+		const { sut, context, remote } = relayContext(method, { receiver: { headless: true }, data: { id: 'x', kind: 'audio', rtpParameters: {}, appData: { source: 'mic' } } });
+
+		await sut(context, next);
+
+		expect(remote.notify).not.toHaveBeenCalled();
+		expect(context.handled).toBe(true);
+	});
+
+	test('offer media only from a participant allowed to share it', async () => {
+		const appData = { source: 'webcam' };
+		const allowed = relayContext('peerProduce', { data: { id: 'x', kind: 'video', rtpParameters: {}, appData }, receiver: { hasPermission: jest.fn(() => false) } });
+
+		await allowed.sut(allowed.context, next);
+		expect(allowed.remote.notify).toHaveBeenCalledWith(expect.objectContaining({ method: 'peerProduce' }));
+
+		const refused = relayContext('peerProduce', { data: { id: 'x', kind: 'video', rtpParameters: {}, appData }, sender: { hasPermission: jest.fn(() => false) } });
+
+		await expect(refused.sut(refused.context, next)).rejects.toThrow('peer not authorized');
+		expect(refused.remote.notify).not.toHaveBeenCalled();
+	});
+
+	test('offer no media from a bot', async () => {
+		const { sut, context, remote } = relayContext('peerProduce', { data: { id: 'x', kind: 'audio', rtpParameters: {}, appData: { source: 'mic' } }, sender: { headless: true }, receiver: { hasPermission: jest.fn(() => true) } });
+
+		await expect(sut(context, next)).rejects.toThrow('peer not authorized');
+		expect(remote.notify).not.toHaveBeenCalled();
+	});
+});
