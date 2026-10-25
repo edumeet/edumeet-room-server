@@ -7,6 +7,7 @@ import ManagementService from '../../src/ManagementService';
 import BreakoutRoom from '../../src/BreakoutRoom';
 import { BaseConnection } from 'edumeet-common';
 import * as providerClient from '../../src/common/botProviderClient';
+import { pendingStops } from '../../src/common/botProviderStop';
 
 jest.mock('../../src/common/botProviderClient', () => ({
 	...jest.requireActual('../../src/common/botProviderClient'),
@@ -15,6 +16,7 @@ jest.mock('../../src/common/botProviderClient', () => ({
 }));
 
 const getProviderBotJobs = providerClient.getProviderBotJobs as jest.Mock;
+const stopProviderJob = providerClient.stopProviderJob as jest.Mock;
 
 type Verdict = { allowed: true; verified: boolean } | { allowed: false; reason: string };
 
@@ -54,6 +56,7 @@ const setup = ({ tenantId = 7, verdict }: { tenantId?: number; verdict?: Verdict
 		jest.spyOn(human, 'notify').mockImplementation(() => undefined);
 		jest.spyOn(room, 'addPeer').mockResolvedValue(undefined);
 		room.joinPeer(human);
+		room.resolveRoomReady();
 		rooms.set(`${tenantId}/r`, room);
 
 		return room;
@@ -225,6 +228,7 @@ describe('a bot that comes for its jobs', () => {
 	beforeEach(() => {
 		getProviderBotJobs.mockReset();
 		getProviderBotJobs.mockImplementation(async () => [ { jobId, type: 'recorder' } ]);
+		stopProviderJob.mockClear();
 	});
 
 	const connectJobBot = (manager: ServerManager, botType: string | undefined = 'recorder', id = botId) => {
@@ -245,6 +249,99 @@ describe('a bot that comes for its jobs', () => {
 
 		expect(bot?.botId).toBe(botId);
 		expect(room.botJobs.active).toEqual([ expect.objectContaining({ id: jobId, state: 'starting' }) ]);
+	});
+
+	test('asks its provider by the host it came by, not the one the room was opened on', async () => {
+		const { manager, openRoom } = setup({ verdict: verified as Verdict });
+		const room = openRoom();
+
+		room.botProviders = [ recorder ];
+		room.tenantFqdn = 'other-name.example.edu';
+		await connectJobBot(manager);
+
+		expect(getProviderBotJobs).toHaveBeenCalledWith(recorder, botId, { host: 'tenant.example.edu', roomId: 'r' });
+	});
+
+	test('waits for the room to be ready, as its providers are known only then', async () => {
+		const { manager, rooms, peers } = setup({ verdict: verified as Verdict });
+		const room = new Room({ id: 'r', tenantId: 7, mediaService: {} as unknown as MediaService });
+		const human = new Peer({ id: 'human', sessionId: room.sessionId, reconnectKey: 'hk' });
+
+		jest.spyOn(human, 'notify').mockImplementation(() => undefined);
+		jest.spyOn(room, 'addPeer').mockResolvedValue(undefined);
+		room.joinPeer(human);
+		rooms.set('7/r', room);
+
+		const arriving = connectJobBot(manager);
+
+		for (let i = 0; i < 20; i++) await Promise.resolve();
+		expect(getProviderBotJobs).not.toHaveBeenCalled();
+
+		room.botProviders = [ recorder ];
+		room.resolveRoomReady();
+		await arriving;
+
+		expect([ ...peers.values() ].find((p) => p.headless)?.botId).toBe(botId);
+	});
+
+	test('is refused when the room closes before it is ready', async () => {
+		const { manager, rooms } = setup({ verdict: verified as Verdict });
+		const room = new Room({ id: 'r', tenantId: 7, mediaService: {} as unknown as MediaService });
+		const human = new Peer({ id: 'human', sessionId: room.sessionId, reconnectKey: 'hk' });
+
+		jest.spyOn(human, 'notify').mockImplementation(() => undefined);
+		room.joinPeer(human);
+		rooms.set('7/r', room);
+
+		const arriving = connectJobBot(manager);
+
+		for (let i = 0; i < 20; i++) await Promise.resolve();
+		room.close();
+
+		const connection = await arriving;
+
+		expect(connection.notify).toHaveBeenCalledWith({ method: 'botRejected', data: { reason: 'roomNotOpen' } });
+		expect(room.listenerCount('close')).toBe(0);
+	});
+
+	test('asks by the host it came by, in lower case and without a trailing dot', async () => {
+		const { manager, openRoom } = setup({ verdict: verified as Verdict });
+
+		openRoom().botProviders = [ recorder ];
+		await manager.handleConnection(makeConnection(), 'bot-host', 'r', 'Tenant.Example.EDU.', 'rk', 'Recorder', undefined, undefined, true, 'secret', 'recorder', undefined, botId);
+
+		expect(getProviderBotJobs).toHaveBeenCalledWith(recorder, botId, { host: 'tenant.example.edu', roomId: 'r' });
+	});
+
+	test('is refused when the room could not be made ready', async () => {
+		const { manager, rooms } = setup({ verdict: verified as Verdict });
+		const room = new Room({ id: 'r', tenantId: 7, mediaService: {} as unknown as MediaService });
+		const human = new Peer({ id: 'human', sessionId: room.sessionId, reconnectKey: 'hk' });
+
+		jest.spyOn(human, 'notify').mockImplementation(() => undefined);
+		room.joinPeer(human);
+		rooms.set('7/r', room);
+		room.rejectRoomReady(new Error('management down'));
+
+		const connection = await connectJobBot(manager);
+
+		expect(connection.notify).toHaveBeenCalledWith({ method: 'botRejected', data: { reason: 'roomNotOpen' } });
+	});
+
+	test('of a breakout room gone after a restart is refused, and its jobs are stopped at the provider', async () => {
+		const { manager, openRoom } = setup({ verdict: verified as Verdict });
+
+		openRoom().botProviders = [ recorder ];
+
+		const connection = makeConnection();
+
+		await manager.handleConnection(connection, 'bot-breakout', 'r', 'tenant.example.edu', 'rk', 'Recorder', undefined, undefined, true, 'secret', 'recorder', 'gone-session', botId);
+		for (let i = 0; i < 20; i++) await Promise.resolve();
+
+		expect(connection.notify).toHaveBeenCalledWith({ method: 'botRejected', data: { reason: 'sessionNotOpen' } });
+		expect(getProviderBotJobs).toHaveBeenCalledWith(recorder, botId, { host: 'tenant.example.edu', roomId: 'r' });
+		expect(stopProviderJob).toHaveBeenCalledWith(recorder, jobId);
+		expect(pendingStops()).toBe(0);
 	});
 
 	test('may leave its kind unsaid, as a bot that does several does', async () => {
@@ -408,5 +505,35 @@ describe('what a new room learns from its tenant', () => {
 		expect(room.locale).toBe('pl');
 		expect(await room.resolveBotRecipients?.([ '1', '2' ])).toEqual([ { email: 'a@example.org' } ]);
 		expect(getBotRecipients).toHaveBeenCalledWith(7, [ '1', '2' ]);
+	});
+});
+
+describe('a bot that comes back after a long disconnect', () => {
+	const connect = (manager: ServerManager, peerId: string) => manager.handleConnection(makeConnection(), peerId, 'r', 'tenant.example.edu', 'same-key', 'Recorder', undefined, undefined, true);
+
+	test('is not taken for a returning one when it was never let in', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: { allowed: true, verified: false } });
+		const room = openRoom();
+
+		await connect(manager, 'first');
+		peers.get('first')?.close();
+		await connect(manager, 'second');
+
+		expect(room.addPeer).toHaveBeenLastCalledWith(peers.get('second'), false);
+	});
+
+	test('is admitted again when it had been let in', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: { allowed: true, verified: false } });
+		const room = openRoom();
+
+		await connect(manager, 'first');
+
+		const first = peers.get('first') as Peer;
+
+		first.admitted = true;
+		first.close();
+		await connect(manager, 'second');
+
+		expect(room.addPeer).toHaveBeenLastCalledWith(peers.get('second'), true);
 	});
 });

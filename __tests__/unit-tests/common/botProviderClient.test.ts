@@ -43,7 +43,7 @@ describe('calling a bot provider', () => {
 
 		expect(String(url)).toBe('https://rec.example.com/v1/jobs');
 		expect(init).toMatchObject({ method: 'POST', redirect: 'error', body: JSON.stringify(job) });
-		expect(init.headers).toEqual({ 'Authorization': 'Bearer acme-key', 'Content-Type': 'application/json' });
+		expect(Object.fromEntries(init.headers)).toEqual({ 'authorization': 'Bearer acme-key', 'content-type': 'application/json' });
 		expect(init.signal).toBeInstanceOf(AbortSignal);
 		expect(PROVIDER_TIMEOUT_MS).toBe(10_000);
 	});
@@ -81,12 +81,12 @@ describe('calling a bot provider', () => {
 			throw new Error('stopped');
 		}, (err: BotProviderError) => err.retryable);
 
-		for (const status of [ 500, 502, 503, 504, 408, 429 ]) {
+		for (const status of [ 500, 502, 503, 504, 507, 408, 429 ]) {
 			fetchMock.mockResolvedValue(answer(status));
 			expect(await retryable()).toBe(true);
 		}
 
-		for (const status of [ 400, 401, 403, 405, 409, 422 ]) {
+		for (const status of [ 400, 401, 403, 405, 409, 422, 501, 505 ]) {
 			fetchMock.mockResolvedValue(answer(status));
 			expect(await retryable()).toBe(false);
 		}
@@ -100,6 +100,15 @@ describe('calling a bot provider', () => {
 		await expect(stopProviderJob({ ...provider, apiUrl: 'http://rec.example.com' }, 'j1')).rejects.toMatchObject({ retryable: false });
 	});
 
+	test('never sends, nor tells of, a key that cannot go in a header', async () => {
+		const secret = 'acme-key\nX-Other: 1';
+		const failure = await stopProviderJob({ ...provider, apiSecret: secret }, 'j1').catch((err: Error) => err);
+
+		expect(failure).toMatchObject({ name: 'BotProviderError', message: 'provider key cannot be sent', retryable: false });
+		expect(String((failure as Error).message)).not.toContain('acme-key');
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	test('asks which jobs a returning bot runs in this room, and reads only a short, sensible answer', async () => {
 		const room = { host: 'meet.example.org', roomId: 'r' };
 		const jobId = '6c3a2d2f-0000-4000-8000-00000000000a';
@@ -111,7 +120,7 @@ describe('calling a bot provider', () => {
 
 		expect(String(url)).toBe('https://rec.example.com/v1/bots/b%2F1?host=meet.example.org&roomId=lecture+1%26x');
 		expect(init).toMatchObject({ method: 'GET', redirect: 'error' });
-		expect(init.headers).toEqual({ 'Authorization': 'Bearer acme-key' });
+		expect(Object.fromEntries(init.headers)).toEqual({ 'authorization': 'Bearer acme-key' });
 
 		fetchMock.mockResolvedValue(answer(404));
 		expect(await getProviderBotJobs(provider, 'b1', room)).toEqual([]);

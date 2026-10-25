@@ -167,13 +167,39 @@ export default class ServerManager {
 				if (!room || room.closed || room.empty) return rejectBot('roomNotOpen');
 			}
 
+			// The bot was sent to the room by this host, which may be another name of the
+			// tenant than the one the room was opened on.
+			const botHost = tenantFqdn.toLowerCase().replace(/\.$/, '');
+
+			// The room's providers are known once it is ready; a bot asked about before then
+			// would be taken for none of them.
+			// A room that closes before it is ready never gets so.
+			if (botIdText && botVerified) {
+				const waited = room;
+				let onClose: () => void = () => undefined;
+				const closing = new Promise<[ Error ]>((resolve) => {
+					onClose = () => resolve([ new Error('room closed') ]);
+				});
+
+				waited.once('close', onClose);
+
+				const [ notReady ] = await Promise.race([ waited.roomReady, closing ]).finally(() => waited.off('close', onClose));
+
+				if (notReady || waited.closed || waited.empty) return rejectBot('roomNotOpen');
+			}
+
 			// A breakout room may be empty, it only has to exist; it is looked up again
-			// at join, when the bot is actually placed in it.
-			if (botSession && !room.breakoutRooms.get(botSession)) return rejectBot('sessionNotOpen');
+			// at join, when the bot is actually placed in it. One that is gone after a restart
+			// of this server leaves its bot's jobs running at the provider, which is told.
+			if (botSession && !room.breakoutRooms.get(botSession)) {
+				if (botIdText && botVerified) room.botJobs.release({ botId: botIdText, credentialId: botCredentialId, sessionId: botSession, host: botHost });
+
+				return rejectBot('sessionNotOpen');
+			}
 
 			// Only a bot the tenant vouches for can run jobs; from any other the id is dropped.
 			if (botIdText && botVerified) {
-				const { known, rejection } = await room.botJobs.admit({ botId: botIdText, credentialId: botCredentialId, botType: asBotType(botTypeText), sessionId: botSession });
+				const { known, rejection } = await room.botJobs.admit({ botId: botIdText, credentialId: botCredentialId, botType: asBotType(botTypeText), sessionId: botSession, host: botHost });
 
 				if (rejection) return rejectBot(rejection);
 				if (known) botId = botIdText;
@@ -291,8 +317,9 @@ export default class ServerManager {
 			const perms = peer.permissions;
 
 			// A bot has no permissions to restore, but its admission is what its
-			// long reconnect must get back, so it is cached all the same.
-			if (perms.length > 0 || peer.headless) {
+			// long reconnect must get back, so it is cached all the same: only when
+			// it was let in, or a bot parked or refused would get in by coming back.
+			if (perms.length > 0 || (peer.headless && peer.admitted)) {
 				this.reconnectPermissionsCache.set(peer.reconnectKey, perms);
 
 				setTimeout(

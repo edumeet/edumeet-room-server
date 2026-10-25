@@ -36,20 +36,31 @@ describe('telling a provider to stop a job', () => {
 		expect(stopProviderJob).toHaveBeenCalledWith(provider, 'j1');
 	});
 
-	test('calls again, later each time, while the provider cannot be reached', async () => {
-		stopProviderJob.mockRejectedValueOnce(unreachable()).mockRejectedValueOnce(unreachable());
+	test('calls again after each delay in turn while the provider cannot be reached, then gives up', async () => {
+		stopProviderJob.mockRejectedValue(unreachable());
 		stopProviderJobPersistently(provider, 'j1');
 		await jest.advanceTimersByTimeAsync(0);
 		expect(stopProviderJob).toHaveBeenCalledTimes(1);
 
-		await jest.advanceTimersByTimeAsync(STOP_RETRY_DELAYS_MS[0] - 1);
-		expect(stopProviderJob).toHaveBeenCalledTimes(1);
-		await jest.advanceTimersByTimeAsync(1);
-		expect(stopProviderJob).toHaveBeenCalledTimes(2);
+		for (const [ index, delay ] of STOP_RETRY_DELAYS_MS.entries()) {
+			await jest.advanceTimersByTimeAsync(delay - 1);
+			expect(stopProviderJob).toHaveBeenCalledTimes(index + 1);
+			await jest.advanceTimersByTimeAsync(1);
+			expect(stopProviderJob).toHaveBeenCalledTimes(index + 2);
+		}
 
-		await jest.advanceTimersByTimeAsync(STOP_RETRY_DELAYS_MS[1]);
+		expect(pendingStops()).toBe(0);
+	});
+
+	test('stops calling once the provider answers', async () => {
+		stopProviderJob.mockRejectedValueOnce(unreachable()).mockRejectedValueOnce(unreachable());
+		stopProviderJobPersistently(provider, 'j1');
+		await jest.advanceTimersByTimeAsync(STOP_RETRY_DELAYS_MS[0] + STOP_RETRY_DELAYS_MS[1]);
 		expect(stopProviderJob).toHaveBeenCalledTimes(3);
 		expect(pendingStops()).toBe(0);
+
+		await jest.advanceTimersByTimeAsync(total);
+		expect(stopProviderJob).toHaveBeenCalledTimes(3);
 	});
 
 	test('takes a refusal as the answer', async () => {
@@ -61,7 +72,7 @@ describe('telling a provider to stop a job', () => {
 		expect(pendingStops()).toBe(0);
 	});
 
-	test('gives up after the last delay', async () => {
+	test('gives up after the last delay, all at once', async () => {
 		stopProviderJob.mockRejectedValue(unreachable());
 		stopProviderJobPersistently(provider, 'j1');
 		await jest.advanceTimersByTimeAsync(total);
@@ -86,15 +97,24 @@ describe('telling a provider to stop a job', () => {
 	});
 
 	test('lets a newer stop of the same job take over from one that is still being answered', async () => {
-		let fail: () => void = () => undefined;
+		let failOlder: () => void = () => undefined;
+		let passNewer: () => void = () => undefined;
 
-		stopProviderJob.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = () => reject(unreachable()); }));
+		stopProviderJob.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { failOlder = () => reject(unreachable()); }));
+		stopProviderJob.mockImplementationOnce(() => new Promise<void>((resolve) => { passNewer = resolve; }));
 		stopProviderJobPersistently(provider, 'j1');
 		stopProviderJobPersistently(provider, 'j1');
-		fail();
-		await jest.advanceTimersByTimeAsync(total);
 
+		// the older one fails while the newer one is still being answered
+		failOlder();
+		await jest.advanceTimersByTimeAsync(STOP_RETRY_DELAYS_MS[0]);
 		expect(stopProviderJob).toHaveBeenCalledTimes(2);
+		expect(pendingStops()).toBe(1);
+
+		passNewer();
+		await jest.advanceTimersByTimeAsync(total);
+		expect(stopProviderJob).toHaveBeenCalledTimes(2);
+		expect(pendingStops()).toBe(0);
 	});
 
 	test('sends nothing again for an older stop that fails after a newer one got through', async () => {
@@ -155,11 +175,20 @@ describe('telling a provider to stop a job', () => {
 		expect(stopProviderJob).toHaveBeenLastCalledWith(provider, 'j1');
 	});
 
-	test('keeps no more than a bounded number of stops to send again', async () => {
+	test('sends a new stop only once while the most it keeps already wait, and goes on with those', async () => {
 		stopProviderJob.mockRejectedValue(unreachable());
-		for (let i = 0; i <= MAX_PENDING_STOPS; i++) stopProviderJobPersistently(provider, `j${i}`);
+		for (let i = 0; i < MAX_PENDING_STOPS; i++) stopProviderJobPersistently(provider, `j${i}`);
 		await jest.advanceTimersByTimeAsync(0);
+		expect(pendingStops()).toBe(MAX_PENDING_STOPS);
 
+		stopProviderJobPersistently(provider, 'one too many');
+		await jest.advanceTimersByTimeAsync(0);
+		expect(pendingStops()).toBe(MAX_PENDING_STOPS);
+		expect(stopProviderJob).toHaveBeenCalledTimes(MAX_PENDING_STOPS + 1);
+
+		await jest.advanceTimersByTimeAsync(STOP_RETRY_DELAYS_MS[0]);
+		expect(stopProviderJob).toHaveBeenCalledTimes((2 * MAX_PENDING_STOPS) + 1);
+		expect(stopProviderJob.mock.calls.filter(([ , id ]) => id === 'one too many')).toHaveLength(1);
 		expect(pendingStops()).toBe(MAX_PENDING_STOPS);
 	});
 });

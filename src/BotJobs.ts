@@ -159,7 +159,9 @@ export default class BotJobs {
 				// Stopped while the provider was still answering: it may not have known the job yet.
 				if (posted && job.state !== 'active') this.#tellProvider(job);
 			}, () => {
-				if (!jobOver(job)) this.#failJob(job, 'providerError');
+				// A start that timed out may still have reached the provider after the stop did.
+				if (job.state !== 'active') this.#tellProvider(job);
+				else this.#failJob(job, 'providerError');
 			});
 
 		return job.id;
@@ -226,11 +228,12 @@ export default class BotJobs {
 
 	// Asked when a bot connects with a bot id, before it is let in. `known: false`
 	// means the id belongs to no bot here and it comes in as a plain bot.
-	public async admit({ botId, credentialId, botType, sessionId }: {
+	public async admit({ botId, credentialId, botType, sessionId, host }: {
 		botId: string;
 		credentialId?: number;
 		botType?: BotType;
 		sessionId?: string;
+		host?: string;
 	}): Promise<{ known: boolean; rejection?: BotRejection }> {
 		const pending = this.#recovering.get(botId);
 
@@ -238,7 +241,7 @@ export default class BotJobs {
 
 		const bot = this.#bots.get(botId);
 
-		if (!bot) return this.#recover({ botId, credentialId, botType, sessionId });
+		if (!bot) return this.#recover({ botId, credentialId, botType, sessionId, host });
 
 		if (botOver(bot) || bot.state === 'leaving') return { known: true, rejection: 'jobNotActive' };
 		if (bot.provider.credentialId !== credentialId) return { known: true, rejection: 'botTokenRejected' };
@@ -261,11 +264,12 @@ export default class BotJobs {
 	// A bot this room server does not know, from a bot the tenant vouches for: the room
 	// server was restarted under running jobs, which go on. Only the provider knows
 	// which jobs those are, so it is asked, once.
-	async #recover({ botId, credentialId, botType, sessionId }: {
+	async #recover({ botId, credentialId, botType, sessionId, host }: {
 		botId: string;
 		credentialId?: number;
 		botType?: BotType;
 		sessionId?: string;
+		host?: string;
 	}): Promise<{ known: boolean; rejection?: BotRejection }> {
 		const provider = this.#room.botProviders.find((p) => p.credentialId === credentialId);
 
@@ -276,17 +280,27 @@ export default class BotJobs {
 			let listed: { jobId: string; type: BotType }[] = [];
 
 			try {
-				listed = await getProviderBotJobs(provider, botId, { host: this.#host(), roomId: this.#room.id });
+				listed = await getProviderBotJobs(provider, botId, { host: host ?? this.#host(), roomId: this.#room.id });
 			} catch {
 				listed = [];
 			}
 
 			const taken = new Set([ ...this.#jobs.values() ].filter((job) => job.state === 'active' && job.bot.sessionId === session).map((job) => job.type));
 			const jobs: { jobId: string; type: BotType }[] = [];
+			const seen = new Set<string>();
+			// The breakout room may have closed while the provider answered.
+			const gone = this.#room.closed || (session !== this.#room.sessionId && !this.#room.breakoutRooms.has(session));
 
 			for (const entry of listed) {
-				if (!provider.jobTypes.includes(entry.type) || taken.has(entry.type) || this.#jobs.has(entry.jobId)) continue;
-				if (this.active.length + jobs.length >= MAX_ACTIVE_BOT_JOBS) break;
+				if (this.#jobs.has(entry.jobId) || seen.has(entry.jobId)) continue;
+
+				seen.add(entry.jobId);
+
+				// A job the provider runs and this room does not take back would run on unseen.
+				if (gone || !provider.jobTypes.includes(entry.type) || taken.has(entry.type) || this.active.length + jobs.length >= MAX_ACTIVE_BOT_JOBS) {
+					stopProviderJobPersistently(provider, entry.jobId);
+					continue;
+				}
 
 				taken.add(entry.type);
 				jobs.push(entry);
@@ -331,7 +345,16 @@ export default class BotJobs {
 	public attach(peer: Peer): void {
 		const bot = peer.botId ? this.#bots.get(peer.botId) : undefined;
 
-		if (!bot || botOver(bot) || bot.state === 'leaving') return;
+		if (!bot) return;
+
+		// Its jobs ended while the page was on its way in.
+		if (botOver(bot) || bot.state === 'leaving') {
+			peer.admitted = false;
+			peer.notify({ method: 'botRejected', data: { reason: 'jobNotActive' } });
+			peer.close();
+
+			return;
+		}
 
 		// Two pages let in for the same bot before either had joined: the first one keeps it.
 		if (bot.peer && bot.peer !== peer && !bot.peer.closed) {
@@ -393,6 +416,22 @@ export default class BotJobs {
 			if (job) this.#failJob(job, text, true);
 			else this.#failBot(bot, text, true);
 		}
+	}
+
+	// A bot of a breakout room that did not survive a restart of this server: its jobs, which
+	// only its provider knows, are stopped there.
+	public release({ botId, credentialId, sessionId, host }: { botId: string; credentialId?: number; sessionId: string; host?: string }): void {
+		const provider = this.#room.botProviders.find((p) => p.credentialId === credentialId);
+
+		if (!provider || this.#bots.has(botId)) return;
+
+		// Remembered as over, so a page that comes again is not asked about again.
+		this.#rememberBot({ id: botId, sessionId, provider, state: 'ended', jobs: [] });
+
+		getProviderBotJobs(provider, botId, { host: host ?? this.#host(), roomId: this.#room.id })
+			.then((listed) => {
+				for (const { jobId } of listed) if (!this.#jobs.has(jobId)) stopProviderJobPersistently(provider, jobId);
+			}, () => undefined);
 	}
 
 	// A room that closes stops its jobs. A room server that shuts down does not: the
@@ -491,6 +530,7 @@ export default class BotJobs {
 			bot.state = 'leaving';
 			this.#arm(bot, BOT_JOB_TIMERS.leave, () => {
 				logger.info('stop() bot did not leave, closing it [roomId: %s, botId: %s]', this.#room.id, bot.id);
+				peer.admitted = false;
 				peer.notify({ method: 'moderator:kick', data: {} });
 				peer.close();
 			});
@@ -567,6 +607,7 @@ export default class BotJobs {
 			const peer = bot.peer;
 
 			bot.peer = undefined;
+			peer.admitted = false;
 			peer.notify({ method: 'botRejected', data: { reason: 'jobNotActive' } });
 			peer.close();
 		}

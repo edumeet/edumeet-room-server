@@ -609,9 +609,43 @@ describe('a bot the room server does not know', () => {
 			{ jobId: '6c3a2d2f-0000-4000-8000-00000000000d', type: 'streamer' },
 		]);
 
+		stopProviderJob.mockClear();
 		await room.botJobs.admit({ botId: unknown, credentialId: 9 });
 
 		expect(room.botJobs.active.map((job) => [ job.id, job.type ])).toEqual([ [ response.jobId, 'streamer' ], [ jobB, 'recorder' ] ]);
+		// what it does not take back is stopped at the provider; the job it knows is left alone
+		expect(stopProviderJob.mock.calls.map(([ , id ]) => id).sort()).toEqual([ jobA, '6c3a2d2f-0000-4000-8000-00000000000c', '6c3a2d2f-0000-4000-8000-00000000000d' ].sort());
+	});
+
+	test('takes a job the provider lists twice only once', async () => {
+		const room = makeRoom([ everything ]);
+
+		makeHuman(room);
+		getProviderBotJobs.mockImplementation(async () => [ { jobId: jobA, type: 'recorder' }, { jobId: jobA, type: 'transcriber' } ]);
+		await room.botJobs.admit({ botId: unknown, credentialId: 9 });
+
+		expect(room.botJobs.active.map((job) => [ job.id, job.type ])).toEqual([ [ jobA, 'recorder' ] ]);
+
+		room.botJobs.stop(jobA);
+		expect(room.botJobs.active).toEqual([]);
+	});
+
+	test('stops at the provider the jobs of a breakout room that closed while it was asked', async () => {
+		const room = makeRoom([ everything ]);
+		const breakout = new BreakoutRoom({ parent: room, name: 'Group A' });
+
+		room.breakoutRooms.set(breakout.sessionId, breakout);
+		makeHuman(room);
+		getProviderBotJobs.mockImplementation(async () => {
+			room.breakoutRooms.delete(breakout.sessionId);
+
+			return [ { jobId: jobA, type: 'recorder' } ];
+		});
+		stopProviderJob.mockClear();
+
+		expect(await room.botJobs.admit({ botId: unknown, credentialId: 9, sessionId: breakout.sessionId })).toEqual({ known: true, rejection: 'jobNotActive' });
+		expect(room.botJobs.active).toEqual([]);
+		expect(stopProviderJob).toHaveBeenCalledWith(expect.objectContaining({ credentialId: 9 }), jobA);
 	});
 
 	test('asks its provider once when two pages of it arrive at the same time', async () => {

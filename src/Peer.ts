@@ -99,6 +99,9 @@ export class Peer extends EventEmitter {
 	public readonly meetingToken?: string;
 	public readonly headless: boolean;
 	public readonly botVerified: boolean;
+	// Let into the room, past its lock and meeting token; a bot that was gets back in after a
+	// long disconnect.
+	public admitted = false;
 	public readonly botType?: BotType;
 	// The breakout session a bot was sent to; a participant picks sessions itself.
 	public readonly botSessionId?: string;

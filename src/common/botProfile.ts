@@ -1,4 +1,7 @@
+import { Logger } from 'edumeet-common';
 import type { Permission } from './authorization';
+
+const logger = new Logger('botProfile');
 
 export type RoomMiddlewareName =
 	| 'peer'
@@ -65,7 +68,11 @@ export const asBotProviders = (found: unknown): BotProvider[] => {
 
 		if (jobTypes.length === 0 || !Number.isInteger(credentialId) || credentialId <= 0) continue;
 		if (typeof row.apiUrl !== 'string' || !row.apiUrl.startsWith('https://')) continue;
-		if (typeof row.apiSecret !== 'string' || !row.apiSecret) continue;
+		// Sent as a bearer token, so only what a header can carry.
+		if (typeof row.apiSecret !== 'string' || !/^[\x21-\x7e]+$/.test(row.apiSecret)) {
+			logger.warn({ credentialId }, 'asBotProviders() a provider without a key that can be sent is left out');
+			continue;
+		}
 
 		providers.push({ credentialId, label: typeof row.label === 'string' && row.label ? row.label : 'Bot', jobTypes, apiUrl: row.apiUrl, apiSecret: row.apiSecret });
 	}

@@ -4,7 +4,7 @@ import { stopProviderJob } from './botProviderClient';
 
 const logger = new Logger('botProviderStop');
 
-// About 20 minutes in all: long enough for a provider to be redeployed or its database
+// About 19 minutes in all: long enough for a provider to be redeployed or its database
 // to fail over, short enough not to call a provider that is gone for good.
 export const STOP_RETRY_DELAYS_MS = [ 10_000, 30_000, 60_000, 120_000, 300_000, 600_000 ];
 export const MAX_PENDING_STOPS = 1000;
@@ -41,9 +41,12 @@ export const stopProviderJobPersistently = (provider: BotProvider, jobId: string
 
 			const delay = STOP_RETRY_DELAYS_MS[tries];
 
-			if (!retryable(err) || delay === undefined || (tries === 0 && pending.size > MAX_PENDING_STOPS)) {
+			const reason = !retryable(err) ? 'final' : delay === undefined ? 'exhausted'
+				: tries === 0 && pending.size > MAX_PENDING_STOPS ? 'tooMany' : undefined;
+
+			if (reason) {
 				pending.delete(key);
-				logger.warn({ credentialId: provider.credentialId, jobId, tries: tries + 1 }, 'stopProviderJobPersistently() gave up, the provider may still run the job');
+				logger.warn({ credentialId: provider.credentialId, jobId, tries: tries + 1, reason }, 'stopProviderJobPersistently() gave up, the provider may still run the job');
 
 				return;
 			}

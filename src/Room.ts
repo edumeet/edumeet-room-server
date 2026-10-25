@@ -433,6 +433,8 @@ export default class Room extends EventEmitter {
 	private allowPeer(peer: Peer): void {
 		logger.debug('allowPeer() [sessionId: %s, id: %s]', this.sessionId, peer.id);
 
+		peer.admitted = true;
+
 		this.assignRouter(peer);
 
 		this.pendingPeers.add(peer);

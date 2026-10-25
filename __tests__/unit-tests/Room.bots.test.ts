@@ -238,3 +238,32 @@ describe('a headless peer sent to a breakout room', () => {
 		expect(human.sessionId).toBe(room.sessionId);
 	});
 });
+
+describe('a peer let into the room', () => {
+	const openRoom = (locked = false): Room => {
+		const room = makeRoom();
+
+		room.locked = locked;
+		jest.spyOn(room as unknown as { assignRouter: () => void }, 'assignRouter').mockImplementation(() => undefined);
+		room.resolveRoomReady();
+
+		return room;
+	};
+
+	test('is marked as let in, by the door or from the lobby, and one left waiting is not', async () => {
+		const open = openRoom();
+		const bot = makePeer(true);
+
+		await open.addPeer(bot);
+		expect(bot.admitted).toBe(true);
+
+		const locked = openRoom(true);
+		const waiting = makePeer(true);
+
+		await locked.addPeer(waiting);
+		expect(waiting.admitted).toBe(false);
+
+		locked.promotePeer(waiting);
+		expect(waiting.admitted).toBe(true);
+	});
+});

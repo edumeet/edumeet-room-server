@@ -8,6 +8,7 @@ import { BotProvider, asBotProviders, asBotRecipients, asBotTypes, asJobId, asPr
 import { Permission } from '../../src/common/authorization';
 import { createJoinMiddleware } from '../../src/middlewares/joinMiddleware';
 import * as providerClient from '../../src/common/botProviderClient';
+import { STOP_RETRY_DELAYS_MS } from '../../src/common/botProviderStop';
 
 jest.mock('../../src/common/botProviderClient', () => ({
 	startProviderJob: jest.fn(async () => undefined),
@@ -120,6 +121,56 @@ describe('starting a bot job, the edges', () => {
 		expect(stopProviderJob).toHaveBeenCalledTimes(2);
 	});
 
+	test('tells the provider to stop again when the start fails after the job was stopped', async () => {
+		// eslint-disable-next-line no-unused-vars
+		let refuse: (e: Error) => void = () => undefined;
+
+		startProviderJob.mockImplementation(() => new Promise<void>((_, reject) => { refuse = reject; }));
+
+		const room = makeRoom();
+		const anna = makeHuman(room);
+		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		await flush();
+		await request(anna, 'moderator:stopBotJob', { jobId: response.jobId });
+		expect(stopProviderJob).toHaveBeenCalledTimes(1);
+
+		refuse(new Error('timeout'));
+		await flush();
+		expect(stopProviderJob).toHaveBeenCalledTimes(2);
+		expect(stopProviderJob).toHaveBeenLastCalledWith(recorder, response.jobId);
+		expect(methods(anna)).not.toContain('botJobFailed');
+	});
+
+	test('lets the bot leave quietly when the start fails after a stop, while the bot is in the room', async () => {
+		// eslint-disable-next-line no-unused-vars
+		let refuse: (e: Error) => void = () => undefined;
+
+		startProviderJob.mockImplementation(() => new Promise<void>((_, reject) => { refuse = reject; }));
+
+		const room = makeRoom();
+		const anna = makeHuman(room);
+		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		await flush();
+
+		const botId = lastBotId();
+		const bot = makeBot(room, botId);
+
+		await room.botJobs.admit({ botId, credentialId: 7, botType: 'recorder' });
+		room.joinPeer(bot);
+		await request(anna, 'moderator:stopBotJob', { jobId: response.jobId });
+		expect(stopProviderJob).toHaveBeenCalledTimes(1);
+
+		refuse(new Error('timeout'));
+		await flush();
+
+		expect(stopProviderJob).toHaveBeenCalledTimes(2);
+		expect(methods(anna)).not.toContain('botJobFailed');
+		expect(methods(bot)).not.toContain('botRejected');
+		expect(state(room, response.jobId as string)).toBe('stopping');
+	});
+
 	test('does not fail a job twice when the provider refuses after the join timeout', async () => {
 		// eslint-disable-next-line no-unused-vars
 		let refuse: (e: Error) => void = () => undefined;
@@ -230,7 +281,7 @@ describe('stopping a bot job, the edges', () => {
 		await flush();
 		expect(stopProviderJob).toHaveBeenCalledTimes(1);
 
-		await jest.advanceTimersByTimeAsync(10_000);
+		await jest.advanceTimersByTimeAsync(STOP_RETRY_DELAYS_MS[0]);
 		expect(stopProviderJob).toHaveBeenCalledTimes(2);
 		expect(stopProviderJob).toHaveBeenLastCalledWith(recorder, jobId);
 	});
@@ -319,7 +370,7 @@ describe('the bot of a job, the edges', () => {
 		expect(state(room, jobId)).toBe('joined');
 	});
 
-	test('is not attached to a bot that is already over', async () => {
+	test('sends away a page that arrives once its bot is over', async () => {
 		const { room, anna, jobId, bot, botId } = await running();
 
 		await request(anna, 'moderator:stopBotJob', { jobId });
@@ -328,9 +379,37 @@ describe('the bot of a job, the edges', () => {
 		const late = makeBot(room, botId);
 
 		room.joinPeer(late);
+		expect(late.notify).toHaveBeenCalledWith({ method: 'botRejected', data: { reason: 'jobNotActive' } });
+		expect(late.closed).toBe(true);
 		expect(room.botJobs.active).toEqual([]);
-		expect((await request(late, 'botStatus', { state: 'running' })).handled).toBe(true);
-		expect(room.botJobs.active).toEqual([]);
+	});
+
+	test('is not let back in as one returning once a moderator removed it, or it was sent away', async () => {
+		const { room, anna, bot } = await running();
+
+		bot.admitted = true;
+		await request(anna, 'moderator:kickPeer', { peerId: bot.id });
+		expect(bot.closed).toBe(true);
+		expect(bot.admitted).toBe(false);
+
+		const late = makeBot(room, lastBotId());
+
+		late.admitted = true;
+		room.joinPeer(late);
+		expect(late.closed).toBe(true);
+		expect(late.admitted).toBe(false);
+	});
+
+	test('sends away a page whose bot is leaving', async () => {
+		const { room, anna, jobId, botId } = await running();
+
+		await request(anna, 'moderator:stopBotJob', { jobId });
+
+		const late = makeBot(room, botId);
+
+		room.joinPeer(late);
+		expect(late.notify).toHaveBeenCalledWith({ method: 'botRejected', data: { reason: 'jobNotActive' } });
+		expect(late.closed).toBe(true);
 	});
 });
 
@@ -368,7 +447,37 @@ describe('a bot the room server does not know, the edges', () => {
 		}
 
 		getProviderBotJobs.mockImplementation(async () => [ { jobId: '6c3a2d2f-0000-4000-8000-00000000000a', type: 'recorder' } ]);
-		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7, sessionId: 's-other' })).toEqual({ known: true, rejection: 'jobNotActive' });
+		stopProviderJob.mockClear();
+		// the main room, which runs none of the jobs: only the cap keeps this one out
+		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7 })).toEqual({ known: true, rejection: 'jobNotActive' });
+		expect(stopProviderJob).toHaveBeenCalledWith(recorder, '6c3a2d2f-0000-4000-8000-00000000000a');
+	});
+
+	test('of a breakout room gone after a restart is asked about once, and its known jobs are left alone', async () => {
+		const { room, jobId } = await running();
+		const listed = [ { jobId, type: 'recorder' }, { jobId: '6c3a2d2f-0000-4000-8000-00000000000b', type: 'recorder' } ];
+
+		getProviderBotJobs.mockImplementation(async () => listed);
+		stopProviderJob.mockClear();
+
+		room.botJobs.release({ botId: unknown, credentialId: 7, sessionId: 'gone', host: 'meet.example.org' });
+		room.botJobs.release({ botId: unknown, credentialId: 7, sessionId: 'gone', host: 'meet.example.org' });
+		await flush();
+
+		expect(getProviderBotJobs).toHaveBeenCalledTimes(1);
+		expect(stopProviderJob.mock.calls.map(([ , id ]) => id)).toEqual([ '6c3a2d2f-0000-4000-8000-00000000000b' ]);
+		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7 })).toEqual({ known: true, rejection: 'jobNotActive' });
+	});
+
+	test('of a breakout room gone after a restart asks nothing of a provider the room does not have, nor about a bot it knows', async () => {
+		const { room, botId } = await running();
+
+		getProviderBotJobs.mockClear();
+		room.botJobs.release({ botId: unknown, credentialId: 99, sessionId: 'gone' });
+		room.botJobs.release({ botId, credentialId: 7, sessionId: 'gone' });
+		await flush();
+
+		expect(getProviderBotJobs).not.toHaveBeenCalled();
 	});
 
 	test('forgets the oldest finished bots and jobs rather than remembering every one', async () => {
@@ -397,7 +506,7 @@ describe('what the management server hands over', () => {
 		expect(asBotProviders([ { ...good, label: '' } ])[0].label).toBe('Bot');
 		expect(asBotProviders([ { ...good, jobTypes: [ 'dancer', 'recorder' ] } ])[0].jobTypes).toEqual([ 'recorder' ]);
 
-		for (const bad of [ { ...good, jobTypes: [ 'dancer' ] }, { ...good, jobTypes: [] }, { ...good, jobTypes: 'recorder' }, { ...good, jobTypes: undefined }, { ...good, apiUrl: 'http://rec.example.com' }, { ...good, apiUrl: undefined }, { ...good, apiSecret: '' }, { ...good, apiSecret: 5 }, { ...good, credentialId: 'x' }, { ...good, credentialId: 0 }, null, 'row' ])
+		for (const bad of [ { ...good, jobTypes: [ 'dancer' ] }, { ...good, jobTypes: [] }, { ...good, jobTypes: 'recorder' }, { ...good, jobTypes: undefined }, { ...good, apiUrl: 'http://rec.example.com' }, { ...good, apiUrl: undefined }, { ...good, apiSecret: '' }, { ...good, apiSecret: 5 }, { ...good, apiSecret: 'key\r\nX-Other: 1' }, { ...good, apiSecret: 'two words' }, { ...good, apiSecret: 'klöß' }, { ...good, credentialId: 'x' }, { ...good, credentialId: 0 }, null, 'row' ])
 			expect(asBotProviders([ bad ])).toEqual([]);
 
 		for (const notAList of [ undefined, null, {}, 'rows', { data: [ good ] } ]) expect(asBotProviders(notAList)).toEqual([]);

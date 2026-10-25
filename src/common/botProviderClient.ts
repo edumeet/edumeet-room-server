@@ -25,7 +25,7 @@ export interface BotJobRequest {
 }
 
 // `retryable` marks a failure that may pass: the provider could not be reached, did
-// not answer in time, or answered with a server error.
+// not answer in time, answered with a server error, or asked to come back later.
 export class BotProviderError extends Error {
 	public readonly retryable: boolean;
 
@@ -36,7 +36,7 @@ export class BotProviderError extends Error {
 	}
 }
 
-const passing = (status: number): boolean => status >= 500 || status === 408 || status === 429;
+const passing = (status: number): boolean => (status >= 500 && status !== 501 && status !== 505) || status === 408 || status === 429;
 
 const readCapped = async (response: Response): Promise<string> => {
 	const reader = response.body?.getReader();
@@ -80,15 +80,24 @@ const call = async (provider: BotProvider, method: 'POST' | 'DELETE' | 'GET', pa
 
 	if (url.protocol !== 'https:') throw new BotProviderError('provider url is not https');
 
+	let headers: Headers;
+
+	// The error of a key that cannot go in a header quotes the key.
+	try {
+		headers = new Headers({
+			'Authorization': `Bearer ${provider.apiSecret}`,
+			...(body ? { 'Content-Type': 'application/json' } : {})
+		});
+	} catch {
+		throw new BotProviderError('provider key cannot be sent');
+	}
+
 	try {
 		const response = await fetch(url, {
 			method,
 			redirect: 'error',
 			signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-			headers: {
-				'Authorization': `Bearer ${provider.apiSecret}`,
-				...(body ? { 'Content-Type': 'application/json' } : {})
-			},
+			headers,
 			body: body ? JSON.stringify(body) : undefined
 		});
 
