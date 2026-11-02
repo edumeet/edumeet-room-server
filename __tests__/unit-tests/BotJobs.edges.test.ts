@@ -26,6 +26,7 @@ const created: Peer[] = [];
 const makeRoom = (providers: BotProvider[] = [ recorder ]): Room => {
 	const room = new Room({ id: 'r', tenantId: 1, tenantFqdn: 'meet.example.org', mediaService: {} as unknown as MediaService });
 
+	room.managedId = '1';
 	room.botProviders = providers;
 
 	return room;
@@ -580,6 +581,17 @@ describe('the join response', () => {
 		expect('botProviders' in await join(makeRoom(), newPeer({ headless: true }))).toBe(false);
 		expect('botProviders' in await join(makeRoom([]), newPeer())).toBe(false);
 		expect('botJobs' in await join(makeRoom([]), newPeer())).toBe(false);
+	});
+
+	test('offers no providers in a room nobody has claimed', async () => {
+		const room = makeRoom();
+
+		room.managedId = undefined;
+
+		const response = await join(room, newPeer());
+
+		expect('botProviders' in response).toBe(false);
+		expect('botJobs' in response).toBe(false);
 	});
 });
 

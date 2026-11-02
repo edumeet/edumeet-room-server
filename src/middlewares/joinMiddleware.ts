@@ -58,7 +58,7 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				// The session the peer is actually in; a bot may have been placed in a breakout.
 				response.sessionId = peer.sessionId;
 
-				if (!peer.headless && room.botProviders.length > 0) {
+				if (!peer.headless && room.managedId && room.botProviders.length > 0) {
 					response.botProviders = room.botJobs.providers();
 					response.botJobs = room.botJobs.inSession(peer.sessionId);
 				}

@@ -24,6 +24,7 @@ const created: Peer[] = [];
 const makeRoom = (providers: BotProvider[] = [ recorder ]): Room => {
 	const room = new Room({ id: 'lecture 1', tenantId: 1, tenantFqdn: 'meet.example.org', mediaService: {} as unknown as MediaService });
 
+	room.managedId = '1';
 	room.botProviders = providers;
 
 	return room;
@@ -169,6 +170,16 @@ describe('starting a bot job', () => {
 		const context = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
 
 		expect(context.handled).toBe(false);
+	});
+
+	test('is only for a room somebody has claimed, whose first participant is no moderator of it', async () => {
+		const room = makeRoom();
+
+		room.managedId = undefined;
+		await expect(request(makeHuman(room), 'moderator:startBotJob', { type: 'recorder' })).rejects.toThrow('room not managed');
+		await flush();
+		expect(startProviderJob).not.toHaveBeenCalled();
+		expect(room.botJobs.active).toEqual([]);
 	});
 
 	test('fails the job, tells the provider and the moderators when the provider refuses', async () => {

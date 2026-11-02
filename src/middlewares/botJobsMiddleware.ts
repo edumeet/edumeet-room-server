@@ -10,7 +10,9 @@ const logger = new Logger('BotJobsMiddleware');
 // and stops jobs, and the bot that runs them reports how they are doing. A job runs in
 // the session the moderator is in when starting it, so no session id is read from
 // the message. The moderator has to be signed in: the recording is delivered to
-// people by their accounts, and somebody accountable must be behind it.
+// people by their accounts, and somebody accountable must be behind it. The room
+// has to be a managed one: in a room nobody has claimed, the first person in is a
+// moderator, and nobody owns what is recorded.
 export const createBotJobsMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
 	logger.debug('createBotJobsMiddleware() [room: %s]', room.sessionId);
 
@@ -28,6 +30,7 @@ export const createBotJobsMiddleware = ({ room }: { room: Room; }): Middleware<P
 			case 'moderator:startBotJob': {
 				if (peer.headless || !peer.managedId || !peer.hasPermission(Permission.MODERATE_ROOM))
 					throw new Error('peer not authorized');
+				if (!room.managedId) throw new Error('room not managed');
 
 				const type = asBotType(message.data?.type);
 				const providerId = message.data?.providerId == null ? undefined : Number(message.data.providerId);
