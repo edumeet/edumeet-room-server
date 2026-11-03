@@ -113,14 +113,10 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 					data: { producerId: producer.id, spatialLayer }
 				}));
 
-				(async () => {
-					for (const consumerPeer of room.getPeers(peer)) {
-						if (!consumerPeer.sameSession(peer))
-							continue;
-
-						await createConsumer(consumerPeer, peer, producer);
-					}
-				})();
+				// In parallel: one peer still waiting for its router must not hold back everyone after it.
+				Promise.allSettled(room.getPeers(peer)
+					.filter((consumerPeer) => consumerPeer.sameSession(peer))
+					.map((consumerPeer) => createConsumer(consumerPeer, peer, producer)));
 
 				break;
 			}
@@ -211,14 +207,9 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 				if (dataProducer.label === OBSERVER_SAMPLES_LABEL) break;
 
-				(async () => {
-					for (const consumerPeer of room.getPeers(peer)) {
-						if (!consumerPeer.sameSession(peer))
-							continue;
-
-						await createDataConsumer(consumerPeer, peer, dataProducer);
-					}
-				})();
+				Promise.allSettled(room.getPeers(peer)
+					.filter((consumerPeer) => consumerPeer.sameSession(peer))
+					.map((consumerPeer) => createDataConsumer(consumerPeer, peer, dataProducer)));
 
 				break;
 			}

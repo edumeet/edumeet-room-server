@@ -217,12 +217,13 @@ export class MediaNode extends EventEmitter {
 			this.connection = this.setupConnection();
 		}
 
-		const [ error ] = await this.connection.ready;
+		const connection = this.connection;
+		const [ error ] = await connection.ready;
 
 		if (error) {
 			logger.error({ err: error, hostname: this.hostname }, 'getOrCreateConnection() failed');
 
-			this.connection.close();
+			connection.close();
 
 			this.markUnhealthy(`connection failed: ${error.message}`);
 			this.startHealthCheck();
@@ -338,7 +339,8 @@ export class MediaNode extends EventEmitter {
 			if (error instanceof SocketTimeoutError) {
 				logger.error('request() | timeout');
 
-				this.connection?.close();
+				// Not this.connection: it may already be a newer connection that is still opening.
+				connection.close();
 				this.markUnhealthy(`request timeout [method: ${request.method}]`);
 				this.startHealthCheck();
 			}

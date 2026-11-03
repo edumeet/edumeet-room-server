@@ -193,10 +193,10 @@ export class Peer extends EventEmitter {
 
 		this.initialConsume = false;
 
-		if (!initial) {
-			this.notify({ method: 'lostMediaServer' });
-			this.rejectRouterReady?.(new Error('Router reset'));
-		}
+		if (!initial) this.notify({ method: 'lostMediaServer' });
+
+		// Settle the previous promise even on a reconnect reset, or anyone still awaiting it waits forever.
+		this.rejectRouterReady?.(new Error('Router reset'));
 
 		if (this.turnCredentialsInterval) {
 			clearInterval(this.turnCredentialsInterval);
@@ -238,6 +238,8 @@ export class Peer extends EventEmitter {
 			clearInterval(this.turnCredentialsInterval);
 			this.turnCredentialsInterval = undefined;
 		}
+
+		this.rejectRouterReady(new Error('Peer closed'));
 
 		this.connections.items.forEach((c) => c.close());
 		this.producers.forEach((p) => p.close());

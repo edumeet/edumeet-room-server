@@ -53,6 +53,8 @@ export const createConsumer = async (
 	const [ consumerError, consumerRouter ] = await consumerPeer.routerReady;
 	const [ producerError, producerRouter ] = await producerPeer.routerReady;
 
+	if (consumerPeer.closed || producerPeer.closed) return;
+
 	if (producerError || consumerError || !consumerPeer.rtpCapabilities)
 		return logger.warn(
 			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s]',
@@ -262,6 +264,8 @@ export const createDataConsumer = async (
 ): Promise<void> => {
 	const [ consumerError, consumerRouter ] = await consumerPeer.routerReady;
 	const [ producerError, producerRouter ] = await producerPeer.routerReady;
+
+	if (consumerPeer.closed || producerPeer.closed) return;
 
 	if (producerError || consumerError)
 		return logger.warn(

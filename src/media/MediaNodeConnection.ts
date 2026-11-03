@@ -110,6 +110,9 @@ export class MediaNodeConnection extends EventEmitter {
 		clearTimeout(this.#resolveReadyTimeoutHandle);
 		this.#resolveReadyTimeoutHandle = undefined;
 
+		// Clearing the timeout above removes the only other way a pending ready settles.
+		this.rejectReady(new ConnectionError('connection closed before ready'));
+
 		this.emit('close', remoteClose);
 	}
 
