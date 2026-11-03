@@ -481,8 +481,11 @@ The room-server reads its tenant's providers once, when the room is created, alo
 itself, and keeps them for as long as the room lives: later changes in the management server apply
 to the next room. A failure to read them, an older management server without the `bot-providers`
 service, a room outside a tenant, or a deployment without a management server all mean the same
-thing, no providers, and then there is no job API and no buttons in the room. Nothing else about
-bots changes: a bot started by hand works as before.
+thing, no providers, and then there is no job API and no buttons in the room. A room that is not
+claimed in the management (no `managedId`) gets no providers on join either, and
+`moderator:startBotJob` there answers `room not managed`: in such a room the first participant has
+every permission, so anyone signed in could otherwise record a room nobody owns. Stopping a job is
+still allowed. Nothing else about bots changes: a bot started by hand works as before.
 
 Requests, all of them needing `MODERATE_ROOM` and a signed-in peer (one with a `managedId`, since the
 recording is delivered to people by their accounts): `moderator:startBotJob` with the job type and,
