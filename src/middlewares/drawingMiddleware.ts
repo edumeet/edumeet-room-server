@@ -92,12 +92,14 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 					room.drawing.canvasState.push(canvasObject);
 				} else if (canvasAction.status == 'modified') {
 					const index = room.drawing.canvasState.findIndex((obj) => obj.objectId == canvasAction.object.id);
-					
-					room.drawing.canvasState[index] = canvasObject;
+
+					// Unknown objects are ignored, as the clients do; index -1 would set a stray array property.
+					if (index !== -1) room.drawing.canvasState[index] = canvasObject;
 				} else if (canvasAction.status == 'removed') {
 					const index = room.drawing.canvasState.findIndex((obj) => obj.objectId == canvasAction.object.id);
-					
-					room.drawing.canvasState.splice(index, 1);
+
+					// splice(-1, 1) would remove the last object instead.
+					if (index !== -1) room.drawing.canvasState.splice(index, 1);
 				}
 
 				room.notifyPeers('updateCanvas', {
@@ -108,8 +110,11 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 
 				break;
 			}
-			case 'clearCanvas': 
+			case 'clearCanvas':
 			{
+				// The client erases all without sending a 'removed' per object, so late joiners would get it all back.
+				room.drawing.canvasState = [];
+
 				room.notifyPeers('clearCanvas', {}, peer);
 
 				context.handled = true;

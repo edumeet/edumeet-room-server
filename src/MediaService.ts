@@ -156,10 +156,9 @@ export default class MediaService {
 		turnports
 	}: MediaNodeConfig) {
 		logger.debug(
-			'addMediaNode() [hostname: %s, port: %s, secret: %s, longitude: %s, latitude: %s]',
+			'addMediaNode() [hostname: %s, port: %s, longitude: %s, latitude: %s]',
 			hostname,
 			port,
-			secret,
 			longitude,
 			latitude
 		);

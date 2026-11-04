@@ -7,6 +7,7 @@ const logger = new Logger('MediaNodeConnection');
 
 interface MediaNodeConnectionOptions {
 	url: string,
+	secret?: string,
 	timeout: number,
 }
 
@@ -72,7 +73,7 @@ export class MediaNodeConnection extends EventEmitter {
 	#timeout;
 	#lastConnectError?: string;
 
-	constructor({ url, timeout = 3000 }: MediaNodeConnectionOptions) {
+	constructor({ url, secret, timeout = 3000 }: MediaNodeConnectionOptions) {
 		logger.debug('constructor() [url: %s, timeout: %s]', url, timeout);
 		super();
 
@@ -80,6 +81,7 @@ export class MediaNodeConnection extends EventEmitter {
 
 		try {
 			this.#socket = io(url, {
+				...(secret ? { query: { secret } } : {}),
 				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 				// @ts-ignore
 				transports: [ 'websocket', 'polling' ],

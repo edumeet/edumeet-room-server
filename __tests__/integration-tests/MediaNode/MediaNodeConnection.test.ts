@@ -1,4 +1,5 @@
 import 'jest';
+import { Logger } from 'edumeet-common';
 import { DrainingError, MediaNodeConnection, TimeoutError } from '../../../src/media/MediaNodeConnection';
 import { drainGreeting, startFakeMediaNode, startSilentPort } from './fakeMediaNode';
 
@@ -38,6 +39,28 @@ test('a media node that greets makes the connection ready', async () => {
 	const [ error ] = await sut.ready;
 
 	expect(error).toBeNull();
+
+	sut.close();
+	await node.close();
+});
+
+test('the secret reaches the media node but not the log', async () => {
+	const logged: unknown[] = [];
+	const debug = Object.getOwnPropertyDescriptor(Logger.prototype, 'debug') as PropertyDescriptor;
+
+	Object.defineProperty(Logger.prototype, 'debug', { configurable: true, get: () => (...args: unknown[]) => logged.push(args) });
+
+	const node = await startFakeMediaNode();
+	const sut = new MediaNodeConnection({ url: node.url, secret: 'top-secret', timeout: 3000 });
+
+	const [ error ] = await sut.ready;
+
+	Object.defineProperty(Logger.prototype, 'debug', debug);
+
+	expect(error).toBeNull();
+	expect(node.secrets).toEqual([ 'top-secret' ]);
+	expect(logged.length).toBeGreaterThan(0);
+	expect(JSON.stringify(logged)).not.toContain('top-secret');
 
 	sut.close();
 	await node.close();

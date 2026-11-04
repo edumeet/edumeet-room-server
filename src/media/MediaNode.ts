@@ -235,10 +235,9 @@ export class MediaNode extends EventEmitter {
 	}
 
 	private setupConnection(addListeners = true): MediaNodeConnection {
-		const secret = this.secret ? `?secret=${this.secret}` : '';
-	
 		const connection = new MediaNodeConnection({
-			url: `wss://${this.hostname}:${this.port}${secret}`,
+			url: `wss://${this.hostname}:${this.port}`,
+			secret: this.secret,
 			timeout: 3000
 		});
 

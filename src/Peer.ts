@@ -188,6 +188,9 @@ export class Peer extends EventEmitter {
 	}
 
 	public routerReset(initial = false): void {
+		// close() already settled routerReady; a reset now would start a TURN refresh interval nothing clears.
+		if (this.closed) return;
+
 		this.router = undefined;
 		this.rtpCapabilities = undefined;
 
@@ -241,7 +244,7 @@ export class Peer extends EventEmitter {
 
 		this.rejectRouterReady(new Error('Peer closed'));
 
-		this.connections.items.forEach((c) => c.close());
+		[ ...this.connections.items ].forEach((c) => c.close());
 		this.producers.forEach((p) => p.close());
 		this.consumers.forEach((c) => c.close());
 		this.consumingTransport?.close();

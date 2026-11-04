@@ -3,6 +3,7 @@ import MediaService from './MediaService';
 import { createMediaMiddleware } from './middlewares/mediaMiddleware';
 import { Peer, PeerContext } from './Peer';
 import { randomUUID } from 'crypto';
+import { isDeepStrictEqual } from 'util';
 import { createPeerMiddleware } from './middlewares/peerMiddleware';
 import { createChatMiddleware } from './middlewares/chatMiddleware';
 import { createPrivateChatMiddleware } from './middlewares/privateChatMiddleware';
@@ -244,11 +245,12 @@ export default class Room extends EventEmitter {
 		this.closed = true;
 		this.botJobs.close();
 
-		this.pendingPeers.items.forEach((p) => p.close());
-		this.peers.items.forEach((p) => p.close());
-		this.lobbyPeers.items.forEach((p) => p.close());
+		// Copies: a close that removes its item from the list it is in would skip the next item.
+		[ ...this.pendingPeers.items ].forEach((p) => p.close());
+		[ ...this.peers.items ].forEach((p) => p.close());
+		[ ...this.lobbyPeers.items ].forEach((p) => p.close());
 		this.breakoutRooms.forEach((r) => r.close());
-		this.routers.items.forEach((r) => r.close());
+		[ ...this.routers.items ].forEach((r) => r.close());
 
 		this.routers.clear();
 		this.mediaNodes.clear();
@@ -317,6 +319,8 @@ export default class Room extends EventEmitter {
 		// O(n) close listeners when many peers share the same router.
 		router.once('close', () => {
 			this.routers.remove(router);
+
+			if (this.closed) return;
 
 			for (const peer of this.peers.items) {
 				if (peer.router === router) {
@@ -623,13 +627,20 @@ export default class Room extends EventEmitter {
 		return this.doAssignRouter(peer);
 	}
 
-	private async doAssignRouter(peer: Peer): Promise<void> {
+	private async doAssignRouter(peer: Peer, loadedCapabilities?: RtpCapabilities): Promise<void> {
 		if (this.closed || peer.closed) return;
 
 		try {
 			const [ router, mediaNode ] = await this.mediaService.getRouter(this, peer);
 
 			if (this.closed) throw router.close();
+
+			// Owned by the room before the peer answers, so a peer that never does cannot leave it open.
+			this.addRouter(router);
+
+			// The client loads its device once. A router with other capabilities (nodes on different mediasoup
+			// versions) needs a fresh device, which lostMediaServer makes the client build.
+			if (loadedCapabilities && !isDeepStrictEqual(loadedCapabilities, router.rtpCapabilities)) peer.routerReset();
 
 			let iceServers = [] as IceServer[];
 
@@ -649,7 +660,12 @@ export default class Room extends EventEmitter {
 
 			const { rtpCapabilities } = mediaConfigResult;
 
-			this.addRouter(router);
+			// Quietly to the next router: nothing on the client uses this one yet, and transport requests wait
+			// on the still pending routerReady. A reset would show the client an error, restart its mic and
+			// camera, and could let a transport request sent for this router land next to the new one.
+			// doAssignRouter, not assignRouter: during the first assignment that would wait on itself.
+			if (router.closed) return this.doAssignRouter(peer, router.rtpCapabilities);
+
 			this.addMediaNode(mediaNode);
 			peer.router = router;
 			peer.resolveRouterReady(router);

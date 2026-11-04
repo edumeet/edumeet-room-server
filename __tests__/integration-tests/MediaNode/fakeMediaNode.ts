@@ -29,6 +29,8 @@ export interface FakeMediaNode {
 	port: number;
 	url: string;
 	connections: number;
+	// The secret each connection presented in its handshake.
+	secrets: unknown[];
 	// Read on every connection, so a test can take the node down and bring it back.
 	greeting: SocketMessage | null;
 	close: () => Promise<void>;
@@ -54,6 +56,7 @@ export const startFakeMediaNode = async ({ greeting = readyGreeting, onRequest }
 		port,
 		url: `wss://${address}:${port}`,
 		connections: 0,
+		secrets: [],
 		greeting,
 		close: async () => {
 			ioServer.disconnectSockets(true);
@@ -64,6 +67,8 @@ export const startFakeMediaNode = async ({ greeting = readyGreeting, onRequest }
 
 	ioServer.on('connection', (socket) => {
 		const connection = ++node.connections;
+
+		node.secrets.push(socket.handshake.query.secret);
 
 		if (node.greeting) socket.emit('notification', node.greeting);
 
