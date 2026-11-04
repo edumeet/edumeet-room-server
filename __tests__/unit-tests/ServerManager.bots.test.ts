@@ -5,6 +5,8 @@ import { Peer } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import ManagementService from '../../src/ManagementService';
 import BreakoutRoom from '../../src/BreakoutRoom';
+import { MAX_ACTIVE_BOT_JOBS } from '../../src/BotJobs';
+import { getConfig } from '../../src/Config';
 import { BaseConnection } from 'edumeet-common';
 import * as providerClient from '../../src/common/botProviderClient';
 import { pendingStops } from '../../src/common/botProviderStop';
@@ -505,6 +507,80 @@ describe('what a new room learns from its tenant', () => {
 		expect(room.locale).toBe('pl');
 		expect(await room.resolveBotRecipients?.([ '1', '2' ])).toEqual([ { email: 'a@example.org' } ]);
 		expect(getBotRecipients).toHaveBeenCalledWith(7, [ '1', '2' ]);
+	});
+
+	const limitOf = async (tenant: Record<string, unknown> | undefined): Promise<number> => {
+		const managementService = {
+			getTenantFromFqdn: jest.fn(async () => 7),
+			getTenant: jest.fn(async () => tenant),
+			getRoom: jest.fn(async () => undefined),
+			getBotProviders: jest.fn(async () => []),
+			getBotRecipients: jest.fn(async () => []),
+		} as unknown as ManagementService;
+		const rooms = new Map<string, Room>();
+		const manager = new ServerManager({
+			mediaService: {} as unknown as MediaService,
+			peers: new Map(),
+			rooms,
+			managedPeers: new Map(),
+			managedRooms: new Map(),
+			managementService,
+		});
+
+		jest.spyOn(Room.prototype, 'addPeer').mockResolvedValue(undefined);
+		await manager.handleConnection(makeConnection(), 'human', 'r', 'tenant.example.edu', 'rk', 'Anna');
+
+		const room = rooms.get('7/r') as Room;
+
+		await room.roomReady;
+
+		return room.maxBotJobs;
+	};
+
+	test('how many bot jobs a room may run at the same time, a tenant may lower it', async () => {
+		expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: 5 })).toBe(5);
+		expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: '5' })).toBe(5);
+		expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: MAX_ACTIVE_BOT_JOBS })).toBe(MAX_ACTIVE_BOT_JOBS);
+	});
+
+	test('a tenant never raises it above the server, whatever its row says', async () => {
+		expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: 25 })).toBe(MAX_ACTIVE_BOT_JOBS);
+		expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: 5000 })).toBe(MAX_ACTIVE_BOT_JOBS);
+	});
+
+	test('the server value, when the tenant sets none that is usable', async () => {
+		for (const tenant of [ undefined, { id: 7, name: 't' }, { id: 7, name: 't', maxBotJobsPerRoom: null }, { id: 7, name: 't', maxBotJobsPerRoom: 0 }, { id: 7, name: 't', maxBotJobsPerRoom: 2.5 }, { id: 7, name: 't', maxBotJobsPerRoom: 'many' }, { id: 7, name: 't', maxBotJobsPerRoom: true } ])
+			expect(await limitOf(tenant)).toBe(MAX_ACTIVE_BOT_JOBS);
+	});
+
+	test('the server value from the config, which is also the most a tenant may set', async () => {
+		const config = getConfig();
+
+		config.maxBotJobsPerRoom = 20;
+
+		try {
+			expect(await limitOf({ id: 7, name: 't' })).toBe(20);
+			expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: 15 })).toBe(15);
+			expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: 25 })).toBe(20);
+
+			config.maxBotJobsPerRoom = 3;
+			expect(await limitOf({ id: 7, name: 't', maxBotJobsPerRoom: 5 })).toBe(3);
+		} finally {
+			delete config.maxBotJobsPerRoom;
+		}
+	});
+
+	test('the default, when the config value is one the config check would have refused', async () => {
+		const config = getConfig();
+
+		try {
+			for (const value of [ 0, -1, 101, 2.5 ]) {
+				config.maxBotJobsPerRoom = value;
+				expect(await limitOf({ id: 7, name: 't' })).toBe(MAX_ACTIVE_BOT_JOBS);
+			}
+		} finally {
+			delete config.maxBotJobsPerRoom;
+		}
 	});
 });
 

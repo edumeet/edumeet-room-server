@@ -3,6 +3,7 @@ import { PeerContext } from '../Peer';
 import { Permission } from '../common/authorization';
 import { asBotType, asJobId } from '../common/botProfile';
 import Room from '../Room';
+import { BotJobLimitError } from '../BotJobs';
 
 const logger = new Logger('BotJobsMiddleware');
 
@@ -37,7 +38,14 @@ export const createBotJobsMiddleware = ({ room }: { room: Room; }): Middleware<P
 
 				if (!type) throw new Error('unknown bot job type');
 
-				response.jobId = room.botJobs.start(peer, type, providerId);
+				try {
+					response.jobId = room.botJobs.start(peer, type, providerId);
+				} catch (error) {
+					if (!(error instanceof BotJobLimitError)) throw error;
+
+					response.refused = 'tooManyBotJobs';
+					response.limit = error.limit;
+				}
 				context.handled = true;
 
 				break;

@@ -26,13 +26,16 @@ export interface BotJobRequest {
 
 // `retryable` marks a failure that may pass: the provider could not be reached, did
 // not answer in time, answered with a server error, or asked to come back later.
+// `busy` marks a provider that refused a new job with a 429.
 export class BotProviderError extends Error {
 	public readonly retryable: boolean;
+	public readonly busy: boolean;
 
-	constructor(message: string, retryable = false) {
+	constructor(message: string, retryable = false, busy = false) {
 		super(message);
 		this.name = 'BotProviderError';
 		this.retryable = retryable;
+		this.busy = busy;
 	}
 }
 
@@ -118,6 +121,12 @@ const call = async (provider: BotProvider, method: 'POST' | 'DELETE' | 'GET', pa
 
 export const startProviderJob = async (provider: BotProvider, job: BotJobRequest): Promise<void> => {
 	const { status } = await call(provider, 'POST', '/v1/jobs', job);
+
+	if (status === 429) {
+		logger.warn({ credentialId: provider.credentialId, status }, 'startProviderJob() provider is busy');
+
+		throw new BotProviderError('provider is busy', false, true);
+	}
 
 	if (status < 200 || status > 299) {
 		logger.warn({ credentialId: provider.credentialId, status }, 'startProviderJob() provider refused the job');

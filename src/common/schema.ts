@@ -88,6 +88,10 @@ export const AppConfigSchema = z.object({
 		z.union([ z.string(), z.array(z.string()) ])
 	).optional(),
 	defaultAllowedMediaNodeRegions: z.array(z.string()).optional(),
+	maxBotJobsPerRoom: z.number().int()
+		.min(1)
+		.max(100)
+		.optional(),
 	clientMonitoring: z.object({
 		roomInfo: z.boolean().optional(),
 		obfuscateRoomName: z.boolean().optional()

@@ -25,7 +25,7 @@ import { createBotJobsMiddleware } from './middlewares/botJobsMiddleware';
 import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
-import BotJobs from './BotJobs';
+import BotJobs, { MAX_ACTIVE_BOT_JOBS } from './BotJobs';
 import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
 import { MeetingTokenRejection, admitMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
@@ -74,6 +74,7 @@ export default class Room extends EventEmitter {
 	public allowedMediaNodeRegions?: string[]; // Possibly updated by the management service; undefined = no restriction
 	public botProviders: BotProvider[] = []; // Read from the management service when the room is created
 	public locale?: string; // The tenant's language for the mail sent about this room, read with the tenant
+	public maxBotJobs = MAX_ACTIVE_BOT_JOBS; // The server's, or the tenant's when lower, read with the tenant
 	// eslint-disable-next-line no-unused-vars
 	public resolveBotRecipients?: (userIds: string[]) => Promise<BotRecipient[]>;
 	public readonly botJobs = new BotJobs(this);

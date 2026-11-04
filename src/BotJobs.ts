@@ -19,7 +19,21 @@ export const BOT_JOB_TIMERS = {
 };
 
 export const MAX_ACTIVE_BOT_JOBS = 10;
-const MAX_REMEMBERED = 100;
+export const MAX_BOT_JOBS_LIMIT = 100;
+
+export class BotJobLimitError extends Error {
+	public readonly limit: number;
+
+	constructor(limit: number) {
+		super('too many bot jobs');
+		this.name = 'BotJobLimitError';
+		this.limit = limit;
+	}
+}
+
+// The finished ones are what is kept on top of the running ones, so a room that runs
+// as many jobs as it may still knows the jobs and bots it ended a short while ago.
+const MAX_REMEMBERED = MAX_BOT_JOBS_LIMIT + 100;
 const MAX_REASON_LENGTH = 200;
 const MIN_STATUS_INTERVAL = 1_000;
 
@@ -105,7 +119,11 @@ export default class BotJobs {
 		// One of each kind per session: a provider switches a kind on or off for its bot.
 		if ([ ...this.#jobs.values() ].some((job) => job.state === 'active' && job.type === type && job.bot.sessionId === sessionId))
 			throw new Error('bot job already running');
-		if (this.active.length >= MAX_ACTIVE_BOT_JOBS) throw new Error('too many bot jobs');
+		if (this.active.length >= this.#room.maxBotJobs) {
+			logger.info('start() refused, the room runs as many bot jobs as it may [roomId: %s, limit: %s]', this.#room.id, this.#room.maxBotJobs);
+
+			throw new BotJobLimitError(this.#room.maxBotJobs);
+		}
 
 		// A bot that is leaving finishes on its own; a job that comes after it gets a new bot.
 		let bot = [ ...this.#bots.values() ].find((b) => b.sessionId === sessionId && b.provider.credentialId === provider.credentialId && !botOver(b) && b.state !== 'leaving');
@@ -158,10 +176,10 @@ export default class BotJobs {
 			.then((posted) => {
 				// Stopped while the provider was still answering: it may not have known the job yet.
 				if (posted && job.state !== 'active') this.#tellProvider(job);
-			}, () => {
+			}, (err: unknown) => {
 				// A start that timed out may still have reached the provider after the stop did.
 				if (job.state !== 'active') this.#tellProvider(job);
-				else this.#failJob(job, 'providerError');
+				else this.#failJob(job, (err as { busy?: unknown } | undefined)?.busy === true ? 'providerBusy' : 'providerError');
 			});
 
 		return job.id;
@@ -297,7 +315,9 @@ export default class BotJobs {
 				seen.add(entry.jobId);
 
 				// A job the provider runs and this room does not take back would run on unseen.
-				if (gone || !provider.jobTypes.includes(entry.type) || taken.has(entry.type) || this.active.length + jobs.length >= MAX_ACTIVE_BOT_JOBS) {
+				// The room's own limit is for new jobs: a lower one set while these ran must not
+				// end them when the server restarts.
+				if (gone || !provider.jobTypes.includes(entry.type) || taken.has(entry.type) || this.active.length + jobs.length >= MAX_BOT_JOBS_LIMIT) {
 					stopProviderJobPersistently(provider, entry.jobId);
 					continue;
 				}

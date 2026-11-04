@@ -130,6 +130,7 @@ export type ManagedTenant = {
 	hideUserDetails?: boolean;
 	allowedMediaNodeRegions?: string[];
 	locale?: string | null;
+	maxBotJobsPerRoom?: number | null;
 };
 
 export type ManagedRoom = {

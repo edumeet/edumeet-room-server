@@ -6,6 +6,7 @@ import { verifyPeer } from './common/token';
 import MediaService from './MediaService';
 import { Peer } from './Peer';
 import Room from './Room';
+import { MAX_ACTIVE_BOT_JOBS, MAX_BOT_JOBS_LIMIT } from './BotJobs';
 import ManagementService from './ManagementService';
 import { RoomSettings } from './common/types';
 import { getConfig } from './Config';
@@ -369,6 +370,16 @@ export default class ServerManager {
 				: config.defaultAllowedMediaNodeRegions;
 
 			if (typeof tenant?.locale === 'string' && tenant.locale) room.locale = tenant.locale;
+
+			const configBotJobs = config.maxBotJobsPerRoom;
+			const serverBotJobs = Number.isInteger(configBotJobs) && Number(configBotJobs) >= 1 && Number(configBotJobs) <= MAX_BOT_JOBS_LIMIT
+				? Number(configBotJobs)
+				: MAX_ACTIVE_BOT_JOBS;
+			const tenantBotJobs = Number(tenant?.maxBotJobsPerRoom);
+
+			room.maxBotJobs = typeof tenant?.maxBotJobsPerRoom !== 'boolean' && Number.isInteger(tenantBotJobs) && tenantBotJobs > 0
+				? Math.min(tenantBotJobs, serverBotJobs)
+				: serverBotJobs;
 
 			const recipientsSource = this.managementService;
 

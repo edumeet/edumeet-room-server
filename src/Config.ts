@@ -72,6 +72,7 @@ export interface Config {
 	mediaNodes?: MediaNodeConfig[];
 	countryToRegion?: Record<string, string | string[]>;
 	defaultAllowedMediaNodeRegions?: string[];
+	maxBotJobsPerRoom?: number;
 	clientMonitoring?: ClientMonitoringConfig;
 }
 

@@ -3,7 +3,7 @@ import Room from '../../src/Room';
 import { Peer, PeerContext } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import BreakoutRoom from '../../src/BreakoutRoom';
-import { BOT_JOB_TIMERS, MAX_ACTIVE_BOT_JOBS } from '../../src/BotJobs';
+import { BOT_JOB_TIMERS, MAX_ACTIVE_BOT_JOBS, MAX_BOT_JOBS_LIMIT } from '../../src/BotJobs';
 import { BotProvider, asBotProviders, asBotRecipients, asBotTypes, asJobId, asProviderBotJobs, asRecipientIds } from '../../src/common/botProfile';
 import { Permission } from '../../src/common/authorization';
 import { createJoinMiddleware } from '../../src/middlewares/joinMiddleware';
@@ -143,6 +143,25 @@ describe('starting a bot job, the edges', () => {
 		expect(methods(anna)).not.toContain('botJobFailed');
 	});
 
+	test('says nothing of a busy provider when the job was stopped before the provider answered', async () => {
+		// eslint-disable-next-line no-unused-vars
+		let refuse: (e: Error) => void = () => undefined;
+
+		startProviderJob.mockImplementation(() => new Promise<void>((_, reject) => { refuse = reject; }));
+
+		const room = makeRoom();
+		const anna = makeHuman(room);
+		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		await flush();
+		await request(anna, 'moderator:stopBotJob', { jobId: response.jobId });
+
+		refuse(Object.assign(new Error('provider is busy'), { busy: true }));
+		await flush();
+		expect(stopProviderJob).toHaveBeenLastCalledWith(recorder, response.jobId);
+		expect(methods(anna)).not.toContain('botJobFailed');
+	});
+
 	test('lets the bot leave quietly when the start fails after a stop, while the bot is in the room', async () => {
 		// eslint-disable-next-line no-unused-vars
 		let refuse: (e: Error) => void = () => undefined;
@@ -200,9 +219,9 @@ describe('starting a bot job, the edges', () => {
 		}
 
 		anna.sessionId = 's-last';
-		await expect(request(anna, 'moderator:startBotJob', { type: 'recorder' })).rejects.toThrow('too many bot jobs');
+		expect((await request(anna, 'moderator:startBotJob', { type: 'recorder' })).response.refused).toBe('tooManyBotJobs');
 		await request(anna, 'moderator:stopBotJob', { jobId: ids[0] });
-		await expect(request(anna, 'moderator:startBotJob', { type: 'recorder' })).resolves.toBeDefined();
+		expect((await request(anna, 'moderator:startBotJob', { type: 'recorder' })).response.jobId).toEqual(expect.any(String));
 	});
 });
 
@@ -438,11 +457,13 @@ describe('a bot the room server does not know, the edges', () => {
 		expect(room.botJobs.inSession(room.sessionId)).toHaveLength(0);
 	});
 
-	test('takes over no more jobs than the room may run', async () => {
+	test('takes over no more jobs than a room may ever run', async () => {
 		const room = makeRoom();
 		const anna = makeHuman(room);
 
-		for (let i = 0; i < MAX_ACTIVE_BOT_JOBS; i++) {
+		room.maxBotJobs = MAX_BOT_JOBS_LIMIT;
+
+		for (let i = 0; i < MAX_BOT_JOBS_LIMIT; i++) {
 			anna.sessionId = `s-${i}`;
 			await request(anna, 'moderator:startBotJob', { type: 'recorder' });
 		}
@@ -452,6 +473,24 @@ describe('a bot the room server does not know, the edges', () => {
 		// the main room, which runs none of the jobs: only the cap keeps this one out
 		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7 })).toEqual({ known: true, rejection: 'jobNotActive' });
 		expect(stopProviderJob).toHaveBeenCalledWith(recorder, '6c3a2d2f-0000-4000-8000-00000000000a');
+	});
+
+	test('takes back the jobs that ran, also above a limit lowered since, and then starts no new one', async () => {
+		const room = makeRoom();
+		const anna = makeHuman(room);
+
+		room.maxBotJobs = 1;
+		anna.sessionId = 's-0';
+		await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		getProviderBotJobs.mockImplementation(async () => [ { jobId: '6c3a2d2f-0000-4000-8000-00000000000a', type: 'recorder' } ]);
+		stopProviderJob.mockClear();
+		expect(await room.botJobs.admit({ botId: unknown, credentialId: 7 })).toEqual({ known: true });
+		expect(stopProviderJob).not.toHaveBeenCalled();
+		expect(room.botJobs.active).toHaveLength(2);
+
+		anna.sessionId = 's-1';
+		expect((await request(anna, 'moderator:startBotJob', { type: 'recorder' })).response).toEqual({ refused: 'tooManyBotJobs', limit: 1 });
 	});
 
 	test('of a breakout room gone after a restart is asked about once, and its known jobs are left alone', async () => {
@@ -486,7 +525,7 @@ describe('a bot the room server does not know, the edges', () => {
 		const anna = makeHuman(room);
 		let first = '';
 
-		for (let i = 0; i < 120; i++) {
+		for (let i = 0; i < MAX_BOT_JOBS_LIMIT + 120; i++) {
 			const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
 
 			await flush();

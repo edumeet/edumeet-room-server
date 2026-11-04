@@ -438,6 +438,18 @@ When unset, those cases fall through to "no restriction" (every media node is el
 
 In the management server, each tenant can have an `allowedMediaNodeRegions` array (managed via the tenant editor in the client). When set and non-empty, it overrides the deployment-level default for rooms belonging to that tenant.
 
+## Bot jobs
+
+### `maxBotJobsPerRoom`
+
+- **Type:** `integer` from 1 to 100, optional
+- **Default:** `10`
+- **Description:** How many server recordings, live streams and transcriptions one room may run at the same time, its breakout rooms included, for every provider together. It is also the most a tenant may have: a tenant's own `maxBotJobsPerRoom` in the management server, set in the tenant editor, can lower it for that tenant's rooms but not raise it, so a tenant value above this one counts as this one. To let tenants choose more, raise this value. The tenant's value is read when a room opens, so a change there applies to the next room; a change to this config value needs a restart of the room server. The limit is for new jobs: jobs that a restarted room server takes back from their provider go on even when the limit was lowered while they ran (up to 100 per room). A job that is still stopping counts towards the limit. A moderator who starts one more job gets a notice with the limit (with a client of the same release), and the provider is not called. When a provider answers a new job with `429`, the moderators are told the provider is busy.
+
+```json
+"maxBotJobsPerRoom": 20
+```
+
 ## Client Monitoring
 
 ### `clientMonitoring`
@@ -504,7 +516,7 @@ asked to record later; only a transcription-only provider's bot is told it is a 
 audio alone. The participants of a session are told about its jobs with `botJobs` (each with its kind, the
 provider's label and the provider's id, so a client can tell which jobs share a bot), and
 moderators are told about a failure with `botJobFailed`; neither carries the provider's address or
-key. A room runs at most 10 jobs at once.
+key. A room runs at most `maxBotJobsPerRoom` jobs at once (see [Bot jobs](#bot-jobs)).
 
 The start call carries `room.mainSessionId`, the main room's session, on every job, the same for a
 job in a breakout room of that meeting, so a provider can group the recordings of one meeting.

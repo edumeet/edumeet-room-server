@@ -62,6 +62,19 @@ describe('calling a bot provider', () => {
 		await expect(startProviderJob(provider, job)).rejects.toThrow('provider request failed');
 	});
 
+	test('takes a 429 to a new job as a busy provider, and nothing else', async () => {
+		fetchMock.mockResolvedValue(answer(429));
+		await expect(startProviderJob(provider, job)).rejects.toMatchObject({ name: 'BotProviderError', message: 'provider is busy', busy: true });
+
+		for (const status of [ 400, 403, 500, 503 ]) {
+			fetchMock.mockResolvedValue(answer(status));
+			await expect(startProviderJob(provider, job)).rejects.toMatchObject({ busy: false });
+		}
+
+		fetchMock.mockRejectedValue(new Error('timeout'));
+		await expect(startProviderJob(provider, job)).rejects.toMatchObject({ busy: false });
+	});
+
 	test('stops a job with a delete, and takes a job the provider does not know as stopped', async () => {
 		fetchMock.mockResolvedValue(answer(404));
 		await stopProviderJob(provider, 'a/b');

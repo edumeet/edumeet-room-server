@@ -3,7 +3,7 @@ import Room from '../../src/Room';
 import { Peer, PeerContext } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import BreakoutRoom from '../../src/BreakoutRoom';
-import { BOT_JOB_TIMERS, MAX_ACTIVE_BOT_JOBS } from '../../src/BotJobs';
+import { BOT_JOB_TIMERS, MAX_ACTIVE_BOT_JOBS, MAX_BOT_JOBS_LIMIT } from '../../src/BotJobs';
 import { BotProvider } from '../../src/common/botProfile';
 import { Permission } from '../../src/common/authorization';
 import * as providerClient from '../../src/common/botProviderClient';
@@ -209,9 +209,11 @@ describe('starting a bot job', () => {
 		expect(stopProviderJob).toHaveBeenCalledTimes(1);
 	});
 
-	test('stops at the cap of jobs a room may run', async () => {
+	test('stops at the cap of jobs a room may run, and tells the moderator the cap', async () => {
 		const room = makeRoom();
 		const anna = makeHuman(room);
+
+		expect(room.maxBotJobs).toBe(MAX_ACTIVE_BOT_JOBS);
 
 		for (let i = 0; i < MAX_ACTIVE_BOT_JOBS; i++) {
 			anna.sessionId = `s-${i}`;
@@ -219,7 +221,70 @@ describe('starting a bot job', () => {
 		}
 
 		anna.sessionId = 's-last';
-		await expect(request(anna, 'moderator:startBotJob', { type: 'recorder' })).rejects.toThrow('too many bot jobs');
+
+		const { response, handled } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		expect(handled).toBe(true);
+		expect(response).toEqual({ refused: 'tooManyBotJobs', limit: MAX_ACTIVE_BOT_JOBS });
+		expect(room.botJobs.active).toHaveLength(MAX_ACTIVE_BOT_JOBS);
+		await flush();
+		expect(startProviderJob).toHaveBeenCalledTimes(MAX_ACTIVE_BOT_JOBS);
+	});
+
+	test('still knows a bot it ended, when the room then runs as many jobs as it may ever run', async () => {
+		const room = makeRoom();
+		const anna = makeHuman(room);
+
+		room.maxBotJobs = MAX_BOT_JOBS_LIMIT;
+		anna.sessionId = 's-ended';
+
+		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		await flush();
+
+		const endedBotId = botIdOf(0);
+
+		await request(anna, 'moderator:stopBotJob', { jobId: response.jobId });
+
+		for (let i = 0; i < MAX_BOT_JOBS_LIMIT; i++) {
+			anna.sessionId = `s-${i}`;
+			await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+		}
+
+		getProviderBotJobs.mockImplementation(async () => [ { jobId: response.jobId, type: 'recorder' } ]);
+		expect(room.botJobs.active).toHaveLength(MAX_BOT_JOBS_LIMIT);
+		expect(await room.botJobs.admit({ botId: endedBotId, credentialId: 7 })).toEqual({ known: true, rejection: 'jobNotActive' });
+		expect(getProviderBotJobs).not.toHaveBeenCalled();
+	});
+
+	test('takes the cap the room was given, breakout rooms included', async () => {
+		const room = makeRoom();
+		const breakout = new BreakoutRoom({ parent: room, name: 'Group A' });
+
+		room.breakoutRooms.set(breakout.sessionId, breakout);
+		room.maxBotJobs = 2;
+
+		const anna = makeHuman(room);
+
+		await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+		anna.sessionId = breakout.sessionId;
+		await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+		anna.sessionId = 's-third';
+
+		expect((await request(anna, 'moderator:startBotJob', { type: 'recorder' })).response).toEqual({ refused: 'tooManyBotJobs', limit: 2 });
+	});
+
+	test('tells the moderators when the provider is busy', async () => {
+		startProviderJob.mockImplementation(async () => { throw Object.assign(new Error('provider is busy'), { busy: true }); });
+
+		const room = makeRoom();
+		const anna = makeHuman(room);
+		const { response } = await request(anna, 'moderator:startBotJob', { type: 'recorder' });
+
+		await flush();
+		expect(state(room, response.jobId as string)).toBeUndefined();
+		expect(stopProviderJob).toHaveBeenCalledTimes(1);
+		expect(anna.notify).toHaveBeenCalledWith({ method: 'botJobFailed', data: expect.objectContaining({ jobId: response.jobId, reason: 'providerBusy' }) });
 	});
 
 	test('runs in the breakout room the moderator is in', async () => {
