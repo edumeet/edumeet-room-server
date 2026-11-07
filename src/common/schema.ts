@@ -70,7 +70,8 @@ export const AppConfigSchema = z.object({
 			secret: z.string(),
 			latitude: z.float64(),
 			longitude: z.float64(),
-			turnHostname: z.string(),
+			// TURN is optional: without turnHostname/turnports no ICE servers are sent to clients
+			turnHostname: z.string().optional(),
 			country: z.string().optional(),
 			turnports: z.array(z.object(
 				{
@@ -79,7 +80,7 @@ export const AppConfigSchema = z.object({
 						.positive(),
 					transport: protocolSchema
 				}
-			))
+			)).default([])
 		}
 	)),
 	countryToRegion: z.record(

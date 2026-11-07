@@ -30,6 +30,10 @@ export const getCredentials = (peerId: string, secret: string, validTimeInS: num
 };
 
 export const getIceServers = ({ hostname, username, credential, turnports }: IceServerConfig): IceServer[] => {
+	// No TURN configured: send no ICE server at all. An entry with an empty urls list
+	// is invalid for RTCPeerConnection.
+	if (!hostname || !turnports?.length) return [];
+
 	const urls = turnports.map((turnport) =>
 		`${turnport.protocol}:${hostname}:${turnport.port}?transport=${turnport.transport}`
 	);

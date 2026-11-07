@@ -12,7 +12,7 @@ import { socketHandler } from './common/socketHandler';
 import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
-import { getConfig } from './Config';
+import { configFilePath, getConfig } from './Config';
 import CustomMetricsService from './MetricsService';
 import { ConfigLoader } from './common/configLoader';
 import chokidar from 'chokidar';
@@ -50,7 +50,7 @@ const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPee
 interactiveServer(serverManager, managementService);
 
 // TODO handle no file error
-const configFile = process.env.CONFIG_FILE || './config/config.json';
+const configFile = configFilePath();
 const loader = new ConfigLoader(configFile, 150);
 const watcher = chokidar.watch(configFile, { ignoreInitial: true });
 
