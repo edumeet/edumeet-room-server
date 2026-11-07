@@ -32,7 +32,7 @@ interface MediaNodeOptions {
 	port: number;
 	secret: string;
 	turnHostname?: string;
-	turnports: Array<{
+	turnports?: Array<{
 		protocol: string; // turn / turns
 		port: number;
 		transport: string;
@@ -118,7 +118,7 @@ export class MediaNode extends EventEmitter {
 		this.port = port;
 		this.secret = secret;
 		this.turnHostname = turnHostname;
-		this.turnports = turnports;
+		this.turnports = turnports ?? [];
 		this.kdPoint = kdPoint;
 
 		this.startHealthCheck(true);

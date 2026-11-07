@@ -35,7 +35,7 @@ export type MediaNodeConfig = {
 	latitude: number;
 	country?: string;
 	turnHostname?: string;
-	turnports: Array<{
+	turnports?: Array<{
 		protocol: string; // turn / turns
 		port: number;
 		transport: string;

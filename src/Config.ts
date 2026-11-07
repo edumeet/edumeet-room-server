@@ -4,10 +4,13 @@ import fs from 'fs';
 
 let config: Config;
 
+// Path of the config file: CONFIG_FILE, or ./config/config.json
+export const configFilePath = (): string => process.env.CONFIG_FILE || './config/config.json';
+
 export function getConfig(): Config {
 	if (!config) {
 		try {
-			const rawConfig = fs.readFileSync('./config/config.json', 'utf8');
+			const rawConfig = fs.readFileSync(configFilePath(), 'utf8');
 
 			config = JSON.parse(rawConfig);
 		// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
