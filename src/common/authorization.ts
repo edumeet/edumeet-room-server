@@ -71,6 +71,46 @@ export const permittedProducer = (source: MediaSourceType, room: Room, peer: Pee
 		throw new Error('peer not authorized');
 };
 
+// The moderator of an unmanaged room gets every permission except BYPASS_ROOM_LOCK, which only a
+// signed-in peer gets, as a tenant admin could have disabled unmanaged rooms
+const unmanagedModeratorPermissions = (peer: Peer): Permission[] => (peer.managedId
+	? allPermissions
+	: allPermissions.filter((p) => p !== Permission.BYPASS_ROOM_LOCK));
+
+// An unmanaged room has no owner, so its first participant is its moderator. When the last
+// moderator leaves, the participant who has been in the room longest becomes moderator instead,
+// so a room is never left without one: the default role gives the others no moderation rights.
+// Whoever holds MODERATE_ROOM counts as a moderator, also one granted it during the meeting.
+// A peer still joining counts too, as it may be the first participant, made moderator when it
+// arrived; joinPeer() runs this again when it is in, in case the last moderator left meanwhile.
+export const ensureUnmanagedModerator = (room: Room): void => {
+	if (room.closed || room.managedId) return;
+
+	const isModerator = (p: Peer) => !p.headless && p.hasPermission(Permission.MODERATE_ROOM);
+
+	if ([ ...room.pendingPeers.items, ...room.peers.items ].some(isModerator)) return;
+
+	const next = room.participants[0];
+
+	if (!next) return;
+
+	logger.debug({ peerId: next.id }, 'ensureUnmanagedModerator() no moderator left, passing moderation on');
+
+	const hadPromotePermission = next.hasPermission(Permission.PROMOTE_PEER);
+	const permissions = [ ...new Set([ ...next.permissions, ...unmanagedModeratorPermissions(next) ]) ];
+
+	next.permissions = room.disableUnmanaged
+		? permissions.filter((p) => p !== Permission.BYPASS_ROOM_LOCK)
+		: permissions;
+
+	// The new moderator is now the one to let in those who wait in the lobby
+	if (!hadPromotePermission)
+		next.notify({ method: 'parkedPeers', data: { lobbyPeers: room.lobbyPeers.items.map((p) => (p.peerInfo)) } });
+
+	// Tells everyone, the new moderator included, that moderation was passed on and to whom
+	room.notifyPeers('moderatorHandover', { peerId: next.id });
+};
+
 export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, isReconnect = false): void => {
 	if (peer.headless) {
 		peer.permissions = [ ...(peer.botVerified ? botProfile.verifiedPermissions : botProfile.permissions) ];
@@ -117,23 +157,9 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 	} else if (room.participants.length === 0) { // unmanaged rooms - fake admin
 		logger.debug('Is unmanaged room - first peer');
 
-		// first user of unmanaged room gets all rights except BYPASS_ROOM_LOCK
-		// as an tenant admin could have disabled unmanaged rooms
-		const unmanagedAdminPermissions: Permission[] = allPermissions.filter(
-			(p) => p !== Permission.BYPASS_ROOM_LOCK
-		);
-
-		// If the peer is authorized he should have BYPASS_ROOM_LOCK
-		if (peer.managedId) {
-			logger.debug('Is auth peer - adding Permission.BYPASS_ROOM_LOCK');
-			unmanagedAdminPermissions.push(Permission.BYPASS_ROOM_LOCK);
-		} else {
-			logger.debug('Is not auth peer.');
-		}
-
 		// Combine and remove duplicates.
 		// We combine as in default permissions BYPASS_ROOM_LOCK might be added
-		peer.permissions = [ ...new Set([ ...unmanagedAdminPermissions, ...defaultPermissions ]) ];
+		peer.permissions = [ ...new Set([ ...unmanagedModeratorPermissions(peer), ...defaultPermissions ]) ];
 
 		// Ensure disableUnmanaged can't be bypassed via a defaultRole that includes BYPASS_ROOM_LOCK
 		if (room.disableUnmanaged)

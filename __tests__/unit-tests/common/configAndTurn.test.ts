@@ -84,3 +84,34 @@ describe('CONFIG_FILE', () => {
 		});
 	});
 });
+
+// The default role is given to every participant of an unmanaged room except the first,
+// who is made moderator on its own, so it must not carry moderation or room-control rights
+describe('shipped default role', () => {
+	const participantPermissions = [
+		'SEND_CHAT', 'SHARE_AUDIO', 'SHARE_VIDEO', 'SHARE_SCREEN', 'SHARE_EXTRA_VIDEO', 'SHARE_FILE', 'CHANGE_ROOM'
+	];
+	const names = (role?: { permissions: { name: string }[] }) => (role?.permissions ?? []).map((p) => p.name).sort();
+	const saved = process.env.CONFIG_FILE;
+
+	afterEach(() => {
+		if (saved === undefined) delete process.env.CONFIG_FILE;
+		else process.env.CONFIG_FILE = saved;
+	});
+
+	test('the built-in fallback, used without a config file, grants participant permissions only', async () => {
+		process.env.CONFIG_FILE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'room-server-config-')), 'missing.json');
+
+		await jest.isolateModulesAsync(async () => {
+			const { getConfig } = await import('../../../src/Config');
+
+			expect(names(getConfig().defaultRoomSettings?.defaultRole)).toEqual([ ...participantPermissions ].sort());
+		});
+	});
+
+	test('config.example.json grants participant permissions only', () => {
+		const example = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/config.example.json'), 'utf8'));
+
+		expect(names(example.defaultRoomSettings.defaultRole)).toEqual([ ...participantPermissions ].sort());
+	});
+});

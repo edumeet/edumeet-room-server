@@ -56,6 +56,8 @@ export interface PeerInfo {
 	recording: boolean;
 	headless: boolean;
 	botType?: BotType;
+	// Holds MODERATE_ROOM, so everyone can see who controls the room
+	moderator: boolean;
 }
 
 export interface PeerContext {
@@ -77,6 +79,7 @@ export declare interface Peer {
 	on(event: 'lostRole', listener: (oldRole: Role) => void): this;
 	on(event: 'sessionIdChanged', listener: (sessionId: string) => void): this;
 	on(event: 'managedIdChanged', listener: (oldId?: string, newId?: string) => void): this;
+	on(event: 'moderatorChanged', listener: (moderator: boolean) => void): this;
 
 	on(event: 'lostRouter', listener: () => void): this;
 }
@@ -349,6 +352,9 @@ export class Peer extends EventEmitter {
 		added.forEach((permission) => this.notify({ method: 'permissionAdded', data: { permission } }));
 		removed.forEach((permission) => this.notify({ method: 'permissionRemoved', data: { permission } }));
 
+		if (added.includes(Permission.MODERATE_ROOM)) this.emit('moderatorChanged', true);
+		if (removed.includes(Permission.MODERATE_ROOM)) this.emit('moderatorChanged', false);
+
 		if (removed.includes(Permission.SHARE_AUDIO)) {
 			this.producers.forEach((p) => {
 				if (p.appData.source === MediaSourceType.MIC || p.appData.source === MediaSourceType.SCREENAUDIO)
@@ -525,6 +531,7 @@ export class Peer extends EventEmitter {
 			recording: this.recording,
 			headless: this.headless,
 			botType: this.botType,
+			moderator: this.hasPermission(Permission.MODERATE_ROOM),
 		};
 	}
 }

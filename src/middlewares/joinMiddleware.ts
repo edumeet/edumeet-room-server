@@ -33,16 +33,12 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				if (isValidText(displayName, MAX_DISPLAY_NAME_LENGTH)) peer.displayName = displayName;
 				peer.picture = picture;
 
-				const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER) ?
-					room.lobbyPeers.items.map((p) => (p.peerInfo)) : [];
-
 				response.peers = room.getPeers().map((p) => (p.peerInfo));
 				response.chatHistory = room.chatHistory;
 				response.fileHistory = room.fileHistory;
 				response.countdownTimer = room.countdownTimer;
 				response.drawing = room.drawing;
 				response.breakoutRooms = room.getBreakoutRooms().map((b) => (b.breakoutRoomInfo));
-				response.lobbyPeers = lobbyPeers;
 				response.locked = room.locked;
 				// Torrent tracker for fileService (do not use DHT or the files will be visible)
 				if (room.maxFileSize)
@@ -54,6 +50,11 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 				context.handled = true;
 
 				if (peer.closed) break;
+
+				// Read after joinPeer(): joining can make the peer moderator, when the last one left
+				// while it was on its way in, and the client replaces its lobby list with this one
+				response.lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER) ?
+					room.lobbyPeers.items.map((p) => (p.peerInfo)) : [];
 
 				// The session the peer is actually in; a bot may have been placed in a breakout.
 				response.sessionId = peer.sessionId;
