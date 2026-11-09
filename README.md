@@ -254,6 +254,8 @@ Describes the default role assigned to users.
 
 Every participant gets the permissions of this role. In an unmanaged room, every participant except the first is given this role alone. The first participant is made the room's moderator separately, with every permission except `BYPASS_ROOM_LOCK`. A signed-in first participant gets that one too. So whatever this role grants, every anonymous visitor with the room's URL gets. The shipped role grants participant permissions only: `SEND_CHAT`, `SHARE_AUDIO`, `SHARE_VIDEO`, `SHARE_SCREEN`, `SHARE_EXTRA_VIDEO`, `SHARE_FILE` and `CHANGE_ROOM`. A moderator can give a participant more during the meeting. Adding moderation or room-control permissions here (`MODERATE_ROOM`, `MODERATE_CHAT`, `MODERATE_FILES`, `CHANGE_ROOM_LOCK`, `PROMOTE_PEER`, `CREATE_ROOM`, `BYPASS_ROOM_LOCK`) lets anyone who joins mute, kick, unlock, admit from the lobby or close the meeting.
 
+When the last participant holding `MODERATE_ROOM` leaves an unmanaged room, the participant who has been in the room longest becomes moderator the same way as the first one, so the room always has one. Everyone is told who the new moderator is.
+
 | Field | Type | Description |
 |------|------|-------------|
 | `name` | `string` | Human-readable role name |

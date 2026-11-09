@@ -27,7 +27,7 @@ import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import BotJobs, { MAX_ACTIVE_BOT_JOBS } from './BotJobs';
-import { Permission, isAllowed, updatePeerPermissions } from './common/authorization';
+import { Permission, ensureUnmanagedModerator, isAllowed, updatePeerPermissions } from './common/authorization';
 import { MeetingTokenRejection, admitMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
@@ -431,7 +431,9 @@ export default class Room extends EventEmitter {
 
 		if (this.peers.remove(peer)) this.notifyPeers('peerClosed', { peerId: peer.id }, peer);
 		if (this.lobbyPeers.remove(peer)) this.notifyPeersWithPermission('lobby:peerClosed', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
-		if (this.empty) this.close();
+		if (this.empty) return this.close();
+
+		ensureUnmanagedModerator(this);
 	}
 
 	@skipIfClosed
@@ -521,6 +523,11 @@ export default class Room extends EventEmitter {
 
 		this.peers.add(peer);
 
+		// Everyone sees who moderates, so a change is announced to the others; the peer itself
+		// learns it from its own permissionAdded / permissionRemoved
+		peer.on('moderatorChanged', (moderator: boolean) =>
+			this.notifyPeers('peerModeratorChanged', { peerId: peer.id, moderator }, peer));
+
 		// When a peer changes session (breakout rooms), close all consumers
 		// where the consumer and producer peers are no longer in the same session.
 		// This replaces per-consumer sessionIdChanged listeners with a single
@@ -564,6 +571,8 @@ export default class Room extends EventEmitter {
 		this.notifyPeers('newPeer', { ...peer.peerInfo }, peer);
 
 		if (peer.botId) this.botJobs.attach(peer);
+
+		ensureUnmanagedModerator(this);
 	}
 
 	@skipIfClosed
