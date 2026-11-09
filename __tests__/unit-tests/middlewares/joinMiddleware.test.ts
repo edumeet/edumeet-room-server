@@ -64,3 +64,17 @@ test('A joiner without the promote permission is told nothing about the lobby', 
 	expect(context.handled).toBe(true);
 	expect(context.response.lobbyPeers).toEqual([]);
 });
+
+test('A joiner made moderator while joining, as the last moderator left meanwhile, is handed the lobby', async () => {
+	const permissions = [ Permission.SEND_CHAT ];
+	const { room, context, sut } = setup(permissions);
+
+	// joinPeer() passes moderation on to the peer when no moderator is left
+	(room.joinPeer as jest.Mock).mockImplementation(() => permissions.push(Permission.PROMOTE_PEER));
+
+	await sut(context, next);
+
+	expect(context.response.lobbyPeers).toEqual([
+		{ id: 'a', displayName: 'a' }, { id: 'b', displayName: 'b' }, { id: 'c', displayName: 'c' },
+	]);
+});
