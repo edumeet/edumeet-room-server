@@ -273,6 +273,13 @@ export default class Room extends EventEmitter {
 		].some((p) => !p.headless);
 	}
 
+	// Whether the peer is anywhere in this room: joined, admitted, in the lobby or still
+	// being checked. A reconnect is only accepted into the room the peer is in.
+	public holds(peer: Peer): boolean {
+		return [ this.waitingPeers, this.pendingPeers, this.peers, this.lobbyPeers ]
+			.some((list) => list.items.includes(peer));
+	}
+
 	public get participants(): Peer[] {
 		return this.peers.items.filter((p) => !p.headless);
 	}
@@ -392,6 +399,14 @@ export default class Room extends EventEmitter {
 			return;
 		}
 
+		// Only a peer that is in the room gets its state. One still being checked (meeting
+		// token) gets its answer from addPeer on the new connection.
+		if (!this.peers.items.includes(peer) && !this.pendingPeers.items.includes(peer)) {
+			logger.debug('reconnectPeer() peer is not in the room yet [id: %s]', peer.id);
+
+			return;
+		}
+
 		const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER)
 			? this.lobbyPeers.items.map((p) => (p.peerInfo))
 			: [];
@@ -433,7 +448,22 @@ export default class Room extends EventEmitter {
 		if (this.lobbyPeers.remove(peer)) this.notifyPeersWithPermission('lobby:peerClosed', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
 		if (this.empty) return this.close();
 
+		// The meeting's content belongs to the people in it. A room kept open only by its
+		// lobby must not hand chat, files or the whiteboard to whoever is admitted next.
+		if (![ ...this.peers.items, ...this.pendingPeers.items ].some((p) => !p.headless))
+			this.clearContent();
+
 		ensureUnmanagedModerator(this);
+	}
+
+	private clearContent(): void {
+		logger.debug('clearContent() [sessionId: %s]', this.sessionId);
+
+		this.chatHistory = [];
+		this.fileHistory = [];
+		this.drawing = { isEnabled: false, bgColor: 'white', canvasState: [] } as Drawing;
+		this.breakoutRooms.forEach((r) => r.close());
+		this.breakoutRooms.clear();
 	}
 
 	@skipIfClosed
