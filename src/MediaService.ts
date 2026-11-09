@@ -40,6 +40,11 @@ export type MediaNodeConfig = {
 		port: number;
 		transport: string;
 	}>;
+	// TLS of the control connection: a CA certificate (path to a PEM file) the node's
+	// certificate must chain to, and whether to validate at all. Validation is on when
+	// ca is set; without either it is off, as before, and a warning is logged.
+	ca?: string;
+	rejectUnauthorized?: boolean;
 };
 
 export default class MediaService {
@@ -122,7 +127,7 @@ export default class MediaService {
 		const kdTree = new KDTree([]);
 		const mediaNodes: MediaNode[] = [];
 
-		for (const { hostname, port, secret, longitude, latitude, turnHostname, turnports } of config.mediaNodes) {
+		for (const { hostname, port, secret, longitude, latitude, turnHostname, turnports, ca, rejectUnauthorized } of config.mediaNodes) {
 			const mediaNode = new MediaNode({
 				id: randomUUID(),
 				hostname,
@@ -130,7 +135,9 @@ export default class MediaService {
 				secret,
 				turnHostname,
 				turnports,
-				kdPoint: new KDPoint([ latitude, longitude ])
+				kdPoint: new KDPoint([ latitude, longitude ]),
+				ca,
+				rejectUnauthorized
 			});
 
 			kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));
@@ -153,7 +160,9 @@ export default class MediaService {
 		latitude,
 		country,
 		turnHostname,
-		turnports
+		turnports,
+		ca,
+		rejectUnauthorized
 	}: MediaNodeConfig) {
 		logger.debug(
 			'addMediaNode() [hostname: %s, port: %s, longitude: %s, latitude: %s]',
@@ -171,6 +180,8 @@ export default class MediaService {
 			turnHostname,
 			turnports,
 			kdPoint: new KDPoint([ latitude, longitude ]),
+			ca,
+			rejectUnauthorized,
 		});
 
 		this.kdTree.addNode(new KDPoint([ latitude, longitude ], { mediaNode }));

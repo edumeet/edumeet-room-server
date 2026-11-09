@@ -9,6 +9,8 @@ interface MediaNodeConnectionOptions {
 	url: string,
 	secret?: string,
 	timeout: number,
+	ca?: string,
+	rejectUnauthorized?: boolean,
 }
 
 export interface MediaNodeInfo {
@@ -73,7 +75,7 @@ export class MediaNodeConnection extends EventEmitter {
 	#timeout;
 	#lastConnectError?: string;
 
-	constructor({ url, secret, timeout = 3000 }: MediaNodeConnectionOptions) {
+	constructor({ url, secret, timeout = 3000, ca, rejectUnauthorized = false }: MediaNodeConnectionOptions) {
 		logger.debug('constructor() [url: %s, timeout: %s]', url, timeout);
 		super();
 
@@ -85,7 +87,8 @@ export class MediaNodeConnection extends EventEmitter {
 				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 				// @ts-ignore
 				transports: [ 'websocket', 'polling' ],
-				rejectUnauthorized: false,
+				rejectUnauthorized,
+				...(ca ? { ca } : {}),
 				closeOnBeforeunload: false,
 			});
 
