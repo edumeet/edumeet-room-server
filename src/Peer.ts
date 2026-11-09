@@ -445,6 +445,16 @@ export class Peer extends EventEmitter {
 		});
 
 		connection.on('request', async (request, respond, reject) => {
+			// Answering must never throw out of this listener: an unhandled rejection ends
+			// the process (see server.ts), and with it every meeting on this server.
+			const answer = (send: unknown, value: unknown) => {
+				try {
+					if (typeof send === 'function') send(value);
+				} catch (error) {
+					logger.warn({ err: error }, 'request() could not answer');
+				}
+			};
+
 			try {
 				const context = {
 					peer: this,
@@ -456,17 +466,17 @@ export class Peer extends EventEmitter {
 				await this.pipeline.execute(context);
 
 				if (context.handled)
-					respond(context.response);
+					answer(respond, context.response);
 				else {
-					logger.debug('request() unhandled request [method: %s]', request.method);
+					logger.debug('request() unhandled request [method: %s]', request?.method);
 
-					reject('Server error');
+					answer(reject, 'Server error');
 				}
 			} catch (error) {
 				logger.error({ err: error }, 'request() failed');
 				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
-				reject?.('Server error');
+				answer(reject, 'Server error');
 			}
 		});
 

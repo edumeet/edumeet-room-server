@@ -164,6 +164,13 @@ export class IOServerConnection extends BaseConnection {
 		this.socket.on('request', (request, result) => {
 			logger.debug('"request" event [request: %o]', request);
 
+			// A request is answered through its acknowledgement. Without one there is no one to
+			// answer, and calling it would throw out of the listener and end the process.
+			if (typeof result !== 'function') return;
+
+			if (!request || typeof request !== 'object' || typeof request.method !== 'string')
+				return result('Invalid request', null);
+
 			this.emit(
 				'request',
 				request,
