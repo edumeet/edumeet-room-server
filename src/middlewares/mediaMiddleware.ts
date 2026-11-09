@@ -11,6 +11,16 @@ import { RtpEncodingParameters } from 'mediasoup/types';
 
 const logger = new Logger('MediaMiddleware');
 
+// Every producer is consumed by every other participant, so their number is bounded. Two
+// per source leaves room for a device switch that opens the new track before closing the
+// old one; extra videos are what a participant adds on purpose.
+const MAX_PRODUCERS_PER_SOURCE = 2;
+const MAX_EXTRA_PRODUCERS = 8;
+const MAX_DATA_PRODUCERS = 8;
+
+const producerLimit = (source: unknown): number =>
+	(source === 'extravideo' || source === 'extraaudio' ? MAX_EXTRA_PRODUCERS : MAX_PRODUCERS_PER_SOURCE);
+
 export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
 	logger.debug('createMediaMiddleware() [room: %s]', room.sessionId);
 
@@ -75,6 +85,18 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				appData = { ...appData, peerId: peer.id, layerWatcher };
 
 				const { producer, reused } = await peer.producingTransport.produceDeduped({ kind, rtpParameters, appData });
+
+				// Checked after the dedupe, so a retried request still gets its producer back.
+				if (!reused) {
+					const sameSource = [ ...peer.producers.values() ].filter((p) => p.appData.source === appData.source);
+
+					if (sameSource.length >= producerLimit(appData.source)) {
+						layerWatcher?.close();
+						producer.close();
+
+						throw new Error(`too many producers for source "${appData.source}"`);
+					}
+				}
 
 				response.id = producer.id;
 				context.handled = true;
@@ -177,6 +199,9 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 
 				if (peer.headless && !botProfile.dataChannels.includes(label))
 					throw new Error('a headless peer does not produce data');
+
+				if (peer.dataProducers.size >= MAX_DATA_PRODUCERS)
+					throw new Error('too many data producers');
 
 				appData = {
 					...appData,

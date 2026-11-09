@@ -6,6 +6,8 @@ import { CanvasObject } from '../common/types';
 
 const logger = new Logger('DrawingMiddleware');
 
+const BG_COLORS: unknown[] = [ 'white', 'black', 'gray' ];
+
 export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<PeerContext> => {
 	logger.debug('createDrawingMiddleware() [room: %s]', room.sessionId);
 
@@ -63,14 +65,22 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 				// 	throw new Error('peer not authorized');
 
 				const bgColor = message.data;
-				
+
+				// The colours the client offers. Clients send the colour again whenever theirs
+				// changes, also when the change came from another peer, so forwarding anything
+				// else or an unchanged value would bounce between clients without end.
+				if (!BG_COLORS.includes(bgColor)) throw new Error('invalid background colour');
+
 				response.bgColor = bgColor;
-				room.drawing.bgColor = bgColor;
-			
-				room.notifyPeers('setDrawingBgColor', {
-					bgColor: room.drawing.bgColor
-				}, peer);
-				
+
+				if (room.drawing.bgColor !== bgColor) {
+					room.drawing.bgColor = bgColor;
+
+					room.notifyPeers('setDrawingBgColor', {
+						bgColor: room.drawing.bgColor
+					}, peer);
+				}
+
 				context.handled = true;
 				
 				break;

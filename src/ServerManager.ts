@@ -91,8 +91,14 @@ export default class ServerManager {
 
 		let tenantId = 0;
 
+		// A client that disconnects during an await must not leave a Peer, Room and router
+		// behind: the connection's close has already fired, so nothing would release them.
+		const gone = () => (connection as unknown as { closed?: boolean }).closed === true;
+
 		if (this.managementService) {
 			tenantId = await this.managementService.getTenantFromFqdn(tenantFqdn);
+
+			if (gone()) return;
 		}
 
 		logger.debug(
@@ -206,6 +212,8 @@ export default class ServerManager {
 				if (room.closed || room.empty) return rejectBot('roomNotOpen');
 			}
 		}
+
+		if (gone()) return;
 
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);

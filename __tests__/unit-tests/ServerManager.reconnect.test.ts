@@ -152,3 +152,30 @@ describe('a room left with only its lobby', () => {
 		expect(roomB.drawing.canvasState).toEqual([]);
 	});
 });
+
+describe('a connection that closes during the tenant lookup', () => {
+	test('leaves no peer and no room behind', async () => {
+		const rooms = new Map<string, Room>();
+		const peers = new Map<string, Peer>();
+		const connection = makeConnection() as BaseConnection & { closed?: boolean };
+		const manager = new ServerManager({
+			mediaService: {} as unknown as MediaService,
+			peers,
+			rooms,
+			managedPeers: new Map(),
+			managedRooms: new Map(),
+			managementService: {
+				getTenantFromFqdn: jest.fn(async () => {
+					connection.closed = true;
+
+					return 7;
+				})
+			} as unknown as ManagementService,
+		});
+
+		await manager.handleConnection(connection, 'gone', 'fresh-room', 'tenant.example.edu', 'gk', 'Name');
+
+		expect(peers.size).toBe(0);
+		expect(rooms.size).toBe(0);
+	});
+});

@@ -6,6 +6,11 @@ import { createConsumers } from '../common/consuming';
 
 const logger = new Logger('InitialMediaMiddleware');
 
+// Directions a peer is creating a transport for right now. The slot on the peer is only
+// filled after the media node answers, so without this a burst of requests would each
+// create a transport, and only the last one would be tracked and closed.
+const creating = new WeakMap<object, Set<'producing' | 'consuming'>>();
+
 export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
 	logger.debug('createInitialMediaMiddleware() [room: %s]', room.sessionId);
 
@@ -32,21 +37,41 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 
 				if (producing && consuming) throw new Error('cannot create WebRtcTransport with both producing and consuming');
 				if (!producing && !consuming) throw new Error('cannot create WebRtcTransport with neither producing nor consuming');
-				if (consuming && peer.consumingTransport) throw new Error('cannot create more than one consuming WebRtcTransport');
+				const direction = producing ? 'producing' : 'consuming';
+				const pending = creating.get(peer) ?? new Set<'producing' | 'consuming'>();
+
+				if ((consuming && peer.consumingTransport) || pending.has(direction))
+					throw new Error(`cannot create more than one ${direction} WebRtcTransport`);
 				if (producing && peer.producingTransport) throw new Error('cannot create more than one producing WebRtcTransport');
 
-				const [ error, router ] = await peer.routerReady;
+				pending.add(direction);
+				creating.set(peer, pending);
 
-				if (error) throw error;
+				let transport;
 
-				const transport = await router.createWebRtcTransport({
-					forceTcp,
-					enableSctp,
-					appData: {
-						producing,
-						consuming,
-					}
-				});
+				try {
+					const [ error, router ] = await peer.routerReady;
+
+					if (error) throw error;
+
+					transport = await router.createWebRtcTransport({
+						forceTcp,
+						enableSctp,
+						appData: {
+							producing,
+							consuming,
+						}
+					});
+				} finally {
+					pending.delete(direction);
+				}
+
+				// The peer may have left while the media node was answering.
+				if (peer.closed) {
+					transport.close();
+
+					throw new Error('peer closed');
+				}
 
 				if (producing) peer.producingTransport = transport;
 
@@ -61,9 +86,9 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 				}
 
 				transport.once('close', () => {
-					if (producing) peer.producingTransport = undefined;
+					if (producing && peer.producingTransport === transport) peer.producingTransport = undefined;
 
-					if (consuming) {
+					if (consuming && peer.consumingTransport === transport) {
 						peer.consumingTransport = undefined;
 						peer.initialConsume = false;
 					}
