@@ -60,6 +60,29 @@ describe('producers per source', () => {
 		await expect(setup('extravideo', 8).sut(setup('extravideo', 8).ctx, next)).rejects.toThrow('too many producers');
 	});
 
+	test('counts data producers still being created against the limit', async () => {
+		let release: () => void = () => undefined;
+		const answered = new Promise<void>((resolve) => (release = resolve));
+		const produceData = jest.fn(async () => {
+			await answered;
+
+			return { id: `d${Math.random()}`, label: 'x', appData: {}, once: jest.fn() };
+		});
+		const peer = { id: 'p1', producingTransport: { produceData }, dataProducers: new Map() };
+		const room = { sessionId: 's1', getPeers: jest.fn(() => []) } as unknown as Room;
+		const sut = createMediaMiddleware({ room });
+		const request = () => sut(context(peer, 'produceData', { sessionId: 's1', sctpStreamParameters: {}, label: 'x', protocol: '', appData: {} }), next);
+
+		const burst: Promise<string>[] = Array.from({ length: 9 }, () => Promise.resolve(request()).then(() => 'ok', (e: Error) => e.message));
+
+		release();
+
+		const results = await Promise.all(burst);
+
+		expect(produceData).toHaveBeenCalledTimes(8);
+		expect(results.filter((r) => r === 'too many data producers')).toHaveLength(1);
+	});
+
 	test('refuses data producers beyond the limit', async () => {
 		const produceData = jest.fn();
 		const peer = {
@@ -99,6 +122,35 @@ describe('concurrent createWebRtcTransport', () => {
 
 		expect(createWebRtcTransport).toHaveBeenCalledTimes(1);
 		await expect(request()).rejects.toThrow('cannot create more than one producing');
+	});
+
+	test('closes a transport whose request began on a replaced connection, and lets the new one create its own', async () => {
+		let release: () => void = () => undefined;
+		const answered = new Promise<void>((resolve) => (release = resolve));
+		const stale = { id: 'stale', once: jest.fn(), close: jest.fn() };
+		const fresh = { id: 'fresh', once: jest.fn(), close: jest.fn() };
+		const createWebRtcTransport = jest.fn()
+			.mockImplementationOnce(async () => {
+				await answered;
+
+				return stale;
+			})
+			.mockImplementationOnce(async () => fresh);
+		const peer = { id: 'p1', closed: false, connectionGeneration: 0, routerReady: Promise.resolve([ undefined, { createWebRtcTransport } ]), notify: jest.fn() } as Record<string, unknown>;
+		const room = { sessionId: 's1', peers: { has: () => false } } as unknown as Room;
+		const sut = createInitialMediaMiddleware({ room });
+		const request = () => sut(context(peer, 'createWebRtcTransport', { sessionId: 's1', producing: true, consuming: false }), next);
+
+		const before = request();
+
+		peer.connectionGeneration = 1; // the client reconnected
+		await request();
+		expect(peer.producingTransport).toBe(fresh);
+
+		release();
+		await expect(before).rejects.toThrow('connection replaced');
+		expect(stale.close).toHaveBeenCalled();
+		expect(peer.producingTransport).toBe(fresh);
 	});
 
 	test('closes a transport that arrives after the peer left', async () => {

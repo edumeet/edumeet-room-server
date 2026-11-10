@@ -262,9 +262,17 @@ export class Peer extends EventEmitter {
 		this.emit('close');
 	}
 
+	// Counts connection switches. Something created for a request of an earlier connection
+	// is not this connection's, and its answer went to a socket that is gone.
+	public connectionGeneration = 0;
+
 	@skipIfClosed
 	public switchConnection(newConnection: BaseConnection): void {
 		logger.debug('switchConnection() [peerId: %s]', this.id);
+
+		// Requests still running for the old connection answer it, not the new one; what
+		// they create for this peer is closed when it arrives (see connectionGeneration).
+		this.connectionGeneration++;
 
 		// Capture old connections before adding the new one.
 		const oldConnections = [ ...this.connections.items ];

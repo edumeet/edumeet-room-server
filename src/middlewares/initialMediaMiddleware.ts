@@ -9,7 +9,7 @@ const logger = new Logger('InitialMediaMiddleware');
 // Directions a peer is creating a transport for right now. The slot on the peer is only
 // filled after the media node answers, so without this a burst of requests would each
 // create a transport, and only the last one would be tracked and closed.
-const creating = new WeakMap<object, Set<'producing' | 'consuming'>>();
+const creating = new WeakMap<object, Set<string>>();
 
 export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
 	logger.debug('createInitialMediaMiddleware() [room: %s]', room.sessionId);
@@ -38,13 +38,17 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 				if (producing && consuming) throw new Error('cannot create WebRtcTransport with both producing and consuming');
 				if (!producing && !consuming) throw new Error('cannot create WebRtcTransport with neither producing nor consuming');
 				const direction = producing ? 'producing' : 'consuming';
-				const pending = creating.get(peer) ?? new Set<'producing' | 'consuming'>();
+				// Reserved per connection: a request still running for a connection that was
+				// replaced must not block the new one.
+				const generation = peer.connectionGeneration;
+				const slot = `${direction}:${generation}`;
+				const pending = creating.get(peer) ?? new Set<string>();
 
-				if ((consuming && peer.consumingTransport) || pending.has(direction))
+				if ((consuming && peer.consumingTransport) || pending.has(slot))
 					throw new Error(`cannot create more than one ${direction} WebRtcTransport`);
 				if (producing && peer.producingTransport) throw new Error('cannot create more than one producing WebRtcTransport');
 
-				pending.add(direction);
+				pending.add(slot);
 				creating.set(peer, pending);
 
 				let transport;
@@ -63,14 +67,16 @@ export const createInitialMediaMiddleware = ({ room }: { room: Room; }): Middlew
 						}
 					});
 				} finally {
-					pending.delete(direction);
+					pending.delete(slot);
 				}
 
-				// The peer may have left while the media node was answering.
-				if (peer.closed) {
+				// The peer may have left, or reconnected, while the media node was answering.
+				// After a reconnect the answer would go to the old socket, so the client would
+				// never learn this transport, and it would block the new connection's slot.
+				if (peer.closed || peer.connectionGeneration !== generation) {
 					transport.close();
 
-					throw new Error('peer closed');
+					throw new Error(peer.closed ? 'peer closed' : 'connection replaced');
 				}
 
 				if (producing) peer.producingTransport = transport;

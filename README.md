@@ -365,7 +365,7 @@ ignored entirely.
 | `ca` | `string` | Path to a PEM file with the CA certificate the media node's TLS certificate must chain to. Turns validation on. |
 | `rejectUnauthorized` | `boolean` | Validate the media node's TLS certificate. Default: `true` when `ca` is set, otherwise `false`. |
 
-The room server sends the media node's `secret` over this TLS connection. Without validation, someone on the network path between room server and media node can impersonate the node and read the secret, so the room server logs a warning at start for each such node. A media node on another host should have a certificate the room server can validate: one from a public CA (`rejectUnauthorized: true`), or a self-signed one given as `ca`. A later release will validate by default.
+The room server sends the media node's `secret` over this TLS connection. Without validation, someone on the network path between room server and media node can impersonate the node and read the secret, so the room server logs a warning at start for each such node. A media node on another host should have a certificate the room server can validate: one from a public CA (`rejectUnauthorized: true`), or a self-signed one given as `ca`. The certificate must name the media node as configured in `hostname`, as an IP address entry (SAN) when `hostname` is an IP address. A later release will validate by default.
 
 ---
 

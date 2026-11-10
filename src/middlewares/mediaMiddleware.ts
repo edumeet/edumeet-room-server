@@ -18,6 +18,10 @@ const MAX_PRODUCERS_PER_SOURCE = 2;
 const MAX_EXTRA_PRODUCERS = 8;
 const MAX_DATA_PRODUCERS = 8;
 
+// Data producers being created right now, per peer: the map on the peer is only filled after
+// the media node answers, so a burst of requests would all pass a check of its size alone.
+const creatingData = new WeakMap<object, number>();
+
 const producerLimit = (source: unknown): number =>
 	(source === 'extravideo' || source === 'extraaudio' ? MAX_EXTRA_PRODUCERS : MAX_PRODUCERS_PER_SOURCE);
 
@@ -200,7 +204,9 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 				if (peer.headless && !botProfile.dataChannels.includes(label))
 					throw new Error('a headless peer does not produce data');
 
-				if (peer.dataProducers.size >= MAX_DATA_PRODUCERS)
+				const inFlight = creatingData.get(peer) ?? 0;
+
+				if (peer.dataProducers.size + inFlight >= MAX_DATA_PRODUCERS)
 					throw new Error('too many data producers');
 
 				appData = {
@@ -208,12 +214,20 @@ export const createMediaMiddleware = ({ room }: { room: Room; }): Middleware<Pee
 					peerId: peer.id,
 				};
 
-				const dataProducer = await peer.producingTransport.produceData({
-					sctpStreamParameters,
-					label,
-					protocol,
-					appData
-				});
+				creatingData.set(peer, inFlight + 1);
+
+				let dataProducer;
+
+				try {
+					dataProducer = await peer.producingTransport.produceData({
+						sctpStreamParameters,
+						label,
+						protocol,
+						appData
+					});
+				} finally {
+					creatingData.set(peer, (creatingData.get(peer) ?? 1) - 1);
+				}
 
 				peer.dataProducers.set(dataProducer.id, dataProducer);
 				dataProducer.once('close', () => {
