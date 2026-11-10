@@ -36,7 +36,7 @@ export default class ServerManager {
 	// can be restored if the peer reconnects slowly (after the 5-second window).
 	// Keyed by reconnectKey (which is reset on intentional leave, so stale entries
 	// never match a new session). Entries expire after 60 seconds.
-	private reconnectPermissionsCache = new Map<string, { roomSession: string, permissions: string[] }>();
+	private reconnectPermissionsCache = new Map<string, { roomSession: string, peerId: string, permissions: string[] }>();
 
 	constructor({ mediaService, peers, rooms, managedPeers, managedRooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
@@ -272,7 +272,11 @@ export default class ServerManager {
 		// name is another room, and its rights are not the old moderator's.
 		const saved = this.reconnectPermissionsCache.get(reconnectKey);
 		const roomSession = room.sessionId;
-		const savedPermissions = saved?.roomSession === roomSession ? saved.permissions : undefined;
+		// and, for a participant, to the peer it was cached for: the key alone is the client's.
+		// A bot comes back after a long disconnect with a new peer id but its key (see
+		// ServerManager.bots tests), so for a bot the key and the room session decide.
+		const samePeer = saved?.peerId === peerId || Boolean(headless);
+		const savedPermissions = saved?.roomSession === roomSession && samePeer ? saved.permissions : undefined;
 
 		if (savedPermissions) {
 			isReconnect = true;
@@ -334,7 +338,7 @@ export default class ServerManager {
 			// admitted and closing the meeting closes the room, and the reconnectKey is the
 			// client's choice, so a peer the room removed would otherwise get its rights back.
 			if (peer.admitted && !room.closed && (perms.length > 0 || peer.headless)) {
-				this.reconnectPermissionsCache.set(peer.reconnectKey, { roomSession, permissions: perms });
+				this.reconnectPermissionsCache.set(peer.reconnectKey, { roomSession, peerId: peer.id, permissions: perms });
 
 				setTimeout(
 					() => this.reconnectPermissionsCache.delete(peer.reconnectKey),
