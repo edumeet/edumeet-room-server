@@ -204,3 +204,18 @@ test('A joiner that closes while holding its turn frees it for the next', async 
 
 	expect((await run('carol', 'mlsJoin')).response).toEqual({ role: 'joiner', epoch: 0, groupInfo: 'gi0' });
 });
+
+test('A Welcome goes to each listed peer once, and an oversized list is refused', async () => {
+	const { peers, run } = setup();
+
+	await run('alice', 'mlsJoin');
+	await run('alice', 'mlsGroupInfo', { epoch: 0, groupInfo: 'gi0' });
+
+	await expect(run('alice', 'mlsCommit', {
+		epoch: 0, commit: 'c1', groupInfo: 'gi1', welcome: 'w1', welcomeTo: Array(1000).fill('carol'),
+	})).rejects.toThrow('invalid welcome');
+	expect(peers.get('carol')?.notify).not.toHaveBeenCalled();
+
+	await run('alice', 'mlsCommit', { epoch: 0, commit: 'c1', groupInfo: 'gi1', welcome: 'w1', welcomeTo: [ 'carol', 'carol', 'carol' ] });
+	expect(peers.get('carol')?.notify).toHaveBeenCalledTimes(1);
+});

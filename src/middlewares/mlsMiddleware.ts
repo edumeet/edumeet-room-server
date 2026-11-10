@@ -15,8 +15,12 @@ const isMlsMessage = (value: unknown): value is string =>
 const isSmallMlsMessage = (value: unknown): value is string =>
 	typeof value === 'string' && value.length > 0 && value.length <= MAX_SMALL_MESSAGE_LENGTH;
 const isEpoch = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+// A Welcome goes to the members a commit adds; no room has more at once. The welcome is sent
+// once per listed peer, so without a limit one request could make the server send gigabytes.
+const MAX_WELCOME_TO = 64;
+
 const isPeerIdList = (value: unknown): value is string[] =>
-	Array.isArray(value) && value.every((id) => typeof id === 'string');
+	Array.isArray(value) && value.length <= MAX_WELCOME_TO && value.every((id) => typeof id === 'string');
 
 // The MLS delivery service. The server stores opaque GroupInfo and KeyPackage bytes, orders commits by epoch, and
 // relays commits, Welcomes and proposals with the sender id stamped by the server. It reads none
@@ -87,7 +91,7 @@ export const createMlsMiddleware = ({ room }: { room: Room; }): Middleware<PeerC
 					room.notifyPeers('mlsCommit', { fromPeerId: peer.id, epoch: result.epoch, commit }, peer);
 
 					if (welcome) {
-						for (const id of welcomeTo as string[]) {
+						for (const id of new Set(welcomeTo as string[])) {
 							room.getPeerById(id)?.notify({
 								method: 'mlsWelcome',
 								data: { fromPeerId: peer.id, epoch: result.epoch, welcome },
