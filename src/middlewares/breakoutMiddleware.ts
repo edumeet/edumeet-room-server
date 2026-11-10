@@ -1,5 +1,6 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { Permission } from '../common/authorization';
+import { isValidText, MAX_BREAKOUT_ROOM_NAME_LENGTH } from '../common/textValidation';
 import { thisSession } from '../common/checkSessionId';
 import { Peer, PeerContext } from '../Peer';
 import BreakoutRoom from '../BreakoutRoom';
@@ -30,7 +31,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				const { name } = message.data;
 
-				if (!name) throw new Error('name not provided');
+				if (!isValidText(name, MAX_BREAKOUT_ROOM_NAME_LENGTH)) throw new Error('invalid name');
 
 				const newBreakoutRoom = new BreakoutRoom({ parent: room, name });
 

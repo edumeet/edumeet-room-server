@@ -2,6 +2,7 @@ import { Logger, Middleware } from 'edumeet-common';
 import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { FileMessage } from '../common/types';
+import { isValidMagnetUri } from '../common/textValidation';
 import { PeerContext } from '../Peer';
 import BreakoutRoom from '../BreakoutRoom';
 import Room from '../Room';
@@ -29,6 +30,10 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 					throw new Error('peer not authorized');
 
 				const { magnetURI } = message.data;
+
+				if (!isValidMagnetUri(magnetURI))
+					throw new Error('invalid magnetURI');
+
 				const file = {
 					magnetURI,
 					peerId: peer.id,
@@ -49,13 +54,16 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 				break;
 			}
 			case 'clearFile': {
-
 				const { magnetURI } = message.data;
+				const moderator = peer.hasPermission(Permission.MODERATE_FILES);
+				const cleared = room.fileHistory.filter((item: FileMessage) =>
+					item.magnetURI === magnetURI && (moderator || item.peerId === peer.id));
 
-				room.fileHistory = room.fileHistory.filter((item: FileMessage) => {
-					// user can only drop own files
-					return (!(magnetURI == item.magnetURI && item.peerId == peer.id));
-				}) as FileMessage[];
+				// The clients drop the file for everyone, so only its owner or a moderator may ask.
+				if (cleared.length === 0)
+					throw new Error('peer not authorized');
+
+				room.fileHistory = room.fileHistory.filter((item: FileMessage) => !cleared.includes(item));
 
 				room.notifyPeers('clearFile', {
 					magnetURI,

@@ -3,10 +3,21 @@ import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { CanvasObject } from '../common/types';
+import {
+	canvasObjectBytes,
+	isValidCanvasAction,
+	MAX_CANVAS_BYTES,
+	MAX_CANVAS_OBJECTS,
+} from '../common/canvasValidation';
 
 const logger = new Logger('DrawingMiddleware');
 
 const BG_COLORS: unknown[] = [ 'white', 'black', 'gray' ];
+
+const objectBytes = new WeakMap<CanvasObject, number>();
+
+const canvasBytes = (room: Room): number =>
+	room.drawing.canvasState.reduce((total, entry) => total + (objectBytes.get(entry) ?? canvasObjectBytes(entry.object)), 0);
 
 export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<PeerContext> => {
 	logger.debug('createDrawingMiddleware() [room: %s]', room.sessionId);
@@ -90,27 +101,42 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 			{
 				const canvasAction = message.data;
 
-				response.canvasAction = canvasAction;
+				if (!isValidCanvasAction(canvasAction)) throw new Error('invalid canvas object');
 
 				const canvasObject = {
 					object: canvasAction.object,
 					objectId: canvasAction.object.id,
 					status: canvasAction.status,
 				} as CanvasObject;
+				const bytes = canvasObjectBytes(canvasAction.object);
 
 				if (canvasAction.status == 'added') {
+					if (room.drawing.canvasState.length >= MAX_CANVAS_OBJECTS || canvasBytes(room) + bytes > MAX_CANVAS_BYTES)
+						throw new Error('canvas full');
+
+					objectBytes.set(canvasObject, bytes);
 					room.drawing.canvasState.push(canvasObject);
 				} else if (canvasAction.status == 'modified') {
 					const index = room.drawing.canvasState.findIndex((obj) => obj.objectId == canvasAction.object.id);
 
 					// Unknown objects are ignored, as the clients do; index -1 would set a stray array property.
-					if (index !== -1) room.drawing.canvasState[index] = canvasObject;
+					if (index !== -1) {
+						const previous = room.drawing.canvasState[index];
+
+						if (canvasBytes(room) - (objectBytes.get(previous) ?? canvasObjectBytes(previous.object)) + bytes > MAX_CANVAS_BYTES)
+							throw new Error('canvas full');
+
+						objectBytes.set(canvasObject, bytes);
+						room.drawing.canvasState[index] = canvasObject;
+					}
 				} else if (canvasAction.status == 'removed') {
 					const index = room.drawing.canvasState.findIndex((obj) => obj.objectId == canvasAction.object.id);
 
 					// splice(-1, 1) would remove the last object instead.
 					if (index !== -1) room.drawing.canvasState.splice(index, 1);
 				}
+
+				response.canvasAction = canvasAction;
 
 				room.notifyPeers('updateCanvas', {
 					action: canvasAction
