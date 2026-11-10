@@ -303,6 +303,24 @@ export class Peer extends EventEmitter {
 		this.routerReset(true);
 	}
 
+	// Give up the router and everything on it, as for a peer sent back to the lobby; a later
+	// admission assigns a router again.
+	public releaseMedia(): void {
+		this.consumers.forEach((c) => c.close());
+		this.producers.forEach((p) => p.close());
+		this.dataProducers.forEach((p) => p.close());
+		this.consumingTransport?.close();
+		this.producingTransport?.close();
+
+		this.consumers.clear();
+		this.producers.clear();
+		this.dataProducers.clear();
+		this.consumingTransport = undefined;
+		this.producingTransport = undefined;
+
+		this.routerReset(true);
+	}
+
 	public closeProducers(): void {
 		logger.debug('closeProducers() [peerId: %s]', this.id);
 

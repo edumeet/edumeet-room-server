@@ -275,7 +275,9 @@ export default class ServerManager {
 		// and, for a participant, to the peer it was cached for: the key alone is the client's.
 		// A bot comes back after a long disconnect with a new peer id but its key (see
 		// ServerManager.bots tests), so for a bot the key and the room session decide.
-		const samePeer = saved?.peerId === peerId || Boolean(headless);
+		// The headless flag is the client's own claim; only a bot the management service
+		// verified may come back under a new peer id.
+		const samePeer = saved?.peerId === peerId || (Boolean(headless) && botVerified);
 		const savedPermissions = saved?.roomSession === roomSession && samePeer ? saved.permissions : undefined;
 
 		if (savedPermissions) {

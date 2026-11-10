@@ -33,6 +33,9 @@ export const createMlsMiddleware = ({ room }: { room: Room; }): Middleware<PeerC
 	const watched = new WeakSet<PeerLike>();
 
 	room.once('close', () => group.reset());
+	// The room cleared its content because its last participant left; the next meeting in it
+	// starts a new group instead of inheriting the old members.
+	room.on('contentCleared', () => group.reset());
 
 	const watch = (peer: PeerLike): void => {
 		if (watched.has(peer)) return;

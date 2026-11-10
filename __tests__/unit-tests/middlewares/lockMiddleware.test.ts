@@ -109,7 +109,6 @@ test('lockRoom() - Should lock room on happy path', async () => {
 	expect(context.handled).toBeTruthy();
 	expect(spyNotifyPeers).toHaveBeenCalled();
 	expect(room.locked).toBeTruthy();
-	expect(room.parkPendingPeersOnLock).toHaveBeenCalled();
 });
 
 test('unlockRoom() - Should throw on not authorized', async () => {

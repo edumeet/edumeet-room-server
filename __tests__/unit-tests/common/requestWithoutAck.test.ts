@@ -93,4 +93,20 @@ describe('socket.io request without a usable acknowledgement', () => {
 		expect(heard).not.toHaveBeenCalled();
 		expect(rejections).toEqual([]);
 	});
+
+	it('refuses an answer to the server\'s own request that is nested too deeply', async () => {
+		let deep: unknown = 'x';
+
+		for (let i = 0; i < 100; i++) deep = [ deep ];
+
+		Object.assign(socket, {
+			timeout: () => ({
+				emit: (_event: string, _message: unknown, callback: (timeout: unknown, error: unknown, answer: unknown) => void) => callback(null, null, deep),
+			}),
+		});
+
+		const connection = new IOServerConnection(socket as unknown as Socket);
+
+		await expect(connection.request({ method: 'mediaConfiguration' })).rejects.toThrow('answer nested too deeply');
+	});
 });

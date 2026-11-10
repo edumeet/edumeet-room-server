@@ -131,6 +131,9 @@ export class IOServerConnection extends BaseConnection {
 				this.socket.timeout(3000).emit('request', socketMessage, (timeout, serverError, response) => {
 					if (timeout) reject(new SocketTimeoutError('Request timed out'));
 					else if (serverError) reject(serverError);
+					// An answer is stored and sent on as well (rtpCapabilities), so it gets the same
+					// depth limit as what the client sends on its own.
+					else if (tooDeep(response)) reject(new Error('answer nested too deeply'));
 					else resolve(response);
 				});
 			}

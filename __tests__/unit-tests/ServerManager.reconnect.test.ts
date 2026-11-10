@@ -211,10 +211,17 @@ describe('locking a room', () => {
 		roomB.pendingPeers.add(admitted);
 		roomB.pendingPeers.add(owner);
 
-		roomB.parkPendingPeersOnLock();
+		admitted.admitted = true;
+		const release = jest.spyOn(admitted, 'releaseMedia');
+
+		roomB.locked = false;
+		// Any lock parks them, a moderator's or the management service's: both set locked.
+		roomB.locked = true;
 
 		expect(roomB.lobbyPeers.items).toEqual([ admitted ]);
 		expect(roomB.pendingPeers.items).toEqual([ owner ]);
+		expect(admitted.admitted).toBe(false);
+		expect(release).toHaveBeenCalled();
 	});
 });
 

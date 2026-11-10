@@ -23,10 +23,14 @@ const fakePeer = (id: string): FakePeer => {
 const setup = () => {
 	const peers = new Map<string, FakePeer>([ 'alice', 'bob', 'carol' ].map((id) => [ id, fakePeer(id) ]));
 	const roomCloseHandlers: Array<() => void> = [];
+	const contentClearedHandlers: Array<() => void> = [];
 	const room = {
 		sessionId: 'session',
 		notifyPeers: jest.fn(),
 		getPeerById: jest.fn((id: string) => peers.get(id)),
+		on: jest.fn((event: string, handler: () => void) => {
+			if (event === 'contentCleared') contentClearedHandlers.push(handler);
+		}),
 		once: jest.fn((event: string, handler: () => void) => {
 			if (event === 'close') roomCloseHandlers.push(handler);
 		}),
@@ -43,8 +47,9 @@ const setup = () => {
 
 	const close = (peerId: string) => peers.get(peerId)?.closeHandlers.forEach((h) => h());
 	const closeRoom = () => roomCloseHandlers.forEach((h) => h());
+	const clearContent = () => contentClearedHandlers.forEach((h) => h());
 
-	return { room, peers, run, close, closeRoom };
+	return { room, peers, run, close, closeRoom, clearContent };
 };
 
 test('The first peer to join founds the group, the next waits, and after the founder publishes it gets the GroupInfo', async () => {
@@ -218,4 +223,14 @@ test('A Welcome goes to each listed peer once, and an oversized list is refused'
 
 	await run('alice', 'mlsCommit', { epoch: 0, commit: 'c1', groupInfo: 'gi1', welcome: 'w1', welcomeTo: [ 'carol', 'carol', 'carol' ] });
 	expect(peers.get('carol')?.notify).toHaveBeenCalledTimes(1);
+});
+
+test('A room whose content is cleared starts a new group for the next meeting', async () => {
+	const { run, clearContent } = setup();
+
+	await run('alice', 'mlsJoin');
+	await run('alice', 'mlsGroupInfo', { epoch: 0, groupInfo: 'gi0' });
+	clearContent();
+
+	expect((await run('bob', 'mlsJoin')).response).toMatchObject({ role: 'founder' });
 });

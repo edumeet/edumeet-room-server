@@ -103,7 +103,21 @@ export default class Room extends EventEmitter {
 	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
 	public defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
 	public disableUnmanaged = false; // Possibly updated by the management service
-	public locked = true; // Possibly updated by the management service
+	#locked = true; // Possibly updated by the management service
+
+	public get locked(): boolean {
+		return this.#locked;
+	}
+
+	// Locking, by a moderator or the management service, sends peers admitted but not yet
+	// joined back to the lobby (see parkPendingPeersOnLock).
+	public set locked(locked: boolean) {
+		const wasLocked = this.#locked;
+
+		this.#locked = locked;
+
+		if (locked && !wasLocked) this.parkPendingPeersOnLock();
+	}
 	public meetingsOnly = false; // Possibly updated by the management service
 	public activeMeetingToken?: string;
 	// eslint-disable-next-line no-unused-vars
@@ -489,6 +503,9 @@ export default class Room extends EventEmitter {
 		this.breakoutRooms.forEach((r) => r.close());
 		this.breakoutRooms.clear();
 
+		// A new meeting starts a new E2EE group too (see mlsMiddleware).
+		this.emit('contentCleared');
+
 		if (this._countdownTimerRef) clearInterval(this._countdownTimerRef as NodeJS.Timeout);
 		this._countdownTimerRef = null;
 		this.countdownTimer = { isEnabled: true, isStarted: false, remainingTime: '00:00:00', initialTime: '00:00:00' } as CountdownTimer;
@@ -507,6 +524,10 @@ export default class Room extends EventEmitter {
 
 			logger.debug('parkPendingPeersOnLock() [id: %s]', peer.id);
 
+			// No longer admitted: its router and transports go, and a reconnect is not taken
+			// for an admitted participant's (see the permission cache in ServerManager).
+			peer.admitted = false;
+			peer.releaseMedia();
 			this.pendingPeers.remove(peer);
 			peer.pipeline.remove(this.#initialMediaMiddleware);
 			peer.pipeline.remove(this.#joinMiddleware);
