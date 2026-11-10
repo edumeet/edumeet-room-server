@@ -24,6 +24,14 @@ describe('media nodes without TURN', () => {
 
 		expect(mediaNodes.parse([ mediaNode({ turnHostname: 'turn.example.org', turnports }) ])[0].turnports).toEqual(turnports);
 	});
+
+	test('TLS validation settings are kept, and a wrong type is refused', () => {
+		const parsed = mediaNodes.parse([ mediaNode({ ca: '/certs/node-ca.pem', rejectUnauthorized: true }) ]);
+
+		expect(parsed[0].ca).toBe('/certs/node-ca.pem');
+		expect(parsed[0].rejectUnauthorized).toBe(true);
+		expect(() => mediaNodes.parse([ mediaNode({ rejectUnauthorized: 'true' }) ])).toThrow();
+	});
 });
 
 describe('getIceServers', () => {

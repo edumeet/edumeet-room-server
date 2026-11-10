@@ -73,6 +73,8 @@ export const AppConfigSchema = z.object({
 			// TURN is optional: without turnHostname/turnports no ICE servers are sent to clients
 			turnHostname: z.string().optional(),
 			country: z.string().optional(),
+			ca: z.string().optional(),
+			rejectUnauthorized: z.boolean().optional(),
 			turnports: z.array(z.object(
 				{
 					protocol: turnSchema,
