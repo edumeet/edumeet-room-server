@@ -327,9 +327,11 @@ export default class ServerManager {
 			const perms = peer.permissions;
 
 			// A bot has no permissions to restore, but its admission is what its
-			// long reconnect must get back, so it is cached all the same: only when
-			// it was let in, or a bot parked or refused would get in by coming back.
-			if (perms.length > 0 || (peer.headless && peer.admitted)) {
+			// long reconnect must get back, so it is cached all the same.
+			// Only a peer that was let in, and only from a room still open: a kick resets
+			// admitted and closing the meeting closes the room, and the reconnectKey is the
+			// client's choice, so a peer the room removed would otherwise get its rights back.
+			if (peer.admitted && !room.closed && (perms.length > 0 || peer.headless)) {
 				this.reconnectPermissionsCache.set(peer.reconnectKey, { roomKey, permissions: perms });
 
 				setTimeout(

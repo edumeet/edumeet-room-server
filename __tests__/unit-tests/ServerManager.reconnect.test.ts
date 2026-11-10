@@ -5,6 +5,9 @@ import { Peer } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import ManagementService from '../../src/ManagementService';
 import { BaseConnection } from 'edumeet-common';
+import { createModeratorMiddleware } from '../../src/middlewares/moderatorMiddleware';
+import { PeerContext } from '../../src/Peer';
+import { Permission } from '../../src/common/authorization';
 
 const makeConnection = () => ({
 	id: `c-${Math.random()}`,
@@ -177,5 +180,70 @@ describe('a connection that closes during the tenant lookup', () => {
 
 		expect(peers.size).toBe(0);
 		expect(rooms.size).toBe(0);
+	});
+});
+
+describe('a peer the room removed', () => {
+	const cache = (manager: ServerManager) =>
+		(manager as unknown as { reconnectPermissionsCache: Map<string, unknown> }).reconnectPermissionsCache;
+	const moderatorRights = [ Permission.MODERATE_ROOM, Permission.BYPASS_ROOM_LOCK ];
+
+	// The cache entry expires after two minutes; a real timer would keep Jest from exiting.
+	beforeEach(() => jest.useFakeTimers({ doNotFake: [ 'nextTick', 'setImmediate', 'queueMicrotask' ] }));
+	afterEach(() => jest.useRealTimers());
+
+	const joinedModerator = async ({ roomA, peers, connect }: ReturnType<typeof setup>) => {
+		await connect('mod', 'a', 'mk');
+
+		const mod = peers.get('mod') as Peer;
+
+		jest.spyOn(mod, 'notify').mockImplementation(() => undefined);
+		roomA.joinPeer(mod);
+		mod.admitted = true;
+		mod.permissions = [ ...moderatorRights ];
+
+		return mod;
+	};
+
+	test('gets its rights back after a dropped connection', async () => {
+		const env = setup();
+		const mod = await joinedModerator(env);
+
+		mod.close();
+		expect(cache(env.manager).get('mk')).toEqual({ roomKey: '7/a', permissions: moderatorRights });
+
+		await env.connect('mod', 'a', 'mk');
+		expect(env.peers.get('mod')?.permissions).toEqual(moderatorRights);
+	});
+
+	test('does not get its rights back after a kick, whatever key its client presents', async () => {
+		const env = setup();
+		const mod = await joinedModerator(env);
+
+		env.attacker.permissions = [ Permission.MODERATE_ROOM ];
+
+		const context = {
+			peer: env.attacker,
+			response: {},
+			message: { method: 'moderator:kickPeer', data: { peerId: 'mod' } },
+		} as unknown as PeerContext;
+
+		await createModeratorMiddleware({ room: env.roomA })(context, jest.fn());
+
+		expect(mod.closed).toBe(true);
+		expect(cache(env.manager).has('mk')).toBe(false);
+
+		await env.connect('mod', 'a', 'mk');
+		expect(env.peers.get('mod')?.permissions).toEqual([]);
+		expect(env.roomA.addPeer).toHaveBeenLastCalledWith(env.peers.get('mod'), false);
+	});
+
+	test('does not get its rights back after the meeting was closed', async () => {
+		const env = setup();
+
+		await joinedModerator(env);
+		env.roomA.close();
+
+		expect(cache(env.manager).has('mk')).toBe(false);
 	});
 });
