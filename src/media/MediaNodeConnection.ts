@@ -137,6 +137,10 @@ export class MediaNodeConnection extends EventEmitter {
 		this.#socket.on('notification', async (notification) => {
 			logger.debug('"notification" recieved [notification: %o]', notification);
 
+			// Nothing here may throw out of this async listener: an unhandled rejection ends
+			// the process (see server.ts).
+			if (!notification || typeof notification !== 'object') return;
+
 			const dataLoad = notification.data?.load;
 
 			if (typeof dataLoad === 'number') this.emit('load', dataLoad);
@@ -184,6 +188,12 @@ export class MediaNodeConnection extends EventEmitter {
 
 		this.#socket.on('request', async (request, result) => {
 			logger.debug('"request" event [request: %o]', request);
+
+			// Without an acknowledgement there is no one to answer, and calling it would throw.
+			if (typeof result !== 'function') return;
+
+			if (!request || typeof request !== 'object') return result('Invalid request', null);
+
 			try {
 				const dataLoad = request.data?.load;
 

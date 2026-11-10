@@ -399,9 +399,17 @@ export default class Room extends EventEmitter {
 			return;
 		}
 
-		// Only a peer that is in the room gets its state. One still being checked (meeting
-		// token) gets its answer from addPeer on the new connection.
-		if (!this.peers.items.includes(peer) && !this.pendingPeers.items.includes(peer)) {
+		// Only a peer that has joined gets the room's state. An admitted one gets roomReady
+		// again and the state with its join, which checks the lock again; one still being
+		// checked (meeting token) gets its answer from addPeer on the new connection.
+		if (this.pendingPeers.items.includes(peer)) {
+			logger.debug('reconnectPeer() peer has not joined yet, re-sending roomReady [id: %s]', peer.id);
+			this.notifyRoomReady(peer);
+
+			return;
+		}
+
+		if (!this.peers.items.includes(peer)) {
 			logger.debug('reconnectPeer() peer is not in the room yet [id: %s]', peer.id);
 
 			return;
@@ -449,8 +457,9 @@ export default class Room extends EventEmitter {
 		if (this.empty) return this.close();
 
 		// The meeting's content belongs to the people in it. A room kept open only by its
-		// lobby must not hand chat, files or the whiteboard to whoever is admitted next.
-		if (![ ...this.peers.items, ...this.pendingPeers.items ].some((p) => !p.headless))
+		// lobby, or by peers admitted but never joined, must not hand chat, files or the
+		// whiteboard to whoever joins next.
+		if (!this.peers.items.some((p) => !p.headless))
 			this.clearContent();
 
 		ensureUnmanagedModerator(this);
@@ -464,6 +473,30 @@ export default class Room extends EventEmitter {
 		this.drawing = { isEnabled: false, bgColor: 'white', canvasState: [] } as Drawing;
 		this.breakoutRooms.forEach((r) => r.close());
 		this.breakoutRooms.clear();
+
+		if (this._countdownTimerRef) clearInterval(this._countdownTimerRef as NodeJS.Timeout);
+		this._countdownTimerRef = null;
+		this.countdownTimer = { isEnabled: true, isStarted: false, remainingTime: '00:00:00', initialTime: '00:00:00' } as CountdownTimer;
+	}
+
+	/**
+	 * When the room is locked, peers admitted before but not joined yet go back to the
+	 * lobby, unless they may pass a lock. Otherwise someone let in while the room was open
+	 * could wait, and join the locked meeting later. Peers promoted from the lobby after
+	 * the lock was set are admitted on purpose and are not affected.
+	 */
+	@skipIfClosed
+	public parkPendingPeersOnLock(): void {
+		for (const peer of [ ...this.pendingPeers.items ]) {
+			if (peer.headless || peer.hasPermission(Permission.BYPASS_ROOM_LOCK)) continue;
+
+			logger.debug('parkPendingPeersOnLock() [id: %s]', peer.id);
+
+			this.pendingPeers.remove(peer);
+			peer.pipeline.remove(this.#initialMediaMiddleware);
+			peer.pipeline.remove(this.#joinMiddleware);
+			this.parkPeer(peer);
+		}
 	}
 
 	@skipIfClosed
@@ -477,6 +510,11 @@ export default class Room extends EventEmitter {
 		this.pendingPeers.add(peer);
 		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
 
+		this.notifyRoomReady(peer);
+	}
+
+	// Admitted, not joined yet: the peer learns the room's settings and then sends join.
+	private notifyRoomReady(peer: Peer): void {
 		peer.notify({
 			method: 'roomReady',
 			data: {

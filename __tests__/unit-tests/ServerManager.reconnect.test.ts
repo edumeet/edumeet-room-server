@@ -68,7 +68,7 @@ const setup = () => {
 	const connect = (peerId: string, roomId: string, reconnectKey: string) =>
 		manager.handleConnection(makeConnection(), peerId, roomId, 'tenant.example.edu', reconnectKey, 'Name');
 
-	return { manager, roomA, roomB, attacker, peers, connect };
+	return { manager, rooms, roomA, roomB, attacker, peers, connect };
 };
 
 afterEach(() => {
@@ -99,6 +99,16 @@ describe('reconnect', () => {
 		expect(roomA.reconnectPeer).toHaveBeenCalledWith(attacker);
 	});
 
+	test('sends roomReady again, not the history, to a peer admitted but not joined', () => {
+		const { roomB } = setup();
+		const pending = new Peer({ id: 'pending', sessionId: roomB.sessionId, reconnectKey: 'pk' });
+		const notify = jest.spyOn(pending, 'notify').mockImplementation(() => undefined);
+
+		roomB.pendingPeers.add(pending);
+		roomB.reconnectPeer(pending);
+		expect(notify.mock.calls.map(([ m ]) => m.method)).toEqual([ 'roomReady' ]);
+	});
+
 	test('sends no room state to a peer that is still being checked', () => {
 		const { roomB } = setup();
 		const waiting = new Peer({ id: 'waiting', sessionId: roomB.sessionId, reconnectKey: 'wk' });
@@ -117,17 +127,60 @@ describe('cached permissions of a slow reconnect', () => {
 	test('are not restored in another room, and the meeting token is still checked', async () => {
 		const { manager, roomB, peers, connect } = setup();
 
-		cache(manager).set('mk', { roomKey: '7/a', permissions: [ 'MODERATE_ROOM', 'BYPASS_ROOM_LOCK' ] });
+		const { roomA } = { roomA: manager.rooms.get('7/a') as Room };
+
+		cache(manager).set('mk', { roomSession: roomA.sessionId, permissions: [ 'MODERATE_ROOM', 'BYPASS_ROOM_LOCK' ] });
 		await connect('returning', 'b', 'mk');
 
 		expect(peers.get('returning')?.permissions).toEqual([]);
 		expect(roomB.addPeer).toHaveBeenCalledWith(peers.get('returning'), false);
 	});
 
+	test('are not restored in a new meeting opened under the same name', async () => {
+		const { manager, rooms, peers, connect } = setup();
+		const old = rooms.get('7/a') as Room;
+
+		cache(manager).set('mk', { roomSession: old.sessionId, permissions: [ 'MODERATE_ROOM' ] });
+
+		// The old meeting ended; a new one is opened under the same name.
+		const reopened = new Room({ id: 'a', tenantId: 7, mediaService: {} as unknown as MediaService });
+
+		reopened.resolveRoomReady();
+		jest.spyOn(reopened, 'addPeer').mockResolvedValue(undefined);
+		rooms.set('7/a', reopened);
+
+		await connect('returning', 'a', 'mk');
+
+		expect(peers.get('returning')?.permissions).toEqual([]);
+		expect(reopened.addPeer).toHaveBeenCalledWith(peers.get('returning'), false);
+	});
+
+	test('are not kept for a peer that was kicked', async () => {
+		const { manager, rooms, peers, connect } = setup();
+
+		await connect('kicked', 'a', 'kk');
+
+		const kicked = peers.get('kicked') as Peer;
+
+		kicked.permissions = [ 'MODERATE_ROOM' ];
+		kicked.admitted = false;
+		kicked.close();
+		expect(cache(manager).has('kk')).toBe(false);
+
+		await connect('stays', 'a', 'sk');
+
+		const leaving = peers.get('stays') as Peer;
+
+		leaving.permissions = [ 'MODERATE_ROOM' ];
+		leaving.admitted = true;
+		leaving.close();
+		expect(cache(manager).get('sk')).toEqual({ roomSession: (rooms.get('7/a') as Room).sessionId, permissions: [ 'MODERATE_ROOM' ] });
+	});
+
 	test('are restored in the room they were held in', async () => {
 		const { manager, roomA, peers, connect } = setup();
 
-		cache(manager).set('mk', { roomKey: '7/a', permissions: [ 'MODERATE_ROOM' ] });
+		cache(manager).set('mk', { roomSession: roomA.sessionId, permissions: [ 'MODERATE_ROOM' ] });
 		await connect('returning', 'a', 'mk');
 
 		expect(peers.get('returning')?.permissions).toEqual([ 'MODERATE_ROOM' ]);
@@ -136,7 +189,41 @@ describe('cached permissions of a slow reconnect', () => {
 	});
 });
 
+describe('locking a room', () => {
+	test('sends peers admitted but not joined back to the lobby, unless they may pass the lock', () => {
+		const { roomB } = setup();
+		const admitted = new Peer({ id: 'early', sessionId: roomB.sessionId, reconnectKey: 'ek' });
+		const owner = new Peer({ id: 'owner', sessionId: roomB.sessionId, reconnectKey: 'ok' });
+
+		jest.spyOn(admitted, 'notify').mockImplementation(() => undefined);
+		jest.spyOn(owner, 'notify').mockImplementation(() => undefined);
+		owner.permissions = [ 'BYPASS_ROOM_LOCK' ];
+		roomB.pendingPeers.add(admitted);
+		roomB.pendingPeers.add(owner);
+
+		roomB.parkPendingPeersOnLock();
+
+		expect(roomB.lobbyPeers.items).toEqual([ admitted ]);
+		expect(roomB.pendingPeers.items).toEqual([ owner ]);
+	});
+});
+
 describe('a room left with only its lobby', () => {
+	test('forgets its content also when admitted peers that never joined remain', () => {
+		const { roomB, peers } = setup();
+		const pending = new Peer({ id: 'pending', sessionId: roomB.sessionId, reconnectKey: 'pk' });
+
+		jest.spyOn(pending, 'notify').mockImplementation(() => undefined);
+		roomB.pendingPeers.add(pending);
+		roomB.countdownTimer.isStarted = true;
+
+		roomB.removePeer(peers.get('victim') as Peer);
+
+		expect(roomB.closed).toBe(false);
+		expect(roomB.chatHistory).toEqual([]);
+		expect(roomB.countdownTimer.isStarted).toBe(false);
+	});
+
 	test('forgets chat, files and whiteboard when the last participant leaves', () => {
 		const { roomB, peers } = setup();
 		const victim = peers.get('victim') as Peer;
@@ -210,7 +297,7 @@ describe('a peer the room removed', () => {
 		const mod = await joinedModerator(env);
 
 		mod.close();
-		expect(cache(env.manager).get('mk')).toEqual({ roomKey: '7/a', permissions: moderatorRights });
+		expect(cache(env.manager).get('mk')).toEqual({ roomSession: env.roomA.sessionId, permissions: moderatorRights });
 
 		await env.connect('mod', 'a', 'mk');
 		expect(env.peers.get('mod')?.permissions).toEqual(moderatorRights);

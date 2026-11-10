@@ -28,6 +28,7 @@ export const createLockMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 				room.locked = true;
 				room.notifyPeers('lockRoom', { peerId: peer.id }, peer);
+				room.parkPendingPeersOnLock();
 				context.handled = true;
 
 				break;
