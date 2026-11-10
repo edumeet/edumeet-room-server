@@ -34,7 +34,7 @@ export const isPublishedKey = (key: unknown): boolean => {
  */
 export const usableSigningKeys = (keys: unknown[] = []): string[] => keys.filter((key, index): key is string => {
 	if (isPublishedKey(key)) {
-		logger.error('managementService.jwtPublicKeys[%d] is the public key published with eduMeet; anyone could sign tokens for it, so it is ignored. Configure the public key of your management server\'s authentication.secret (edumeet-docker: utils/run-me-first.sh)', index);
+		logger.error('managementService.jwtPublicKeys[%d] is the public key published with eduMeet; anyone could sign tokens for it, so it is ignored. Until the public key of your management server\'s authentication.secret is configured (edumeet-docker: utils/run-me-first.sh), every participant is treated as a guest and managed rooms lose their owners\' rights', index);
 
 		return false;
 	}

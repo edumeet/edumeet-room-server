@@ -4,6 +4,9 @@
 const OBJECT_TYPES = new Set([ 'Path', 'IText' ]);
 const NESTED_TYPES = new Set([ 'Path', 'clipping' ]);
 const RESOURCE_KEYS = new Set([ 'src', 'source', 'filters', 'resizeFilter', 'crossOrigin', 'backgroundImage', 'overlayImage' ]);
+// JSON.parse makes these ordinary keys, but fabric's set() assigns them, replacing the
+// object's prototype with data in every browser that loads the whiteboard.
+const PROTOTYPE_KEYS = new Set([ '__proto__', 'constructor', 'prototype' ]);
 const STATUSES = new Set([ 'added', 'modified', 'removed', 'editing', 'lock' ]);
 const MAX_DEPTH = 12;
 
@@ -29,7 +32,7 @@ const isSafe = (value: unknown, depth: number): boolean => {
 	if (!isPlainObject(value)) return true;
 
 	for (const [ key, item ] of Object.entries(value)) {
-		if (RESOURCE_KEYS.has(key)) return false;
+		if (RESOURCE_KEYS.has(key) || PROTOTYPE_KEYS.has(key)) return false;
 		if ((key === 'fill' || key === 'stroke') && item !== null && item !== undefined && typeof item !== 'string') return false;
 		if (key === 'clipPath' && item !== null && item !== undefined && !isNested(item)) return false;
 		if (key === 'objects' && !(Array.isArray(item) && item.every(isNested))) return false;
