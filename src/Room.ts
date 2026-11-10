@@ -64,6 +64,21 @@ interface CountdownTimer {
 	remainingTime: string;
 }
 
+// The shape of RtpCapabilities as consuming reads it: codecs and header extensions are lists
+// of objects, a codec has a kind and a mime type. mediasoup checks the rest.
+const isRtpCapabilities = (value: unknown): value is RtpCapabilities => {
+	if (!value || typeof value !== 'object') return false;
+
+	const { codecs, headerExtensions } = value as { codecs?: unknown, headerExtensions?: unknown };
+	const objects = (list: unknown) => Array.isArray(list) && list.every((item) => item !== null && typeof item === 'object');
+
+	if (codecs !== undefined && (!objects(codecs) || !(codecs as Array<Record<string, unknown>>).every(
+		(codec) => typeof codec.kind === 'string' && typeof codec.mimeType === 'string'))) return false;
+	if (headerExtensions !== undefined && !objects(headerExtensions)) return false;
+
+	return true;
+};
+
 export default class Room extends EventEmitter {
 	public sessionId = randomUUID();
 	public closed = false;
@@ -736,6 +751,9 @@ export default class Room extends EventEmitter {
 				throw new Error('mediaConfiguration request returned no result');
 
 			const { rtpCapabilities } = mediaConfigResult;
+
+			// What the client sent; consuming reads it without further checks.
+			if (!isRtpCapabilities(rtpCapabilities)) throw new Error('invalid rtpCapabilities');
 
 			// Quietly to the next router: nothing on the client uses this one yet, and transport requests wait
 			// on the still pending routerReady. A reset would show the client an error, restart its mic and

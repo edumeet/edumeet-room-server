@@ -38,7 +38,9 @@ export const createConsumers = async (
 		}
 	}
 
-	return Promise.all([
+	// Settled, not all: callers do not wait for this, and one rejection would otherwise be
+	// unhandled, which ends the process.
+	return Promise.allSettled([
 		...createConsumerPromises,
 		...createDataConsumerPromises,
 	]);
@@ -70,7 +72,8 @@ export const createConsumer = async (
 	if (!canConsume) {
 		// A peer that declared no codec of this kind (a transcriber takes audio only)
 		// is refusing it on purpose; only an unexpected refusal is worth a warning.
-		const declined = !consumerPeer.rtpCapabilities.codecs?.some((codec) => codec.kind === producer.kind);
+		const codecs: unknown = consumerPeer.rtpCapabilities.codecs;
+		const declined = !(Array.isArray(codecs) && codecs.some((codec) => codec?.kind === producer.kind));
 
 		return logger[declined ? 'debug' : 'warn'](
 			'createConsumer() cannot consume [producerPeerId: %s, producerId: %s, declined: %s]',

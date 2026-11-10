@@ -71,4 +71,26 @@ describe('socket.io request without a usable acknowledgement', () => {
 		expect(ack).toHaveBeenCalled();
 		expect(rejections).toEqual([]);
 	});
+
+	it('refuses a request or notification nested too deeply to be sent on again', async () => {
+		const ack = jest.fn();
+		let deep: unknown = 'x';
+
+		for (let i = 0; i < 5000; i++) deep = [ deep ];
+
+		const heard = jest.fn();
+
+		peer.pipeline.use(async (context) => {
+			heard();
+			context.handled = true;
+		});
+
+		socket.emit('request', { method: 'changePicture', data: { picture: deep } }, ack);
+		socket.emit('notification', { method: 'raisedHand', data: { raisedHand: deep } });
+		await settle();
+
+		expect(ack).toHaveBeenCalledWith('Invalid request', null);
+		expect(heard).not.toHaveBeenCalled();
+		expect(rejections).toEqual([]);
+	});
 });
