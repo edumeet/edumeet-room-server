@@ -6,11 +6,13 @@ import jwt, {
 } from 'jsonwebtoken';
 import { getConfig } from '../Config';
 import { Logger } from 'edumeet-common';
+import { usableSigningKeys } from './publishedKeys';
 
 const logger = new Logger('token');
 
 const config = getConfig();
-const signingKeys = config.managementService?.jwtPublicKeys || [];
+// Never the key pair published with eduMeet (see publishedKeys.ts).
+const signingKeys = usableSigningKeys(config.managementService?.jwtPublicKeys);
 
 export const verifyPeer = (token?: string): string | undefined => {
 	logger.debug('verifyPeer()');
