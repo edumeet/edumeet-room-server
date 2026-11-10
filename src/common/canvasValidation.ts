@@ -12,8 +12,8 @@ const MAX_DEPTH = 12;
 
 // An erased object carries every eraser stroke, so one object may be as large as a socket.io message.
 export const MAX_CANVAS_OBJECT_BYTES = 1_000_000;
-export const MAX_CANVAS_OBJECTS = 2000;
-export const MAX_CANVAS_BYTES = 10_000_000;
+export const MAX_CANVAS_OBJECTS = 10_000;
+export const MAX_CANVAS_BYTES = 20_000_000;
 
 export interface CanvasAction {
 	object: Record<string, unknown> & { id: string | number };

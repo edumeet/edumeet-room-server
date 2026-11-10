@@ -435,6 +435,9 @@ export default class Room extends EventEmitter {
 			logger.debug('reconnectPeer() peer has not joined yet, re-sending roomReady [id: %s]', peer.id);
 			this.notifyRoomReady(peer);
 
+			// The new connection gave up the router the admission had assigned.
+			this.assignRouter(peer);
+
 			return;
 		}
 

@@ -99,14 +99,17 @@ describe('reconnect', () => {
 		expect(roomA.reconnectPeer).toHaveBeenCalledWith(attacker);
 	});
 
-	test('sends roomReady again, not the history, to a peer admitted but not joined', () => {
+	test('sends roomReady again, not the history, to a peer admitted but not joined, and assigns it a router', () => {
 		const { roomB } = setup();
 		const pending = new Peer({ id: 'pending', sessionId: roomB.sessionId, reconnectKey: 'pk' });
 		const notify = jest.spyOn(pending, 'notify').mockImplementation(() => undefined);
+		// eslint-disable-next-line no-unused-vars
+		const assignRouter = jest.spyOn(roomB as unknown as { assignRouter: (peer: Peer) => void }, 'assignRouter').mockImplementation(() => undefined);
 
 		roomB.pendingPeers.add(pending);
 		roomB.reconnectPeer(pending);
 		expect(notify.mock.calls.map(([ m ]) => m.method)).toEqual([ 'roomReady' ]);
+		expect(assignRouter).toHaveBeenCalledWith(pending);
 	});
 
 	test('sends no room state to a peer that is still being checked', () => {

@@ -108,20 +108,76 @@ describe('concurrent createWebRtcTransport', () => {
 
 			return transport;
 		});
-		const peer = { id: 'p1', closed: false, routerReady: Promise.resolve([ undefined, { createWebRtcTransport } ]), notify: jest.fn() };
+		const peer = { id: 'p1', closed: false, routerReady: Promise.resolve([ undefined, { createWebRtcTransport } ]), notify: jest.fn() } as Record<string, unknown>;
 		const room = { sessionId: 's1', peers: { has: () => false } } as unknown as Room;
 		const sut = createInitialMediaMiddleware({ room });
-		const request = () => sut(context(peer, 'createWebRtcTransport', { sessionId: 's1', producing: true, consuming: false }), next);
+		const request = () => context(peer, 'createWebRtcTransport', { sessionId: 's1', producing: true, consuming: false });
 
+		// The second one is what a client sends when the answer to the first takes too long.
 		const first = request();
 		const second = request();
+		const both = Promise.all([ sut(first, next), sut(second, next) ]);
 
-		await expect(second).rejects.toThrow('cannot create more than one producing');
 		release();
-		await first;
+		await both;
 
 		expect(createWebRtcTransport).toHaveBeenCalledTimes(1);
-		await expect(request()).rejects.toThrow('cannot create more than one producing');
+		expect(first.response).toMatchObject({ id: 't1' });
+		expect(second.response).toMatchObject({ id: 't1' });
+		expect(first.handled).toBe(true);
+		expect(second.handled).toBe(true);
+		expect(peer.producingTransport).toBe(transport);
+		expect(transport.once).toHaveBeenCalledTimes(1);
+		expect(transport.close).not.toHaveBeenCalled();
+		await expect(sut(request(), next)).rejects.toThrow('cannot create more than one producing');
+	});
+
+	test('answers every waiting request when the creation fails, and the next request starts a new one', async () => {
+		let fail: () => void = () => undefined;
+		const failed = new Promise<void>((resolve) => (fail = resolve));
+		const transport = { id: 't2', once: jest.fn(), close: jest.fn() };
+		const createWebRtcTransport = jest.fn()
+			.mockImplementationOnce(async () => {
+				await failed;
+
+				throw new Error('media node gone');
+			})
+			.mockImplementationOnce(async () => transport);
+		const peer = { id: 'p1', closed: false, routerReady: Promise.resolve([ undefined, { createWebRtcTransport } ]), notify: jest.fn() } as Record<string, unknown>;
+		const room = { sessionId: 's1', peers: { has: () => false } } as unknown as Room;
+		const sut = createInitialMediaMiddleware({ room });
+		const request = () => context(peer, 'createWebRtcTransport', { sessionId: 's1', producing: false, consuming: true });
+
+		const results = Promise.all([ sut(request(), next), sut(request(), next) ].map((sent) => Promise.resolve(sent).then(() => 'ok', (e: Error) => e.message)));
+
+		fail();
+		expect(await results).toEqual([ 'media node gone', 'media node gone' ]);
+		expect(peer.consumingTransport).toBeUndefined();
+
+		const again = request();
+
+		await sut(again, next);
+		expect(again.response).toMatchObject({ id: 't2' });
+		expect(createWebRtcTransport).toHaveBeenCalledTimes(2);
+	});
+
+	test('keeps the directions apart: one transport each for requests sent together', async () => {
+		const transports = [ { id: 'send', once: jest.fn(), close: jest.fn() }, { id: 'recv', once: jest.fn(), close: jest.fn() } ];
+		const createWebRtcTransport = jest.fn()
+			.mockImplementationOnce(async () => transports[0])
+			.mockImplementationOnce(async () => transports[1]);
+		const peer = { id: 'p1', closed: false, routerReady: Promise.resolve([ undefined, { createWebRtcTransport } ]), notify: jest.fn() } as Record<string, unknown>;
+		const room = { sessionId: 's1', peers: { has: () => false } } as unknown as Room;
+		const sut = createInitialMediaMiddleware({ room });
+		const send = context(peer, 'createWebRtcTransport', { sessionId: 's1', producing: true, consuming: false });
+		const recv = context(peer, 'createWebRtcTransport', { sessionId: 's1', producing: false, consuming: true });
+
+		await Promise.all([ sut(send, next), sut(recv, next) ]);
+
+		expect(send.response).toMatchObject({ id: 'send' });
+		expect(recv.response).toMatchObject({ id: 'recv' });
+		expect(peer.producingTransport).toBe(transports[0]);
+		expect(peer.consumingTransport).toBe(transports[1]);
 	});
 
 	test('closes a transport whose request began on a replaced connection, and lets the new one create its own', async () => {
