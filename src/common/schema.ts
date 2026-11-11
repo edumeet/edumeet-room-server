@@ -35,6 +35,8 @@ export const AppConfigSchema = z.object({
 		.pipe(z.number().int()
 			.positive()),
 	listenHost: ipString,
+	// Addresses (IP or CIDR) whose X-Forwarded-For is believed; see common/clientAddress.ts.
+	trustedProxies: z.array(z.string()).optional(),
 	tls: z.object({
 		cert: z.string(),
 		key: z.string()

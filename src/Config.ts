@@ -43,6 +43,9 @@ export function getConfig(): Config {
 export interface Config {
 	listenHost: string;
 	listenPort: string;
+	// Addresses (IP or CIDR) of proxies whose X-Forwarded-For is believed. Default: loopback and
+	// private networks, where the shipped nginx proxy runs.
+	trustedProxies?: string[];
 	tls?: {
 		cert: string;
 		key: string;
