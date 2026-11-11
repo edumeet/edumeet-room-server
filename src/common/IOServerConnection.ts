@@ -84,9 +84,20 @@ export class IOServerConnection extends BaseConnection {
 		if (this.socket.connected)
 			this.socket.disconnect(true);
 
+		this.forgetRecoverableSession();
+
 		this.socket.removeAllListeners();
 
 		this.emit('close');
+	}
+
+	// A socket that dropped leaves socket.io a session it restores for five minutes, with every
+	// notification sent since. Once the connection is closed, the peer is gone from its room,
+	// and a restore would hand it what the room said and shared after that.
+	private forgetRecoverableSession(): void {
+		const { pid, nsp } = this.socket as unknown as { pid?: string; nsp?: { adapter?: { sessions?: Map<string, unknown> } } };
+
+		if (pid) nsp?.adapter?.sessions?.delete(pid);
 	}
 
 	// The socket dropped and the window for it to come back is still open.

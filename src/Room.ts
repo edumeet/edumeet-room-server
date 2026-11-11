@@ -467,9 +467,11 @@ export default class Room extends EventEmitter {
 			? this.lobbyPeers.items.map((p) => (p.peerInfo))
 			: [];
 
+		// socket.io keeps a notification for connection state recovery and sends it again as
+		// it is then, so it gets a copy: a replay must not show what was said or drawn later.
 		peer.notify({
 			method: 'peerReconnected',
-			data: {
+			data: structuredClone({
 				sessionId: peer.sessionId,
 				roomSessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
@@ -481,7 +483,7 @@ export default class Room extends EventEmitter {
 				lobbyPeers,
 				drawing: this.drawing,
 				countdownTimer: this.countdownTimer,
-			}
+			})
 		});
 
 		// A job may have changed state while the connection was away.

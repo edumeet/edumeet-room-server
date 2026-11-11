@@ -194,11 +194,12 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		if (messagePeer)
 			peer.notify({
 				method: 'sessionIdChanged',
-				data: {
+				// A copy, as for peerReconnected: socket.io may send it again later.
+				data: structuredClone({
 					sessionId: roomToJoin.sessionId,
 					chatHistory: roomToJoin.chatHistory,
 					fileHistory: roomToJoin.fileHistory
-				}
+				})
 			});
 
 		// Create consumers for the peer in the new room
