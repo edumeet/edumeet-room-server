@@ -82,9 +82,12 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 				const hashes = magnetInfoHashes(magnetURI);
 				const cleared = room.fileHistory.filter((item: FileMessage) => sameFile(item, magnetURI, hashes));
 
-				// The clients drop the torrent for everyone, so only a moderator, or the owner of
-				// every entry for it that a peer still in the room shared, may ask.
-				if (cleared.length === 0 || (!moderator && cleared.some((item) => item.peerId !== peer.id && isHere(room, item.peerId))))
+				// The clients drop the torrent for everyone, so only a moderator may ask, or a peer that
+				// shared it and owns every entry for it that a peer still in the room shared.
+				const ownsAnEntry = cleared.some((item) => item.peerId === peer.id);
+				const othersHere = cleared.some((item) => item.peerId !== peer.id && isHere(room, item.peerId));
+
+				if (cleared.length === 0 || (!moderator && (!ownsAnEntry || othersHere)))
 					throw new Error('peer not authorized');
 
 				room.fileHistory = room.fileHistory.filter((item: FileMessage) => !cleared.includes(item));
