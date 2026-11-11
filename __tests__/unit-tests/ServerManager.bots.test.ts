@@ -598,8 +598,24 @@ describe('a bot that comes back after a long disconnect', () => {
 		expect(room.addPeer).toHaveBeenLastCalledWith(peers.get('second'), false);
 	});
 
-	test('is admitted again when it had been let in', async () => {
+	test('is not taken for a returning one under a new peer id when it is not verified', async () => {
 		const { manager, openRoom, peers } = setup({ verdict: { allowed: true, verified: false } });
+		const room = openRoom();
+
+		await connect(manager, 'first');
+
+		const first = peers.get('first') as Peer;
+
+		first.admitted = true;
+		first.close();
+		await connect(manager, 'second');
+
+		// The headless flag is the client's own claim; any client could use it to get back in.
+		expect(room.addPeer).toHaveBeenLastCalledWith(peers.get('second'), false);
+	});
+
+	test('is admitted again when it had been let in', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: { allowed: true, verified: true } });
 		const room = openRoom();
 
 		await connect(manager, 'first');

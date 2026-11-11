@@ -3,7 +3,7 @@ import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { verifyPeer } from '../common/token';
 import { updatePeerPermissions } from '../common/authorization';
-import { isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
+import { isValidPicture, isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
 
 const logger = new Logger('PeerMiddleware');
 
@@ -40,6 +40,9 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 			case 'changePicture': {
 				const { picture } = message.data;
+
+				if (!isValidPicture(picture))
+					throw new Error('invalid picture');
 
 				peer.picture = picture;
 

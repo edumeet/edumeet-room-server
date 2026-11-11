@@ -84,6 +84,7 @@ test('lockRoom() - Should lock room on happy path', async () => {
 	const room = {
 		sessionId: SESSION_ID,
 		notifyPeers: spyNotifyPeers,
+		parkPendingPeersOnLock: jest.fn(),
 		locked: false
 	} as unknown as Room;
 

@@ -9,6 +9,8 @@ interface MediaNodeConnectionOptions {
 	url: string,
 	secret?: string,
 	timeout: number,
+	ca?: string,
+	rejectUnauthorized?: boolean,
 }
 
 export interface MediaNodeInfo {
@@ -73,7 +75,7 @@ export class MediaNodeConnection extends EventEmitter {
 	#timeout;
 	#lastConnectError?: string;
 
-	constructor({ url, secret, timeout = 3000 }: MediaNodeConnectionOptions) {
+	constructor({ url, secret, timeout = 3000, ca, rejectUnauthorized = false }: MediaNodeConnectionOptions) {
 		logger.debug('constructor() [url: %s, timeout: %s]', url, timeout);
 		super();
 
@@ -85,7 +87,8 @@ export class MediaNodeConnection extends EventEmitter {
 				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 				// @ts-ignore
 				transports: [ 'websocket', 'polling' ],
-				rejectUnauthorized: false,
+				rejectUnauthorized,
+				...(ca ? { ca } : {}),
 				closeOnBeforeunload: false,
 			});
 
@@ -134,6 +137,10 @@ export class MediaNodeConnection extends EventEmitter {
 		this.#socket.on('notification', async (notification) => {
 			logger.debug('"notification" recieved [notification: %o]', notification);
 
+			// Nothing here may throw out of this async listener: an unhandled rejection ends
+			// the process (see server.ts).
+			if (!notification || typeof notification !== 'object') return;
+
 			const dataLoad = notification.data?.load;
 
 			if (typeof dataLoad === 'number') this.emit('load', dataLoad);
@@ -181,6 +188,12 @@ export class MediaNodeConnection extends EventEmitter {
 
 		this.#socket.on('request', async (request, result) => {
 			logger.debug('"request" event [request: %o]', request);
+
+			// Without an acknowledgement there is no one to answer, and calling it would throw.
+			if (typeof result !== 'function') return;
+
+			if (!request || typeof request !== 'object') return result('Invalid request', null);
+
 			try {
 				const dataLoad = request.data?.load;
 

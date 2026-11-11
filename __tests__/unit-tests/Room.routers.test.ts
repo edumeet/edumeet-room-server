@@ -180,6 +180,27 @@ test('closing a room with peers on its routers leaves no timers behind', async (
 	expect(jest.getTimerCount()).toBe(0);
 });
 
+test('a peer admitted but not joined that reconnects gets a router again', async () => {
+	const router = new FakeRouter('a');
+	const room = makeRoom(router);
+	const peer = makePeer();
+
+	jest.spyOn(peer, 'request').mockResolvedValue({ rtpCapabilities: { codecs: [] } });
+	room.pendingPeers.add(peer);
+	await assignRouter(room, peer);
+	expect(peer.router).toBe(asRouter(router));
+
+	// What switchConnection does with the router of the connection that is gone.
+	peer.routerReset(true);
+	expect(peer.router).toBeUndefined();
+
+	room.reconnectPeer(peer);
+
+	await expect(peer.routerReady).resolves.toEqual([ null, asRouter(router) ]);
+	expect(peer.router).toBe(asRouter(router));
+	expect(peer.request).toHaveBeenCalledTimes(2);
+});
+
 test('a peer that answers mediaConfiguration gets the router', async () => {
 	const router = new FakeRouter('a');
 	const room = makeRoom(router);

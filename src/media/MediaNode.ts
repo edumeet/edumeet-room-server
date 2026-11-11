@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { KDPoint, Logger, SocketMessage, SocketTimeoutError, skipIfClosed } from 'edumeet-common';
 import { createConsumersMiddleware } from '../middlewares/consumersMiddleware';
@@ -38,6 +39,8 @@ interface MediaNodeOptions {
 		transport: string;
 	}>
 	kdPoint: KDPoint
+	ca?: string;
+	rejectUnauthorized?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
@@ -90,6 +93,7 @@ export class MediaNode extends EventEmitter {
 	public load = 0; // Percentage of load 0-100
 	public lastLoadUpdateTs = 0;
 	public secret: string;
+	readonly tls: { ca?: string; rejectUnauthorized: boolean };
 	public version?: string;
 	public imageTag?: string;
 
@@ -107,11 +111,19 @@ export class MediaNode extends EventEmitter {
 	#activeSpeakerMiddleware = createActiveSpeakerMiddleware({ routers: this.routers });
 	#recordersMiddleware = createRecordersMiddleware({ routers: this.routers });
 
-	constructor({ id, hostname, port, secret, turnHostname, turnports, kdPoint }: MediaNodeOptions) {
+	constructor({ id, hostname, port, secret, turnHostname, turnports, kdPoint, ca, rejectUnauthorized }: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
 		this.setMaxListeners(Infinity);
+
+		this.tls = {
+			ca: ca ? fs.readFileSync(ca, 'utf8') : undefined,
+			rejectUnauthorized: rejectUnauthorized ?? Boolean(ca),
+		};
+
+		if (!this.tls.rejectUnauthorized)
+			logger.warn('media node %s:%s: TLS certificate not validated, the media secret is sent unprotected against a man in the middle; set "ca" or "rejectUnauthorized" in mediaNodes', hostname, port);
 
 		this.id = id;
 		this.hostname = hostname;
@@ -238,7 +250,8 @@ export class MediaNode extends EventEmitter {
 		const connection = new MediaNodeConnection({
 			url: `wss://${this.hostname}:${this.port}`,
 			secret: this.secret,
-			timeout: 3000
+			timeout: 3000,
+			...this.tls,
 		});
 
 		if (!addListeners) return connection;

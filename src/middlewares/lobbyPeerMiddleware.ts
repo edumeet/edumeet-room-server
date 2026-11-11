@@ -4,7 +4,7 @@ import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { verifyPeer } from '../common/token';
 import { Permission, updatePeerPermissions } from '../common/authorization';
-import { isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
+import { isValidPicture, isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
 
 const logger = new Logger('LobbyPeerMiddleware');
 
@@ -43,6 +43,9 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 
 			case 'changePicture': {
 				const { picture } = message.data;
+
+				if (!isValidPicture(picture))
+					throw new Error('invalid picture');
 
 				peer.picture = picture;
 				room.notifyPeersWithPermission('lobby:changePicture', {

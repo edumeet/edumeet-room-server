@@ -36,7 +36,7 @@ export default class ServerManager {
 	// can be restored if the peer reconnects slowly (after the 5-second window).
 	// Keyed by reconnectKey (which is reset on intentional leave, so stale entries
 	// never match a new session). Entries expire after 60 seconds.
-	private reconnectPermissionsCache = new Map<string, string[]>();
+	private reconnectPermissionsCache = new Map<string, { roomSession: string, peerId: string, permissions: string[] }>();
 
 	constructor({ mediaService, peers, rooms, managedPeers, managedRooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
@@ -91,8 +91,14 @@ export default class ServerManager {
 
 		let tenantId = 0;
 
+		// A client that disconnects during an await must not leave a Peer, Room and router
+		// behind: the connection's close has already fired, so nothing would release them.
+		const gone = () => (connection as unknown as { closed?: boolean }).closed === true;
+
 		if (this.managementService) {
 			tenantId = await this.managementService.getTenantFromFqdn(tenantFqdn);
+
+			if (gone()) return;
 		}
 
 		logger.debug(
@@ -113,17 +119,14 @@ export default class ServerManager {
 		if (peer) {
 			logger.debug('handleConnection() there is already a Peer with same peerId [peerId: %s]', peerId);
 
-			// if reconnectKey equal is a reconnect, else do not accept new connection
-			if (reconnectKey === peer.reconnectKey) {
+			// A reconnect needs the peer's reconnectKey and the room the peer is in. Both peerId
+			// and reconnectKey are chosen by the client, so without the room check anyone could
+			// reconnect into any live room. A missing room and a wrong one are refused alike.
+			if (reconnectKey === peer.reconnectKey && room?.holds(peer)) {
 				logger.debug('handleConnection() reconnectKey equal, doing socket swap [peerId: %s]', peerId);
 
 				peer.switchConnection(connection);
-
-				if (room) {
-					room.reconnectPeer(peer);
-				} else {
-					peer.close();
-				}
+				room.reconnectPeer(peer);
 
 				return;
 			} else {
@@ -210,6 +213,8 @@ export default class ServerManager {
 			}
 		}
 
+		if (gone()) return;
+
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
 
@@ -261,7 +266,19 @@ export default class ServerManager {
 
 		let isReconnect = false;
 
-		const savedPermissions = this.reconnectPermissionsCache.get(reconnectKey);
+		// Permissions are restored only into the room they were held in: the reconnectKey is
+		// the client's choice, and moderator rights of one room must not open another.
+		// Bound to the room's session, not its name: a meeting opened later under the same
+		// name is another room, and its rights are not the old moderator's.
+		const saved = this.reconnectPermissionsCache.get(reconnectKey);
+		const roomSession = room.sessionId;
+		// and, for a participant, to the peer it was cached for: the key alone is the client's.
+		// A bot comes back after a long disconnect with a new peer id but its key (see
+		// ServerManager.bots tests), so for a bot the key and the room session decide.
+		// The headless flag is the client's own claim; only a bot the management service
+		// verified may come back under a new peer id.
+		const samePeer = saved?.peerId === peerId || (Boolean(headless) && botVerified);
+		const savedPermissions = saved?.roomSession === roomSession && samePeer ? saved.permissions : undefined;
 
 		if (savedPermissions) {
 			isReconnect = true;
@@ -318,10 +335,12 @@ export default class ServerManager {
 			const perms = peer.permissions;
 
 			// A bot has no permissions to restore, but its admission is what its
-			// long reconnect must get back, so it is cached all the same: only when
-			// it was let in, or a bot parked or refused would get in by coming back.
-			if (perms.length > 0 || (peer.headless && peer.admitted)) {
-				this.reconnectPermissionsCache.set(peer.reconnectKey, perms);
+			// long reconnect must get back, so it is cached all the same.
+			// Only a peer that was let in, and only from a room still open: a kick resets
+			// admitted and closing the meeting closes the room, and the reconnectKey is the
+			// client's choice, so a peer the room removed would otherwise get its rights back.
+			if (peer.admitted && !room.closed && (perms.length > 0 || peer.headless)) {
+				this.reconnectPermissionsCache.set(peer.reconnectKey, { roomSession, peerId: peer.id, permissions: perms });
 
 				setTimeout(
 					() => this.reconnectPermissionsCache.delete(peer.reconnectKey),

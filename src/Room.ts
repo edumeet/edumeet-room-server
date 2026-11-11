@@ -64,6 +64,21 @@ interface CountdownTimer {
 	remainingTime: string;
 }
 
+// The shape of RtpCapabilities as consuming reads it: codecs and header extensions are lists
+// of objects, a codec has a kind and a mime type. mediasoup checks the rest.
+const isRtpCapabilities = (value: unknown): value is RtpCapabilities => {
+	if (!value || typeof value !== 'object') return false;
+
+	const { codecs, headerExtensions } = value as { codecs?: unknown, headerExtensions?: unknown };
+	const objects = (list: unknown) => Array.isArray(list) && list.every((item) => item !== null && typeof item === 'object');
+
+	if (codecs !== undefined && (!objects(codecs) || !(codecs as Array<Record<string, unknown>>).every(
+		(codec) => typeof codec.kind === 'string' && typeof codec.mimeType === 'string'))) return false;
+	if (headerExtensions !== undefined && !objects(headerExtensions)) return false;
+
+	return true;
+};
+
 export default class Room extends EventEmitter {
 	public sessionId = randomUUID();
 	public closed = false;
@@ -88,7 +103,21 @@ export default class Room extends EventEmitter {
 	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
 	public defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
 	public disableUnmanaged = false; // Possibly updated by the management service
-	public locked = true; // Possibly updated by the management service
+	#locked = true; // Possibly updated by the management service
+
+	public get locked(): boolean {
+		return this.#locked;
+	}
+
+	// Locking, by a moderator or the management service, sends peers admitted but not yet
+	// joined back to the lobby (see parkPendingPeersOnLock).
+	public set locked(locked: boolean) {
+		const wasLocked = this.#locked;
+
+		this.#locked = locked;
+
+		if (locked && !wasLocked) this.parkPendingPeersOnLock();
+	}
 	public meetingsOnly = false; // Possibly updated by the management service
 	public activeMeetingToken?: string;
 	// eslint-disable-next-line no-unused-vars
@@ -273,6 +302,13 @@ export default class Room extends EventEmitter {
 		].some((p) => !p.headless);
 	}
 
+	// Whether the peer is anywhere in this room: joined, admitted, in the lobby or still
+	// being checked. A reconnect is only accepted into the room the peer is in.
+	public holds(peer: Peer): boolean {
+		return [ this.waitingPeers, this.pendingPeers, this.peers, this.lobbyPeers ]
+			.some((list) => list.items.includes(peer));
+	}
+
 	public get participants(): Peer[] {
 		return this.peers.items.filter((p) => !p.headless);
 	}
@@ -392,6 +428,25 @@ export default class Room extends EventEmitter {
 			return;
 		}
 
+		// Only a peer that has joined gets the room's state. An admitted one gets roomReady
+		// again and the state with its join, which checks the lock again; one still being
+		// checked (meeting token) gets its answer from addPeer on the new connection.
+		if (this.pendingPeers.items.includes(peer)) {
+			logger.debug('reconnectPeer() peer has not joined yet, re-sending roomReady [id: %s]', peer.id);
+			this.notifyRoomReady(peer);
+
+			// The new connection gave up the router the admission had assigned.
+			this.assignRouter(peer);
+
+			return;
+		}
+
+		if (!this.peers.items.includes(peer)) {
+			logger.debug('reconnectPeer() peer is not in the room yet [id: %s]', peer.id);
+
+			return;
+		}
+
 		const lobbyPeers = peer.hasPermission(Permission.PROMOTE_PEER)
 			? this.lobbyPeers.items.map((p) => (p.peerInfo))
 			: [];
@@ -433,7 +488,54 @@ export default class Room extends EventEmitter {
 		if (this.lobbyPeers.remove(peer)) this.notifyPeersWithPermission('lobby:peerClosed', { peerId: peer.id }, Permission.PROMOTE_PEER, peer);
 		if (this.empty) return this.close();
 
+		// The meeting's content belongs to the people in it. A room kept open only by its
+		// lobby, or by peers admitted but never joined, must not hand chat, files or the
+		// whiteboard to whoever joins next.
+		if (!this.peers.items.some((p) => !p.headless))
+			this.clearContent();
+
 		ensureUnmanagedModerator(this);
+	}
+
+	private clearContent(): void {
+		logger.debug('clearContent() [sessionId: %s]', this.sessionId);
+
+		this.chatHistory = [];
+		this.fileHistory = [];
+		this.drawing = { isEnabled: false, bgColor: 'white', canvasState: [] } as Drawing;
+		this.breakoutRooms.forEach((r) => r.close());
+		this.breakoutRooms.clear();
+
+		// A new meeting starts a new E2EE group too (see mlsMiddleware).
+		this.emit('contentCleared');
+
+		if (this._countdownTimerRef) clearInterval(this._countdownTimerRef as NodeJS.Timeout);
+		this._countdownTimerRef = null;
+		this.countdownTimer = { isEnabled: true, isStarted: false, remainingTime: '00:00:00', initialTime: '00:00:00' } as CountdownTimer;
+	}
+
+	/**
+	 * When the room is locked, peers admitted before but not joined yet go back to the
+	 * lobby, unless they may pass a lock. Otherwise someone let in while the room was open
+	 * could wait, and join the locked meeting later. Peers promoted from the lobby after
+	 * the lock was set are admitted on purpose and are not affected.
+	 */
+	@skipIfClosed
+	public parkPendingPeersOnLock(): void {
+		for (const peer of [ ...this.pendingPeers.items ]) {
+			if (peer.headless || peer.hasPermission(Permission.BYPASS_ROOM_LOCK)) continue;
+
+			logger.debug('parkPendingPeersOnLock() [id: %s]', peer.id);
+
+			// No longer admitted: its router and transports go, and a reconnect is not taken
+			// for an admitted participant's (see the permission cache in ServerManager).
+			peer.admitted = false;
+			peer.releaseMedia();
+			this.pendingPeers.remove(peer);
+			peer.pipeline.remove(this.#initialMediaMiddleware);
+			peer.pipeline.remove(this.#joinMiddleware);
+			this.parkPeer(peer);
+		}
 	}
 
 	@skipIfClosed
@@ -447,6 +549,11 @@ export default class Room extends EventEmitter {
 		this.pendingPeers.add(peer);
 		peer.pipeline.use(this.#initialMediaMiddleware, this.#joinMiddleware);
 
+		this.notifyRoomReady(peer);
+	}
+
+	// Admitted, not joined yet: the peer learns the room's settings and then sends join.
+	private notifyRoomReady(peer: Peer): void {
 		peer.notify({
 			method: 'roomReady',
 			data: {
@@ -668,6 +775,9 @@ export default class Room extends EventEmitter {
 				throw new Error('mediaConfiguration request returned no result');
 
 			const { rtpCapabilities } = mediaConfigResult;
+
+			// What the client sent; consuming reads it without further checks.
+			if (!isRtpCapabilities(rtpCapabilities)) throw new Error('invalid rtpCapabilities');
 
 			// Quietly to the next router: nothing on the client uses this one yet, and transport requests wait
 			// on the still pending routerReady. A reset would show the client an error, restart its mic and

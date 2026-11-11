@@ -262,9 +262,17 @@ export class Peer extends EventEmitter {
 		this.emit('close');
 	}
 
+	// Counts connection switches. Something created for a request of an earlier connection
+	// is not this connection's, and its answer went to a socket that is gone.
+	public connectionGeneration = 0;
+
 	@skipIfClosed
 	public switchConnection(newConnection: BaseConnection): void {
 		logger.debug('switchConnection() [peerId: %s]', this.id);
+
+		// Requests still running for the old connection answer it, not the new one; what
+		// they create for this peer is closed when it arrives (see connectionGeneration).
+		this.connectionGeneration++;
 
 		// Capture old connections before adding the new one.
 		const oldConnections = [ ...this.connections.items ];
@@ -292,6 +300,24 @@ export class Peer extends EventEmitter {
 		this.producingTransport = undefined;
 
 		// Reset media state; client handles reconnect so no lostMediaServer notification needed.
+		this.routerReset(true);
+	}
+
+	// Give up the router and everything on it, as for a peer sent back to the lobby; a later
+	// admission assigns a router again.
+	public releaseMedia(): void {
+		this.consumers.forEach((c) => c.close());
+		this.producers.forEach((p) => p.close());
+		this.dataProducers.forEach((p) => p.close());
+		this.consumingTransport?.close();
+		this.producingTransport?.close();
+
+		this.consumers.clear();
+		this.producers.clear();
+		this.dataProducers.clear();
+		this.consumingTransport = undefined;
+		this.producingTransport = undefined;
+
 		this.routerReset(true);
 	}
 
@@ -445,6 +471,16 @@ export class Peer extends EventEmitter {
 		});
 
 		connection.on('request', async (request, respond, reject) => {
+			// Answering must never throw out of this listener: an unhandled rejection ends
+			// the process (see server.ts), and with it every meeting on this server.
+			const answer = (send: unknown, value: unknown) => {
+				try {
+					if (typeof send === 'function') send(value);
+				} catch (error) {
+					logger.warn({ err: error }, 'request() could not answer');
+				}
+			};
+
 			try {
 				const context = {
 					peer: this,
@@ -456,17 +492,17 @@ export class Peer extends EventEmitter {
 				await this.pipeline.execute(context);
 
 				if (context.handled)
-					respond(context.response);
+					answer(respond, context.response);
 				else {
-					logger.debug('request() unhandled request [method: %s]', request.method);
+					logger.debug('request() unhandled request [method: %s]', request?.method);
 
-					reject('Server error');
+					answer(reject, 'Server error');
 				}
 			} catch (error) {
 				logger.error({ err: error }, 'request() failed');
 				if (error instanceof SocketTimeoutError) this.notify({ method: 'mediaConnectionError', data: { error } });
 
-				reject?.('Server error');
+				answer(reject, 'Server error');
 			}
 		});
 

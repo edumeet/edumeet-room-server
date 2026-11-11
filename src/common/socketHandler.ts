@@ -3,6 +3,7 @@ import { Logger } from 'edumeet-common';
 import { IOServerConnection } from './IOServerConnection';
 import { normalizeMeetingToken } from './meetingToken';
 import { asBotId } from './botProfile';
+import { isValidPeerId } from './textValidation';
 
 const logger = new Logger('socketHandler');
 
@@ -34,6 +35,12 @@ export const socketHandler = (socket: Socket) => {
 
 	if (!roomId || !peerId || !reconnectKey) {
 		logger.warn('socketHandler() - socket invalid roomId or peerId or reconnectKey');
+
+		return socket.disconnect(true);
+	}
+
+	if (!isValidPeerId(peerId)) {
+		logger.warn('socketHandler() - socket invalid peerId');
 
 		return socket.disconnect(true);
 	}

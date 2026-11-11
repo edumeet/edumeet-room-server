@@ -40,3 +40,13 @@ describe('a peer that cannot consume a producer', () => {
 		expect(mockWarn).toHaveBeenCalledWith(expect.stringContaining('cannot consume'), 'producer', 'v2', false);
 	});
 });
+
+describe('a peer whose capabilities are malformed', () => {
+	test('cannot make consuming throw', async () => {
+		for (const codecs of [ 5, 'x', [ null ] ]) {
+			const peer = { ...peerWith([]), rtpCapabilities: { codecs, headerExtensions: [] } } as unknown as Peer;
+
+			await expect(createConsumer(peer, producerPeer, { id: 'p', kind: 'audio' } as unknown as Producer)).resolves.toBeUndefined();
+		}
+	});
+});
