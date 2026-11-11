@@ -268,6 +268,8 @@ export const addRoomOwner = (room: Room, roomOwner: ManagedRoomOwner): void => {
 };
 
 export const removeRoomOwner = (room: Room, roomOwner: ManagedRoomOwner): void => {
+	room.permissionsRevision++;
+
 	room.owners = room.owners.filter((o) => o.id !== roomOwner.id);
 
 	// Check if the peer is already in the room, if so, notify it
@@ -286,6 +288,8 @@ export const addRoomUserRole = (room: Room, roomUserRole: ManagedUserRole): void
 };
 
 export const removeRoomUserRole = (room: Room, roomUserRole: ManagedUserRole): void => {
+	room.permissionsRevision++;
+
 	room.userRoles = room.userRoles.filter((ur) => ur.id !== roomUserRole.id);
 
 	// Check if the peer is already in the room, if so, notify it
@@ -304,6 +308,8 @@ export const addRoomGroupRole = (room: Room, roomGroupRole: ManagedGroupRole): v
 };
 
 export const removeRoomGroupRole = (room: Room, roomGroupRole: ManagedGroupRole): void => {
+	room.permissionsRevision++;
+
 	room.groupRoles = room.groupRoles.filter((gr) => gr.id !== roomGroupRole.id);
 
 	// Check if the peer is already in the room, if so, notify it
@@ -313,6 +319,8 @@ export const removeRoomGroupRole = (room: Room, roomGroupRole: ManagedGroupRole)
 };
 
 export const removeGroup = (room: Room, group: ManagedGroup): void => {
+	room.permissionsRevision++;
+
 	room.groupRoles = room.groupRoles.filter((gr) => gr.groupId !== String(group.id));
 
 	// Check if the peer is already in the room, if so, notify it
@@ -340,6 +348,8 @@ export const addGroupUser = (room: Room, groupUser: ManagedGroupUser): void => {
 };
 
 export const removeGroupUser = (room: Room, groupUser: ManagedGroupUser): void => {
+	room.permissionsRevision++;
+
 	// Check if the peer is already in the room, if so, notify it
 	const peer = room.getPeerByManagedId(groupUser.userId);
 
@@ -354,6 +364,8 @@ export const removeGroupUser = (room: Room, groupUser: ManagedGroupUser): void =
 };
 
 export const removeRole = (room: Room, role: ManagedRole): void => {
+	room.permissionsRevision++;
+
 	room.userRoles.forEach((ur) => {
 		if (ur.roleId === String(role.id))
 			removeRoomUserRole(room, ur);
@@ -367,7 +379,7 @@ export const removeRole = (room: Room, role: ManagedRole): void => {
 	const defaultRole = room.defaultRole as ManagedRole;
 
 	if (defaultRole?.id === role.id) {
-		delete room.defaultRole;
+		room.defaultRole = undefined;
 
 		const peers = room.getPeers();
 
@@ -398,6 +410,8 @@ export const addRolePermission = (room: Room, rolePermission: ManagedRolePermiss
 };
 
 export const removeRolePermission = (room: Room, rolePermission: ManagedRolePermission): void => {
+	room.permissionsRevision++;
+
 	room.userRoles.forEach((ur) => {
 		if (ur.roleId === rolePermission.roleId) {
 			ur.role.permissions = ur.role.permissions.filter((p) => p.id !== rolePermission.permission.id);

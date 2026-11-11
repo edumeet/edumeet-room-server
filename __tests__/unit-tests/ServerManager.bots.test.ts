@@ -654,7 +654,8 @@ describe('a participant that comes back as a bot', () => {
 
 		const returning = peers.get('former') as Peer;
 
-		expect(addPeer).toHaveBeenCalledWith(returning, true);
+		// A participant's cached rights are not redeemed by a headless connection.
+		expect(addPeer).toHaveBeenCalledWith(returning, false);
 		expect(room.lobbyPeers.items).toContain(returning);
 		expect(room.pendingPeers.items).not.toContain(returning);
 		expect(returning.admitted).toBe(false);

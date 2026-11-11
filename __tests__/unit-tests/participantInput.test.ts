@@ -126,6 +126,7 @@ describe('3.24 removing a shared file', () => {
 	const shared = () => ({
 		sessionId: 's',
 		fileHistory: [ { magnetURI: MAGNET, peerId: 'a', timestamp: 1 } ] as FileMessage[],
+		peers: { items: [ { id: 'a' }, { id: 'b' } ] },
 		notifyPeers: jest.fn(),
 	});
 
@@ -226,6 +227,16 @@ describe('3.12 whiteboard objects', () => {
 		'a pattern fill': { ...whiteboard.path, fill: { type: 'pattern', source: 'https://evil.example/tile.png' } },
 		'a src hidden deeper': { ...whiteboard.text, styles: [ { start: 0, end: 1, style: { src: 'https://evil.example/x.png' } } ] },
 		'an object without id': { ...whiteboard.path, id: undefined },
+		'a key named like a fabric method': { ...whiteboard.path, render: 1 },
+		'a private fabric field': { ...whiteboard.path, _render: 'x' },
+		'a method key on text': { ...whiteboard.text, toObject: null },
+		'a method key in a clip group': { ...whiteboard.erasedPath, clipPath: { ...whiteboard.erasedPath.clipPath, drawObject: 0 } },
+		'a method key on an eraser stroke': { ...whiteboard.erasedPath, clipPath: { ...whiteboard.erasedPath.clipPath, objects: [ { ...whiteboard.path, setCoords: 1 } ] } },
+		'a number where fabric expects a boolean': { ...whiteboard.path, visible: 1 },
+		'a shadow object': { ...whiteboard.path, shadow: { color: 'red', blur: 1e9 } },
+		'a path command that is not a letter': { ...whiteboard.path, path: [ [ 'toString', 1 ] ] },
+		'an unknown layout strategy': { ...whiteboard.erasedPath, clipPath: { ...whiteboard.erasedPath.clipPath, layoutManager: { type: 'layoutManager', strategy: 'render' } } },
+		'an unknown text style key': { ...whiteboard.text, styles: [ { start: 0, end: 1, style: { render: 1 } } ] },
 		'an oversized object': { ...whiteboard.path, path: Array.from({ length: 50000 }, () => [ 'L', 123.4567, 234.5678 ]) },
 	};
 
