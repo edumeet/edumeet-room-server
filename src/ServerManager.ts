@@ -334,8 +334,9 @@ export default class ServerManager {
 			// so stale entries will never match a fresh join.
 			const perms = peer.permissions;
 
-			// A bot has no permissions to restore, but its admission is what its
-			// long reconnect must get back, so it is cached all the same.
+			// A bot has no permissions to restore; it is cached all the same, so its long
+			// reconnect is not asked for a meeting token again. It does not get past a lock
+			// this way: Room.addPeer decides that by permissions alone.
 			// Only a peer that was let in, and only from a room still open: a kick resets
 			// admitted and closing the meeting closes the room, and the reconnectKey is the
 			// client's choice, so a peer the room removed would otherwise get its rights back.
