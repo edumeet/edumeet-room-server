@@ -81,3 +81,15 @@ describe('another peer\'s file', () => {
 		expect(room.fileHistory).toHaveLength(2);
 	});
 });
+
+test('clearFile tells the clients each link as it was shared', async () => {
+	const room = createRoom();
+	const base32 = 'magnet:?xt=urn:btih:YEX6DQDLXISUVHOJ6UM3GNNKPQJWPKEK';
+
+	await send(room, makePeer('victim'), 'sendFile', victimLink);
+	await send(room, makePeer('mod', [ Permission.MODERATE_FILES ]), 'clearFile', base32);
+
+	expect(room.fileHistory).toHaveLength(0);
+	expect(room.notifyPeers).toHaveBeenCalledWith('clearFile', { magnetURI: victimLink });
+	expect(room.notifyPeers).not.toHaveBeenCalledWith('clearFile', { magnetURI: base32 });
+});

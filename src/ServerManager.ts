@@ -29,6 +29,7 @@ interface ReconnectEntry {
 	permissions: string[];
 	headless: boolean;
 	botVerified: boolean;
+	botId?: string;
 	permissionsRevision: number;
 }
 
@@ -304,7 +305,9 @@ export default class ServerManager {
 		// ServerManager.bots tests), so for a bot the key and the room session decide.
 		// The headless flag is the client's own claim; only a bot the management service
 		// verified may come back under a new peer id.
-		const samePeer = saved?.peerId === peerId || (Boolean(headless) && botVerified);
+		// A verified bot under a new peer id must be the same bot: one that runs jobs is known by
+		// its botId, which another bot of the tenant cannot take over.
+		const samePeer = saved?.peerId === peerId || (Boolean(headless) && botVerified && saved?.botId === botId);
 		// A bot's admission is not a participant's, nor the other way round.
 		const sameKind = saved?.headless === Boolean(headless) && saved?.botVerified === botVerified;
 		// Rights revoked while the peer was away are not handed back from the cache.
@@ -383,6 +386,7 @@ export default class ServerManager {
 					permissions: perms,
 					headless: peer.headless,
 					botVerified: peer.botVerified,
+					botId: peer.botId,
 					permissionsRevision: room.permissionsRevision,
 				};
 				const key = peer.reconnectKey;

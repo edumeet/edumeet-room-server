@@ -379,7 +379,7 @@ export const removeRole = (room: Room, role: ManagedRole): void => {
 	const defaultRole = room.defaultRole as ManagedRole;
 
 	if (defaultRole?.id === role.id) {
-		delete room.defaultRole;
+		room.defaultRole = undefined;
 
 		const peers = room.getPeers();
 

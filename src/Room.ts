@@ -36,6 +36,13 @@ import { RtpCapabilities } from 'mediasoup/types';
 
 const logger = new Logger('Room');
 
+const ROUTER_RETRY_INTERVAL = 10_000;
+
+interface RouterAssignment {
+	retry?: ReturnType<typeof setTimeout>;
+	running?: Promise<void>;
+}
+
 interface RoomOptions {
 	id: string;
 	tenantId: number;
@@ -101,7 +108,22 @@ export default class Room extends EventEmitter {
 	public owners: ManagedRoomOwner[] = []; // Possibly updated by the management service
 	public userRoles: ManagedUserRole[] = []; // Possibly updated by the management service
 	public groupRoles: ManagedGroupRole[] = []; // Possibly updated by the management service
-	public defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
+	#defaultRole?: ManagedRole | RoomRole; // Possibly updated by the management service
+
+	public get defaultRole(): ManagedRole | RoomRole | undefined {
+		return this.#defaultRole;
+	}
+
+	// A default role that loses a permission is a revocation for everyone in the room, so
+	// permissions cached for a slow reconnect are not restored from before it.
+	public set defaultRole(role: ManagedRole | RoomRole | undefined) {
+		const names = (r?: ManagedRole | RoomRole) => new Set((r?.permissions ?? []).map((p) => p.name));
+		const kept = names(role);
+
+		if ([ ...names(this.#defaultRole) ].some((name) => !kept.has(name))) this.permissionsRevision++;
+
+		this.#defaultRole = role;
+	}
 	public disableUnmanaged = false; // Possibly updated by the management service
 	#locked = true; // Possibly updated by the management service
 
@@ -736,25 +758,44 @@ export default class Room extends EventEmitter {
 
 	// One router assignment per peer, running or waiting to retry. A newer one, as every
 	// reconnect starts, replaces it: the older one stops at its next step and does not retry.
-	#routerAssignments = new WeakMap<Peer, { retry?: ReturnType<typeof setTimeout> }>();
+	// It starts once the one it replaces has settled, and an attempt that did not give the
+	// peer a router is followed by the next no sooner than a retry would be, so reconnecting
+	// does not make the media node answer more often.
+	#routerAssignments = new WeakMap<Peer, RouterAssignment>();
+	// When the peer's last attempt that has not given it a router began.
+	#unfinishedAttempts = new WeakMap<Peer, number>();
 
 	private async assignRouter(peer: Peer): Promise<void> {
 		if (this.closed || peer.closed) return;
 
-		clearTimeout(this.#routerAssignments.get(peer)?.retry);
+		const previous = this.#routerAssignments.get(peer);
 
-		const assignment = {};
+		clearTimeout(previous?.retry);
+
+		const assignment: RouterAssignment = {};
 
 		this.#routerAssignments.set(peer, assignment);
 
-		return this.runRouterAssignment(peer, assignment);
+		assignment.running = (async () => {
+			await previous?.running;
+
+			const started = this.#unfinishedAttempts.get(peer);
+			const wait = started === undefined ? 0 : started + ROUTER_RETRY_INTERVAL - Date.now();
+
+			if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+			if (this.closed || peer.closed || !this.isCurrentAssignment(peer, assignment)) return;
+
+			return this.runRouterAssignment(peer, assignment);
+		})();
+
+		return assignment.running;
 	}
 
 	private isCurrentAssignment(peer: Peer, assignment: object): boolean {
 		return this.#routerAssignments.get(peer) === assignment;
 	}
 
-	private async runRouterAssignment(peer: Peer, assignment: { retry?: ReturnType<typeof setTimeout> }): Promise<void> {
+	private async runRouterAssignment(peer: Peer, assignment: RouterAssignment): Promise<void> {
 		// If there is no media node yet, ensure only one "first" assignment runs at a time.
 		if (this.mediaNodes.length === 0) {
 			if (this.initialRouterAssignment) {
@@ -788,10 +829,12 @@ export default class Room extends EventEmitter {
 
 	private async doAssignRouter(
 		peer: Peer,
-		assignment: { retry?: ReturnType<typeof setTimeout> },
+		assignment: RouterAssignment,
 		loadedCapabilities?: RtpCapabilities
 	): Promise<void> {
 		if (this.closed || peer.closed || !this.isCurrentAssignment(peer, assignment)) return;
+
+		this.#unfinishedAttempts.set(peer, Date.now());
 
 		try {
 			const [ router, mediaNode ] = await this.mediaService.getRouter(this, peer);
@@ -838,6 +881,7 @@ export default class Room extends EventEmitter {
 			if (router.closed) return this.doAssignRouter(peer, assignment, router.rtpCapabilities);
 
 			this.addMediaNode(mediaNode);
+			this.#unfinishedAttempts.delete(peer);
 			peer.router = router;
 			peer.resolveRouterReady(router);
 			
@@ -852,7 +896,7 @@ export default class Room extends EventEmitter {
 
 			assignment.retry = setTimeout(() => {
 				if (this.isCurrentAssignment(peer, assignment)) void this.assignRouter(peer);
-			}, 10_000);
+			}, ROUTER_RETRY_INTERVAL);
 		}
 	}
 

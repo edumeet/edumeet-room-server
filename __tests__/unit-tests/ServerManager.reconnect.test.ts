@@ -457,3 +457,61 @@ describe('authorization revocations', () => {
 		expect(room.permissionsRevision).toBe(1);
 	});
 });
+
+describe('a default role that loses a permission', () => {
+	const role = (...names: string[]) => ({ id: 1, name: 'r', permissions: names.map((name) => ({ name })) }) as unknown as Room['defaultRole'];
+
+	test('counts as a revocation; one that only gains does not', () => {
+		const room = new Room({ id: 'dr', tenantId: 7, mediaService: {} as unknown as MediaService });
+
+		room.defaultRole = role('SHARE_AUDIO');
+		expect(room.permissionsRevision).toBe(0);
+
+		room.defaultRole = role('SHARE_AUDIO', 'MODERATE_ROOM');
+		expect(room.permissionsRevision).toBe(0);
+
+		room.defaultRole = role('SHARE_AUDIO');
+		expect(room.permissionsRevision).toBe(1);
+
+		room.defaultRole = undefined;
+		expect(room.permissionsRevision).toBe(2);
+		expect(room.defaultRole).toBeUndefined();
+	});
+});
+
+describe('a verified bot\'s cached admission', () => {
+	const cache = (manager: ServerManager) =>
+		(manager as unknown as { reconnectPermissionsCache: Map<string, unknown> }).reconnectPermissionsCache;
+
+	test('is not redeemed by another verified bot under another peer id', async () => {
+		const tenantId = 7;
+		const rooms = new Map<string, Room>();
+		const peers = new Map<string, Peer>();
+		const manager = new ServerManager({
+			mediaService: {} as unknown as MediaService,
+			peers,
+			rooms,
+			managedPeers: new Map(),
+			managedRooms: new Map(),
+			managementService: {
+				getTenantFromFqdn: jest.fn(async () => tenantId),
+				verifyBot: jest.fn(async () => ({ allowed: true, verified: true })),
+			} as unknown as ManagementService,
+		});
+		const room = new Room({ id: 'r', tenantId, mediaService: {} as unknown as MediaService });
+		const human = new Peer({ id: 'human', sessionId: room.sessionId, reconnectKey: 'hk' });
+
+		jest.spyOn(human, 'notify').mockImplementation(() => undefined);
+		room.joinPeer(human);
+		room.resolveRoomReady();
+		rooms.set(`${tenantId}/r`, room);
+		jest.spyOn(room, 'addPeer').mockResolvedValue(undefined);
+
+		cache(manager).set('bk', { roomSession: room.sessionId, peerId: 'bot-1', permissions: [ 'BYPASS_ROOM_LOCK' ], headless: true, botVerified: true, botId: 'recorder-1', permissionsRevision: 0 });
+
+		// No botId at all (an unknown bot): the key alone is not enough.
+		await manager.handleConnection(makeConnection(), 'bot-2', 'r', 'tenant.example.edu', 'bk', 'Bot', undefined, undefined, true, 'token');
+
+		expect(room.addPeer).toHaveBeenLastCalledWith(peers.get('bot-2'), false);
+	});
+});

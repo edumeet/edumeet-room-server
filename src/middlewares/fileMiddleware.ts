@@ -83,9 +83,9 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 
 				room.fileHistory = room.fileHistory.filter((item: FileMessage) => !cleared.includes(item));
 
-				room.notifyPeers('clearFile', {
-					magnetURI,
-				});
+				// Clients match the link as it was shared, which may be written otherwise than here.
+				for (const link of new Set(cleared.map((item) => item.magnetURI)))
+					room.notifyPeers('clearFile', { magnetURI: link });
 
 				context.handled = true;
 
