@@ -71,6 +71,9 @@ const setup = () => {
 	return { manager, rooms, roomA, roomB, attacker, peers, connect };
 };
 
+// What the room server caches for a participant in a room that revoked nothing.
+const participantEntry = { headless: false, botVerified: false, permissionsRevision: 0 };
+
 afterEach(() => {
 	jest.restoreAllMocks();
 });
@@ -132,7 +135,7 @@ describe('cached permissions of a slow reconnect', () => {
 
 		const { roomA } = { roomA: manager.rooms.get('7/a') as Room };
 
-		cache(manager).set('mk', { roomSession: roomA.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM', 'BYPASS_ROOM_LOCK' ] });
+		cache(manager).set('mk', { ...participantEntry, roomSession: roomA.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM', 'BYPASS_ROOM_LOCK' ] });
 		await connect('returning', 'b', 'mk');
 
 		expect(peers.get('returning')?.permissions).toEqual([]);
@@ -143,7 +146,7 @@ describe('cached permissions of a slow reconnect', () => {
 		const { manager, rooms, peers, connect } = setup();
 		const old = rooms.get('7/a') as Room;
 
-		cache(manager).set('mk', { roomSession: old.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM' ] });
+		cache(manager).set('mk', { ...participantEntry, roomSession: old.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM' ] });
 
 		// The old meeting ended; a new one is opened under the same name.
 		const reopened = new Room({ id: 'a', tenantId: 7, mediaService: {} as unknown as MediaService });
@@ -177,13 +180,13 @@ describe('cached permissions of a slow reconnect', () => {
 		leaving.permissions = [ 'MODERATE_ROOM' ];
 		leaving.admitted = true;
 		leaving.close();
-		expect(cache(manager).get('sk')).toEqual({ roomSession: (rooms.get('7/a') as Room).sessionId, peerId: 'stays', permissions: [ 'MODERATE_ROOM' ] });
+		expect(cache(manager).get('sk')).toEqual(expect.objectContaining({ roomSession: (rooms.get('7/a') as Room).sessionId, peerId: 'stays', permissions: [ 'MODERATE_ROOM' ] }));
 	});
 
 	test('are not restored for another peer that presents the same key in the same room', async () => {
 		const { manager, roomA, peers, connect } = setup();
 
-		cache(manager).set('mk', { roomSession: roomA.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM', 'BYPASS_ROOM_LOCK' ] });
+		cache(manager).set('mk', { ...participantEntry, roomSession: roomA.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM', 'BYPASS_ROOM_LOCK' ] });
 		await connect('someone-else', 'a', 'mk');
 
 		expect(peers.get('someone-else')?.permissions).toEqual([]);
@@ -193,7 +196,7 @@ describe('cached permissions of a slow reconnect', () => {
 	test('are restored in the room they were held in', async () => {
 		const { manager, roomA, peers, connect } = setup();
 
-		cache(manager).set('mk', { roomSession: roomA.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM' ] });
+		cache(manager).set('mk', { ...participantEntry, roomSession: roomA.sessionId, peerId: 'returning', permissions: [ 'MODERATE_ROOM' ] });
 		await connect('returning', 'a', 'mk');
 
 		expect(peers.get('returning')?.permissions).toEqual([ 'MODERATE_ROOM' ]);
@@ -317,7 +320,7 @@ describe('a peer the room removed', () => {
 		const mod = await joinedModerator(env);
 
 		mod.close();
-		expect(cache(env.manager).get('mk')).toEqual({ roomSession: env.roomA.sessionId, peerId: 'mod', permissions: moderatorRights });
+		expect(cache(env.manager).get('mk')).toEqual(expect.objectContaining({ roomSession: env.roomA.sessionId, peerId: 'mod', permissions: moderatorRights }));
 
 		await env.connect('mod', 'a', 'mk');
 		expect(env.peers.get('mod')?.permissions).toEqual(moderatorRights);
@@ -352,5 +355,105 @@ describe('a peer the room removed', () => {
 		env.roomA.close();
 
 		expect(cache(env.manager).has('mk')).toBe(false);
+	});
+
+	test('does not get its rights back with a key staged before rejoining and being kicked', async () => {
+		const env = setup();
+		const mod = await joinedModerator(env);
+
+		// The key 'mk' is cached, then the same peer comes back under another key.
+		mod.close();
+		expect(cache(env.manager).has('mk')).toBe(true);
+
+		await env.connect('mod', 'a', 'other-key');
+		expect(cache(env.manager).has('mk')).toBe(false);
+
+		const rejoined = env.peers.get('mod') as Peer;
+
+		rejoined.admitted = false; // kicked
+		rejoined.close();
+
+		await env.connect('mod', 'a', 'mk');
+		expect(env.peers.get('mod')?.permissions).toEqual([]);
+		expect(env.roomA.addPeer).toHaveBeenLastCalledWith(env.peers.get('mod'), false);
+	});
+
+	test('keeps one cache entry per peer', async () => {
+		const env = setup();
+		const mod = await joinedModerator(env);
+
+		mod.close();
+		await env.connect('mod', 'a', 'second-key');
+
+		const again = env.peers.get('mod') as Peer;
+
+		again.admitted = true;
+		again.permissions = [ Permission.MODERATE_ROOM ];
+		again.close();
+
+		expect([ ...cache(env.manager).keys() ]).toEqual([ 'second-key' ]);
+	});
+
+	test('does not get its rights back after the room revoked a right while it was away', async () => {
+		const env = setup();
+		const mod = await joinedModerator(env);
+
+		mod.close();
+		env.roomA.permissionsRevision++;
+
+		await env.connect('mod', 'a', 'mk');
+		expect(env.peers.get('mod')?.permissions).toEqual([]);
+		expect(env.roomA.addPeer).toHaveBeenLastCalledWith(env.peers.get('mod'), false);
+	});
+
+	test('the cache timer of an old entry does not remove a newer one under the same key', async () => {
+		const env = setup();
+		const mod = await joinedModerator(env);
+
+		mod.close();
+		jest.advanceTimersByTime(60_000);
+
+		await env.connect('mod', 'a', 'mk');
+
+		const back = env.peers.get('mod') as Peer;
+
+		back.admitted = true;
+		back.close();
+		jest.advanceTimersByTime(60_001);
+
+		expect(cache(env.manager).has('mk')).toBe(true);
+	});
+});
+
+describe('a cached admission is redeemed only by the same kind of peer', () => {
+	const cache = (manager: ServerManager) =>
+		(manager as unknown as { reconnectPermissionsCache: Map<string, unknown> }).reconnectPermissionsCache;
+
+	test('a verified bot\'s entry does not let a participant in', async () => {
+		const { manager, roomA, peers, connect } = setup();
+
+		cache(manager).set('bk', { roomSession: roomA.sessionId, peerId: 'bot', permissions: [ 'BYPASS_ROOM_LOCK' ], headless: true, botVerified: true, permissionsRevision: 0 });
+		await connect('bot', 'a', 'bk');
+
+		const peer = peers.get('bot') as Peer;
+
+		expect(peer.headless).toBe(false);
+		expect(peer.permissions).toEqual([]);
+		expect(roomA.addPeer).toHaveBeenCalledWith(peer, false);
+	});
+});
+
+describe('authorization revocations', () => {
+	test.each([
+		'removeRoomOwner', 'removeRoomUserRole', 'removeRoomGroupRole', 'removeGroup', 'removeGroupUser', 'removeRole', 'removeRolePermission',
+	])('%s counts as a revocation', async (name) => {
+		const authorization = await import('../../src/common/authorization');
+		const room = new Room({ id: 'rev', tenantId: 7, mediaService: {} as unknown as MediaService });
+		// eslint-disable-next-line no-unused-vars
+		const fn = (authorization as unknown as Record<string, (room: Room, arg: unknown) => void>)[name];
+
+		fn(room, { id: 1, userId: 'u', groupId: 'g', roleId: 'r', permission: { id: 1 } });
+
+		expect(room.permissionsRevision).toBe(1);
 	});
 });

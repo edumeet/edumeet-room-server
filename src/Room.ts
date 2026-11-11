@@ -164,6 +164,9 @@ export default class Room extends EventEmitter {
 	public pendingPeers = List<Peer>();
 	public peers = List<Peer>();
 	public lobbyPeers = List<Peer>();
+	// Counts revocations of owners, roles, groups and role permissions. Permissions cached for
+	// a slow reconnect are restored only if no right was revoked since (see ServerManager).
+	public permissionsRevision = 0;
 	private initialRouterAssignment?: Promise<void>;
 
 	public chatHistory: ChatMessage[] = [];

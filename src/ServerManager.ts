@@ -23,6 +23,15 @@ interface ServerManagerOptions {
 	managementService?: ManagementService;
 }
 
+interface ReconnectEntry {
+	roomSession: string;
+	peerId: string;
+	permissions: string[];
+	headless: boolean;
+	botVerified: boolean;
+	permissionsRevision: number;
+}
+
 export default class ServerManager {
 	public closed = false;
 	public peers: Map<string, Peer>;
@@ -35,8 +44,19 @@ export default class ServerManager {
 	// Cache permissions for peers that closed during a network disconnect so they
 	// can be restored if the peer reconnects slowly (after the 5-second window).
 	// Keyed by reconnectKey (which is reset on intentional leave, so stale entries
-	// never match a new session). Entries expire after 60 seconds.
-	private reconnectPermissionsCache = new Map<string, { roomSession: string, peerId: string, permissions: string[] }>();
+	// never match a new session). Entries expire after 120 seconds.
+	// An entry is redeemed only by the same kind of peer (participant, bot, verified bot),
+	// and only while the room has revoked no rights since it was written. There is at most
+	// one entry per room session and peerId: a peer registered under the id drops the older
+	// ones, so a key staged before a kick or a rejoin cannot be redeemed afterwards.
+	private reconnectPermissionsCache = new Map<string, ReconnectEntry>();
+
+	private forgetReconnectEntries(roomSession: string, peerId: string): void {
+		for (const [ key, entry ] of this.reconnectPermissionsCache) {
+			if (entry.roomSession === roomSession && entry.peerId === peerId)
+				this.reconnectPermissionsCache.delete(key);
+		}
+	}
 
 	constructor({ mediaService, peers, rooms, managedPeers, managedRooms, managementService }: ServerManagerOptions) {
 		logger.debug('constructor()');
@@ -285,12 +305,21 @@ export default class ServerManager {
 		// The headless flag is the client's own claim; only a bot the management service
 		// verified may come back under a new peer id.
 		const samePeer = saved?.peerId === peerId || (Boolean(headless) && botVerified);
-		const savedPermissions = saved?.roomSession === roomSession && samePeer ? saved.permissions : undefined;
+		// A bot's admission is not a participant's, nor the other way round.
+		const sameKind = saved?.headless === Boolean(headless) && saved?.botVerified === botVerified;
+		// Rights revoked while the peer was away are not handed back from the cache.
+		const notRevoked = saved?.permissionsRevision === room.permissionsRevision;
+		const savedPermissions = saved?.roomSession === roomSession && samePeer && sameKind && notRevoked
+			? saved.permissions
+			: undefined;
 
 		if (savedPermissions) {
 			isReconnect = true;
 			this.reconnectPermissionsCache.delete(reconnectKey);
 		}
+
+		// The peer is back under this id, so no older entry of it may be redeemed later.
+		this.forgetReconnectEntries(roomSession, peerId);
 
 		peer = new Peer({ id: peerId, managedId, sessionId: room.sessionId, displayName, connection, reconnectKey, permissions: savedPermissions, meetingToken, headless, botVerified, botType: asBotType(botTypeText), botSessionId: botSession, botId });
 
@@ -348,10 +377,23 @@ export default class ServerManager {
 			// admitted and closing the meeting closes the room, and the reconnectKey is the
 			// client's choice, so a peer the room removed would otherwise get its rights back.
 			if (peer.admitted && !room.closed && (perms.length > 0 || peer.headless)) {
-				this.reconnectPermissionsCache.set(peer.reconnectKey, { roomSession, peerId: peer.id, permissions: perms });
+				const entry: ReconnectEntry = {
+					roomSession,
+					peerId: peer.id,
+					permissions: perms,
+					headless: peer.headless,
+					botVerified: peer.botVerified,
+					permissionsRevision: room.permissionsRevision,
+				};
+				const key = peer.reconnectKey;
+
+				this.forgetReconnectEntries(roomSession, peer.id);
+				this.reconnectPermissionsCache.set(key, entry);
 
 				setTimeout(
-					() => this.reconnectPermissionsCache.delete(peer.reconnectKey),
+					() => {
+						if (this.reconnectPermissionsCache.get(key) === entry) this.reconnectPermissionsCache.delete(key);
+					},
 					120_000 // > max reconnect time (~95 s with 10 attempts + randomization)
 				);
 			}
