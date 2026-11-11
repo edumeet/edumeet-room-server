@@ -29,3 +29,30 @@ export const REACTIONS: readonly string[] = [ 'thumbup', 'clap', 'party', 'laugh
 
 export const isValidReaction = (value: unknown): value is string | null =>
 	value === null || (typeof value === 'string' && REACTIONS.includes(value));
+
+// The BitTorrent info-hashes of a magnet link, as lower-case hex. A client finds a torrent
+// by its info-hash, which may be written as 40 hex or 32 base32 characters, so two links
+// that differ in text can name the same file.
+export const magnetInfoHashes = (magnetURI: string): string[] =>
+	new URLSearchParams(magnetURI.slice('magnet:?'.length))
+		.getAll('xt')
+		.filter((xt) => xt.toLowerCase().startsWith('urn:btih:'))
+		.map((xt) => normalizeInfoHash(xt.slice('urn:btih:'.length)))
+		.filter((hash): hash is string => Boolean(hash));
+
+const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567';
+
+const normalizeInfoHash = (hash: string): string | undefined => {
+	const lower = hash.toLowerCase();
+
+	if (/^[0-9a-f]{40}$/.test(lower)) return lower;
+	if (!/^[a-z2-7]{32}$/.test(lower)) return undefined;
+
+	let bits = '';
+
+	for (const c of lower) bits += BASE32.indexOf(c).toString(2)
+		.padStart(5, '0');
+
+	return bits.match(/.{4}/g)?.map((b) => parseInt(b, 2).toString(16))
+		.join('');
+};
