@@ -132,6 +132,17 @@ describe('a file whose sharer left the room', () => {
 		expect(room.notifyPeers).toHaveBeenCalledWith('clearFile', { magnetURI: victimLink });
 	});
 
+	test('cannot be cleared by a peer that never shared it', async () => {
+		const room = createRoom();
+
+		await send(room, makePeer('gone'), 'sendFile', victimLink);
+		leave(room, 'gone');
+
+		await expect(send(room, makePeer('stranger'), 'clearFile', victimLink)).rejects.toThrow('peer not authorized');
+		expect(room.fileHistory).toHaveLength(1);
+		expect(room.notifyPeers).not.toHaveBeenCalledWith('clearFile', expect.anything());
+	});
+
 	test('still protects the file of a sharer who is here', async () => {
 		const room = createRoom();
 
