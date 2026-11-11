@@ -126,6 +126,7 @@ describe('3.24 removing a shared file', () => {
 	const shared = () => ({
 		sessionId: 's',
 		fileHistory: [ { magnetURI: MAGNET, peerId: 'a', timestamp: 1 } ] as FileMessage[],
+		peers: { items: [ { id: 'a' }, { id: 'b' } ] },
 		notifyPeers: jest.fn(),
 	});
 

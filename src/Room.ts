@@ -840,11 +840,12 @@ export default class Room extends EventEmitter {
 			const [ router, mediaNode ] = await this.mediaService.getRouter(this, peer);
 
 			if (this.closed) throw router.close();
-			// A newer assignment took over while the media node answered.
-			if (!this.isCurrentAssignment(peer, assignment)) return;
 
-			// Owned by the room before the peer answers, so a peer that never does cannot leave it open.
+			// Owned by the room before the peer answers, so a peer that never does cannot leave it open,
+			// and also when a newer assignment took over meanwhile: the node may have created it for this room.
 			this.addRouter(router);
+
+			if (!this.isCurrentAssignment(peer, assignment)) return;
 
 			// The client loads its device once. A router with other capabilities (nodes on different mediasoup
 			// versions) needs a fresh device, which lostMediaServer makes the client build.

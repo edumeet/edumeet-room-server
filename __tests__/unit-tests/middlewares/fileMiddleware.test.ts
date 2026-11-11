@@ -12,8 +12,19 @@ const victimLink = `magnet:?xt=urn:btih:${HEX}&dn=report.pdf`;
 const createRoom = () => ({
 	sessionId: 'session',
 	fileHistory: [] as FileMessage[],
+	peers: { items: [] as { id: string }[] },
 	notifyPeers: jest.fn(),
 } as unknown as Room);
+
+// A peer that sends is in the room; leave() takes it out, as a reload or leaving the meeting does.
+const join = (room: Room, id: string) => {
+	if (!room.peers.items.some((p) => p.id === id)) (room.peers.items as unknown as { id: string }[]).push({ id });
+};
+const leave = (room: Room, id: string) => {
+	const items = room.peers.items as unknown as { id: string }[];
+
+	items.splice(items.findIndex((p) => p.id === id), 1);
+};
 
 const makePeer = (id: string, permissions: string[] = [ Permission.SHARE_FILE ]) => ({
 	id,
@@ -21,8 +32,11 @@ const makePeer = (id: string, permissions: string[] = [ Permission.SHARE_FILE ])
 	hasPermission: (p: string) => permissions.includes(p),
 });
 
-const send = (room: Room, peer: ReturnType<typeof makePeer>, method: string, magnetURI: string) =>
-	createFileMiddleware({ room })({ peer, message: { method, data: { magnetURI, sessionId: 'session' } }, response: {}, handled: false } as unknown as PeerContext, next);
+const send = (room: Room, peer: ReturnType<typeof makePeer>, method: string, magnetURI: string) => {
+	join(room, peer.id);
+
+	return createFileMiddleware({ room })({ peer, message: { method, data: { magnetURI, sessionId: 'session' } }, response: {}, handled: false } as unknown as PeerContext, next);
+};
 
 afterEach(() => jest.clearAllMocks());
 
@@ -92,4 +106,41 @@ test('clearFile tells the clients each link as it was shared', async () => {
 	expect(room.fileHistory).toHaveLength(0);
 	expect(room.notifyPeers).toHaveBeenCalledWith('clearFile', { magnetURI: victimLink });
 	expect(room.notifyPeers).not.toHaveBeenCalledWith('clearFile', { magnetURI: base32 });
+});
+
+describe('a file whose sharer left the room', () => {
+	test('can be shared again, as after a reload under a new peer id', async () => {
+		const room = createRoom();
+
+		await send(room, makePeer('before-reload'), 'sendFile', victimLink);
+		leave(room, 'before-reload');
+		await send(room, makePeer('after-reload'), 'sendFile', victimLink);
+
+		expect(room.fileHistory.map((f) => f.peerId)).toEqual([ 'before-reload', 'after-reload' ]);
+	});
+
+	test('does not keep the remaining owner from clearing it', async () => {
+		const room = createRoom();
+		const owner = makePeer('owner');
+
+		await send(room, makePeer('gone'), 'sendFile', victimLink);
+		leave(room, 'gone');
+		await send(room, owner, 'sendFile', victimLink);
+		await send(room, owner, 'clearFile', victimLink);
+
+		expect(room.fileHistory).toHaveLength(0);
+		expect(room.notifyPeers).toHaveBeenCalledWith('clearFile', { magnetURI: victimLink });
+	});
+
+	test('still protects the file of a sharer who is here', async () => {
+		const room = createRoom();
+
+		await send(room, makePeer('gone'), 'sendFile', victimLink);
+		leave(room, 'gone');
+		await send(room, makePeer('owner'), 'sendFile', victimLink);
+
+		await expect(send(room, makePeer('attacker'), 'sendFile', victimLink)).rejects.toThrow('file already shared');
+		await expect(send(room, makePeer('attacker'), 'clearFile', victimLink)).rejects.toThrow('peer not authorized');
+		expect(room.fileHistory).toHaveLength(2);
+	});
 });

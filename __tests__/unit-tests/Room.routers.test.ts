@@ -278,3 +278,30 @@ describe('a peer that reconnects again and again without answering mediaConfigur
 		expect(getRouter).toHaveBeenCalledTimes(2);
 	});
 });
+
+describe('the router of an assignment that a reconnect replaced', () => {
+	test('is owned by the room and closes with it', async () => {
+		const late = new FakeRouter('late');
+		const room = makeRoom(new FakeRouter('current'));
+		const peer = makePeer();
+		const getRouter = (room.mediaService as unknown as { getRouter: jest.Mock }).getRouter;
+		// eslint-disable-next-line no-unused-vars
+		let answerOld: (value: unknown) => void = () => undefined;
+
+		getRouter.mockImplementationOnce(() => new Promise((resolve) => { answerOld = resolve; }));
+		jest.spyOn(peer, 'request').mockRejectedValue(new Error('no answer'));
+
+		const old = assignRouter(room, peer);
+
+		// The first assignment asks the media node; then the reconnect replaces it.
+		await jest.advanceTimersByTimeAsync(0);
+		void assignRouter(room, peer);
+
+		answerOld([ late, mediaNode ]);
+		await old;
+
+		room.close();
+
+		expect(late.closed).toBe(true);
+	});
+});
