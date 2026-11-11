@@ -84,9 +84,8 @@ export class MediaNodeConnection extends EventEmitter {
 		try {
 			this.#socket = io(url, {
 				...(secret ? { query: { secret } } : {}),
-				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-				// @ts-ignore
-				transports: [ 'websocket', 'polling' ],
+				// WebSocket only: long polling would send the secret in the URL of every request.
+				transports: [ 'websocket' ],
 				rejectUnauthorized,
 				...(ca ? { ca } : {}),
 				closeOnBeforeunload: false,
