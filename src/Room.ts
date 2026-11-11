@@ -732,9 +732,27 @@ export default class Room extends EventEmitter {
 			.forEach((p) => p.notify({ method, data }));
 	}
 
+	// One router assignment per peer, running or waiting to retry. A newer one, as every
+	// reconnect starts, replaces it: the older one stops at its next step and does not retry.
+	#routerAssignments = new WeakMap<Peer, { retry?: ReturnType<typeof setTimeout> }>();
+
 	private async assignRouter(peer: Peer): Promise<void> {
 		if (this.closed || peer.closed) return;
 
+		clearTimeout(this.#routerAssignments.get(peer)?.retry);
+
+		const assignment = {};
+
+		this.#routerAssignments.set(peer, assignment);
+
+		return this.runRouterAssignment(peer, assignment);
+	}
+
+	private isCurrentAssignment(peer: Peer, assignment: object): boolean {
+		return this.#routerAssignments.get(peer) === assignment;
+	}
+
+	private async runRouterAssignment(peer: Peer, assignment: { retry?: ReturnType<typeof setTimeout> }): Promise<void> {
 		// If there is no media node yet, ensure only one "first" assignment runs at a time.
 		if (this.mediaNodes.length === 0) {
 			if (this.initialRouterAssignment) {
@@ -743,14 +761,14 @@ export default class Room extends EventEmitter {
 				await this.initialRouterAssignment;
 
 				// After waiting, if the room is now closed or the peer closed, stop.
-				if (this.closed || peer.closed) return;
+				if (this.closed || peer.closed || !this.isCurrentAssignment(peer, assignment)) return;
 
 				// Now we can just do a normal assignment (sticky logic will apply).
-				return this.doAssignRouter(peer);
+				return this.doAssignRouter(peer, assignment);
 			}
 
 			// We are the first peer to trigger router assignment for this room.
-			this.initialRouterAssignment = this.doAssignRouter(peer);
+			this.initialRouterAssignment = this.doAssignRouter(peer, assignment);
 
 			try {
 				await this.initialRouterAssignment;
@@ -763,16 +781,22 @@ export default class Room extends EventEmitter {
 		}
 
 		// Normal case: room already has at least one media node, stickiness applies.
-		return this.doAssignRouter(peer);
+		return this.doAssignRouter(peer, assignment);
 	}
 
-	private async doAssignRouter(peer: Peer, loadedCapabilities?: RtpCapabilities): Promise<void> {
-		if (this.closed || peer.closed) return;
+	private async doAssignRouter(
+		peer: Peer,
+		assignment: { retry?: ReturnType<typeof setTimeout> },
+		loadedCapabilities?: RtpCapabilities
+	): Promise<void> {
+		if (this.closed || peer.closed || !this.isCurrentAssignment(peer, assignment)) return;
 
 		try {
 			const [ router, mediaNode ] = await this.mediaService.getRouter(this, peer);
 
 			if (this.closed) throw router.close();
+			// A newer assignment took over while the media node answered.
+			if (!this.isCurrentAssignment(peer, assignment)) return;
 
 			// Owned by the room before the peer answers, so a peer that never does cannot leave it open.
 			this.addRouter(router);
@@ -799,6 +823,9 @@ export default class Room extends EventEmitter {
 
 			const { rtpCapabilities } = mediaConfigResult;
 
+			// Answered on a connection a newer assignment has replaced.
+			if (!this.isCurrentAssignment(peer, assignment)) return;
+
 			// What the client sent; consuming reads it without further checks.
 			if (!isRtpCapabilities(rtpCapabilities)) throw new Error('invalid rtpCapabilities');
 
@@ -806,7 +833,7 @@ export default class Room extends EventEmitter {
 			// on the still pending routerReady. A reset would show the client an error, restart its mic and
 			// camera, and could let a transport request sent for this router land next to the new one.
 			// doAssignRouter, not assignRouter: during the first assignment that would wait on itself.
-			if (router.closed) return this.doAssignRouter(peer, router.rtpCapabilities);
+			if (router.closed) return this.doAssignRouter(peer, assignment, router.rtpCapabilities);
 
 			this.addMediaNode(mediaNode);
 			peer.router = router;
@@ -814,11 +841,16 @@ export default class Room extends EventEmitter {
 			
 			peer.rtpCapabilities = rtpCapabilities;
 		} catch (error) {
+			// A replaced assignment neither tells the client nor tries again.
+			if (!this.isCurrentAssignment(peer, assignment)) return;
+
 			logger.error({ err: error }, 'assignRouter() failed');
 
 			peer.notify({ method: 'noMediaServer' });
 
-			setTimeout(() => this.assignRouter(peer), 10_000);
+			assignment.retry = setTimeout(() => {
+				if (this.isCurrentAssignment(peer, assignment)) void this.assignRouter(peer);
+			}, 10_000);
 		}
 	}
 

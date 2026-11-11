@@ -214,3 +214,54 @@ test('a peer that answers mediaConfiguration gets the router', async () => {
 	expect(room.routers.has(asRouter(router))).toBe(true);
 	expect(room.mediaNodes.has(mediaNode)).toBe(true);
 });
+
+describe('a peer that reconnects again and again without answering mediaConfiguration', () => {
+	test('has one router assignment retrying, not one per reconnect', async () => {
+		const room = makeRoom(new FakeRouter('a'));
+		const peer = makePeer();
+		const getRouter = (room.mediaService as unknown as { getRouter: jest.Mock }).getRouter;
+
+		jest.spyOn(peer, 'request').mockRejectedValue(new Error('no answer'));
+
+		// Ten reconnects, each starting an assignment as reconnectPeer does.
+		for (let i = 0; i < 10; i++) await assignRouter(room, peer);
+
+		expect(getRouter).toHaveBeenCalledTimes(10);
+		getRouter.mockClear();
+
+		for (let i = 0; i < 5; i++) {
+			await jest.advanceTimersByTimeAsync(10_000);
+		}
+
+		// One retry every ten seconds, as for a single connection.
+		expect(getRouter).toHaveBeenCalledTimes(5);
+	});
+
+	test('an assignment replaced while it waited on the client neither assigns nor retries', async () => {
+		const first = new FakeRouter('a');
+		const room = makeRoom(first);
+		const peer = makePeer();
+		const getRouter = (room.mediaService as unknown as { getRouter: jest.Mock }).getRouter;
+		// eslint-disable-next-line no-unused-vars
+		let answerOld: (value: unknown) => void = () => undefined;
+
+		jest.spyOn(peer, 'request')
+			.mockImplementationOnce(() => new Promise((resolve) => { answerOld = resolve; }))
+			.mockRejectedValue(new Error('no answer'));
+
+		const old = assignRouter(room, peer);
+
+		await jest.advanceTimersByTimeAsync(0);
+		const reconnect = assignRouter(room, peer);
+
+		answerOld({ rtpCapabilities: { codecs: [] } });
+		await old;
+		await reconnect;
+
+		expect(peer.router).toBeUndefined();
+
+		getRouter.mockClear();
+		await jest.advanceTimersByTimeAsync(10_000);
+		expect(getRouter).toHaveBeenCalledTimes(1);
+	});
+});
