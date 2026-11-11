@@ -27,7 +27,7 @@ import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import BotJobs, { MAX_ACTIVE_BOT_JOBS } from './BotJobs';
-import { Permission, ensureUnmanagedModerator, isAllowed, updatePeerPermissions } from './common/authorization';
+import { Permission, ensureUnmanagedModerator, isAllowed, lobbyPermissions, updatePeerPermissions } from './common/authorization';
 import { MeetingTokenRejection, admitMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
@@ -618,6 +618,10 @@ export default class Room extends EventEmitter {
 	@skipIfClosed
 	private parkPeer(peer: Peer): void {
 		logger.debug('parkPeer() [id: %s]', peer.id);
+
+		// In an unmanaged room the first to arrive is made moderator before the lock is
+		// checked; parked, it is not, and is let in with the default role only.
+		if (!this.managedId) peer.permissions = lobbyPermissions(this);
 
 		this.lobbyPeers.add(peer);
 		peer.pipeline.use(this.#lobbyPeerMiddleware);

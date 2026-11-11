@@ -111,6 +111,15 @@ export const ensureUnmanagedModerator = (room: Room): void => {
 	room.notifyPeers('moderatorHandover', { peerId: next.id });
 };
 
+// What a peer waiting in the lobby of an unmanaged room holds: the default role, nothing of a
+// moderator's. Who comes first to a locked room with nobody in it is not its moderator, and the
+// rights would otherwise go in with it when someone lets it in.
+export const lobbyPermissions = (room: Room): string[] => {
+	const permissions = room.defaultRole?.permissions.map((p) => p.name) ?? [];
+
+	return room.disableUnmanaged ? permissions.filter((p) => p !== Permission.BYPASS_ROOM_LOCK) : permissions;
+};
+
 export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, isReconnect = false): void => {
 	if (peer.headless) {
 		peer.permissions = [ ...(peer.botVerified ? botProfile.verifiedPermissions : botProfile.permissions) ];
@@ -180,6 +189,13 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 
 		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+	}
+
+	// A peer in the lobby of an unmanaged room that cannot pass the lock stays there: with the
+	// default role only.
+	if (!room.managedId && inLobby && !peer.hasPermission(Permission.BYPASS_ROOM_LOCK)) {
+		peer.permissions = lobbyPermissions(room);
+		shouldGiveLobbyPeers = false;
 	}
 
 	logger.debug({ peerPermissions: peer.permissions }, 'Final peer permissions');
