@@ -309,6 +309,13 @@ export default class Room extends EventEmitter {
 			.some((list) => list.items.includes(peer));
 	}
 
+	// Clients key peers by id, so a second peer under an id the room already holds could
+	// not be seen or removed by them.
+	private holdsOtherWithId(peer: Peer): boolean {
+		return [ this.waitingPeers, this.pendingPeers, this.peers, this.lobbyPeers ]
+			.some((list) => list.items.some((p) => p !== peer && p.id === peer.id));
+	}
+
 	public get participants(): Peer[] {
 		return this.peers.items.filter((p) => !p.headless);
 	}
@@ -372,6 +379,12 @@ export default class Room extends EventEmitter {
 		logger.debug('addPeer() [id: %s]', peer.id);
 
 		peer.once('close', () => this.removePeer(peer));
+
+		if (this.holdsOtherWithId(peer)) {
+			logger.warn('addPeer() peerId already in the room [id: %s]', peer.id);
+
+			return peer.close();
+		}
 
 		try {
 			this.waitingPeers.add(peer);
@@ -592,6 +605,12 @@ export default class Room extends EventEmitter {
 
 		peer.pipeline.remove(this.#joinMiddleware);
 		this.pendingPeers.remove(peer);
+
+		if (this.holdsOtherWithId(peer)) {
+			logger.warn('joinPeer() peerId already in the room [id: %s]', peer.id);
+
+			return peer.close();
+		}
 
 		if (peer.headless) {
 			// Placed before the announcement, so peerInfo carries the right session.

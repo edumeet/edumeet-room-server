@@ -215,6 +215,13 @@ export default class ServerManager {
 
 		if (gone()) return;
 
+		// The peerId was checked before the awaits above; another connection with the same id
+		// may have registered meanwhile. From here to peers.set nothing awaits.
+		if (this.peers.has(peerId)) {
+			logger.debug('handleConnection() peerId taken during the connection checks [peerId: %s]', peerId);
+			throw new Error('peerId in use');
+		}
+
 		if (!room) {
 			logger.debug('handleConnection() new room [roomId: %s, tenantId: %s]', roomId, tenantId);
 
@@ -362,7 +369,8 @@ export default class ServerManager {
 				}
 			}
 
-			this.peers.delete(peerId);
+			// Only its own entry: another peer may hold the id by now.
+			if (this.peers.get(peerId) === peer) this.peers.delete(peerId);
 		});
 
 		room.addPeer(peer, isReconnect);
