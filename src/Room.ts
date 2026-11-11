@@ -189,6 +189,9 @@ export default class Room extends EventEmitter {
 	// Counts revocations of owners, roles, groups and role permissions. Permissions cached for
 	// a slow reconnect are restored only if no right was revoked since (see ServerManager).
 	public permissionsRevision = 0;
+	// The default role is the tenant's (management defaults), not one the room sets itself, so a
+	// change of the tenant default applies to it.
+	public defaultRoleFromTenant = false;
 	private initialRouterAssignment?: Promise<void>;
 
 	public chatHistory: ChatMessage[] = [];

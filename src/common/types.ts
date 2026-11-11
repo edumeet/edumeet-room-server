@@ -148,6 +148,7 @@ export type ManagedRoom = {
 	userRoles: ManagedUserRole[]; // User roles in this room
 	defaultRole?: ManagedRole; // Default role for users without a role in this room
 	defaultRoleId?: string | undefined; // Default role for users without a role in this room
+	defaultRoleFromTenant?: boolean; // The default role is the tenant's (defaults), not the room's own
 	// Look and feel
 	logo?: string;
 	background?: string;

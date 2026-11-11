@@ -500,6 +500,7 @@ export default class ServerManager {
 					room.groupRoles = managedRoom.groupRoles;
 					room.userRoles = managedRoom.userRoles;
 					room.defaultRole = managedRoom.defaultRole;
+					room.defaultRoleFromTenant = Boolean(managedRoom.defaultRoleFromTenant);
 
 					room.maxActiveVideos = managedRoom.maxActiveVideos;
 					room.locked = managedRoom.locked;
@@ -567,8 +568,10 @@ export default class ServerManager {
 					);
 
 					// Don't touch name / description / owners / roles unless present.
-					if (managedRoom.defaultRole)
+					if (managedRoom.defaultRole) {
 						room.defaultRole = managedRoom.defaultRole;
+						room.defaultRoleFromTenant = Boolean(managedRoom.defaultRoleFromTenant);
+					}
 
 					// numbers / booleans: only override if explicitly defined
 					if (typeof managedRoom.maxActiveVideos === 'number')

@@ -26,6 +26,8 @@ import {
 	addRoomGroupRole,
 	addRoomOwner,
 	addRoomUserRole,
+	applyTenantDefaultRole,
+	changeDefaultRolePermission,
 	removeGroup,
 	removeGroupUser,
 	removeRole,
@@ -33,7 +35,8 @@ import {
 	removeRoomGroupRole,
 	removeRoomOwner,
 	removeRoomUserRole,
-	updateRoom
+	updateRoom,
+	updateRoomDefaultRole
 } from './common/authorization';
 import { safePromise } from './common/safePromise';
 
@@ -46,6 +49,8 @@ const RECIPIENTS_PAGE = 50;
 
 interface ManagementServiceOptions {
 	managedRooms: Map<string, Room>;
+	// Every room of this server, unmanaged ones too: a tenant's default role applies to those.
+	rooms?: Map<string, Room>;
 	managedPeers: Map<string, Set<Peer>>;
 	mediaService: MediaService;
 }
@@ -75,6 +80,7 @@ export default class ManagementService {
 	public closed = false;
 
 	#managedRooms: Map<string, Room>;
+	#rooms?: Map<string, Room>;
 	#managedPeers: Map<string, Set<Peer>>;
 	#mediaService: MediaService;
 
@@ -114,10 +120,11 @@ export default class ManagementService {
 	#botVerifyService: FeathersService;
 	#botProvidersService: FeathersService;
 
-	constructor({ managedRooms, managedPeers, mediaService }: ManagementServiceOptions) {
+	constructor({ managedRooms, rooms, managedPeers, mediaService }: ManagementServiceOptions) {
 		logger.debug('constructor()');
 
 		this.#managedRooms = managedRooms;
+		this.#rooms = rooms;
 		this.#managedPeers = managedPeers;
 		this.#mediaService = mediaService;
 
@@ -314,6 +321,7 @@ export default class ManagementService {
 
 		if (room !== undefined) {
 			// FALLBACK from Default if not set by room owner
+			room.defaultRoleFromTenant = !room.defaultRole && Boolean(fdata.defaultRole);
 			room.defaultRoleId = room.defaultRoleId || fdata.defaultRoleId || '';
 			room.defaultRole = room.defaultRole || fdata.defaultRole || [];
 			room.logo = room.logo || fdata.logo || '';
@@ -341,6 +349,7 @@ export default class ManagementService {
 				groupRoles: [],
 				userRoles: [],
 				defaultRole: fdata.defaultRole || [],
+				defaultRoleFromTenant: Boolean(fdata.defaultRole),
 				maxActiveVideos: 12,
 				disableUnmanaged: Boolean(fdata.disableUnmanaged),
 				// If unmanaged rooms are disabled, force locked=true regardless of lockedUnmanaged setting
@@ -640,6 +649,7 @@ export default class ManagementService {
 		this.registerGroupUsersServiceListeners();
 
 		// Role related services
+		this.registerDefaultsServiceListeners();
 		this.registerRolesServiceListeners();
 		this.registerRolePermissionsServiceListeners();
 	}
@@ -652,8 +662,45 @@ export default class ManagementService {
 
 				const room = this.#managedRooms.get(String(managedRoom.id));
 
-				if (room) updateRoom(room, managedRoom);
+				if (!room) return;
+
+				updateRoom(room, managedRoom);
+				void updateRoomDefaultRole(room, managedRoom, (tenantId) => this.getTenantDefaultRole(tenantId));
 			});
+	}
+
+	// Every room of this server, managed or not.
+	private get allRooms(): Room[] {
+		return [ ...(this.#rooms ?? this.#managedRooms).values() ];
+	}
+
+	@skipIfClosed
+	private async getTenantDefaultRole(tenantId: number): Promise<ManagedRole | undefined> {
+		try {
+			const { data } = await this.runAuthenticated(
+				() => this.#defaultsService.find({ query: { tenantId, $limit: 1 } })
+			);
+
+			return data?.[0]?.defaultRole || undefined;
+		} catch (err) {
+			logger.warn({ err, tenantId }, 'getTenantDefaultRole() failed');
+
+			return undefined;
+		}
+	}
+
+	@skipIfClosed
+	private registerDefaultsServiceListeners(): void {
+		const apply = (defaults: { tenantId?: number | string; defaultRole?: ManagedRole }) => {
+			logger.debug('defaultsService event [tenantId: %s]', defaults.tenantId);
+
+			applyTenantDefaultRole(this.allRooms, defaults);
+		};
+
+		this.#defaultsService
+			.on('created', apply)
+			.on('patched', apply)
+			.on('updated', apply);
 	}
 
 	@skipIfClosed
@@ -761,7 +808,7 @@ export default class ManagementService {
 			.on('removed', (role: ManagedRole) => {
 				logger.debug('rolesService "removed" event [roleId: %s]', role.id);
 
-				this.#managedRooms.forEach((r) => removeRole(r, role));
+				this.allRooms.forEach((r) => removeRole(r, role));
 			});
 	}
 
@@ -772,11 +819,13 @@ export default class ManagementService {
 				logger.debug('rolePermissionsService "created" event [roleId: %s]', rolePermission.id);
 
 				this.#managedRooms.forEach((r) => addRolePermission(r, rolePermission));
+				this.allRooms.forEach((r) => changeDefaultRolePermission(r, rolePermission, true));
 			})
 			.on('removed', (rolePermission: ManagedRolePermission) => {
 				logger.debug('rolePermissionsService "removed" event [roleId: %s]', rolePermission.id);
 
 				this.#managedRooms.forEach((r) => removeRolePermission(r, rolePermission));
+				this.allRooms.forEach((r) => changeDefaultRolePermission(r, rolePermission, false));
 			});
 	}
 }
