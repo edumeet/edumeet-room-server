@@ -106,3 +106,74 @@ describe('escapeMeeting', () => {
 		expect(room.close).not.toHaveBeenCalled();
 	});
 });
+
+describe('self-reported peer state', () => {
+	const stateRoom = (reactionsEnabled = true) => ({
+		id: 'id',
+		sessionId: 'id1',
+		notifyPeers: jest.fn(),
+		close: jest.fn(),
+		participants: [],
+		reactionsEnabled,
+	} as unknown as Room);
+
+	const send = (room: Room, method: string, data: Record<string, unknown>) => {
+		const sut = createPeerMiddleware({ room });
+		const peer = { id: 'peer1', sendReaction: null, raisedHand: false, recording: false, escapeMeeting: false };
+		const context = { peer, message: { method, data }, handled: false } as unknown as PeerContext;
+
+		return { context, peer, result: sut(context, next) };
+	};
+
+	test.each([ 'thumbup', 'clap', 'party', 'laugh', null ])('relays the reaction %p', async (reaction) => {
+		const room = stateRoom();
+		const { peer, result } = send(room, 'reaction', { reaction });
+
+		await result;
+
+		expect(peer.sendReaction).toBe(reaction);
+		expect(room.notifyPeers).toHaveBeenCalledWith('reaction', expect.objectContaining({ reaction }), peer);
+	});
+
+	test.each([ '__proto__', 'constructor', 'toString', 'hasOwnProperty', 'smile', '', 42, {}, [ 'clap' ], undefined ])(
+		'refuses the reaction %p',
+		async (reaction) => {
+			const room = stateRoom();
+			const { peer, result } = send(room, 'reaction', { reaction });
+
+			await expect(result).rejects.toThrow();
+			expect(peer.sendReaction).toBeNull();
+			expect(room.notifyPeers).not.toHaveBeenCalled();
+		}
+	);
+
+	test('refuses reactions while the room has them disabled', async () => {
+		const room = stateRoom(false);
+		const { peer, result } = send(room, 'reaction', { reaction: 'clap' });
+
+		await expect(result).rejects.toThrow();
+		expect(peer.sendReaction).toBeNull();
+		expect(room.notifyPeers).not.toHaveBeenCalled();
+	});
+
+	test.each([ 'raisedHand', 'recording', 'escapeMeeting' ])('%s accepts a boolean', async (method) => {
+		const room = stateRoom();
+		const { peer, result } = send(room, method, { [method]: true });
+
+		await result;
+
+		expect((peer as Record<string, unknown>)[method]).toBe(true);
+	});
+
+	test.each([ 'raisedHand', 'recording', 'escapeMeeting' ])('%s refuses a value that is not a boolean', async (method) => {
+		for (const value of [ 'yes', 1, {}, null, undefined ]) {
+			const room = stateRoom();
+			const { peer, result } = send(room, method, { [method]: value });
+
+			await expect(result).rejects.toThrow();
+			expect((peer as Record<string, unknown>)[method]).toBe(false);
+			expect(room.notifyPeers).not.toHaveBeenCalled();
+			expect(room.close).not.toHaveBeenCalled();
+		}
+	});
+});

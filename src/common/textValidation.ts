@@ -23,3 +23,9 @@ export const isValidMagnetUri = (value: unknown): value is string =>
 // already has (__proto__, constructor, toString, ...) would reach the prototype there.
 export const isValidPeerId = (value: unknown): value is string =>
 	typeof value === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value) && !(value in Object.prototype);
+
+// Clients look a reaction up in an object of icons, so only the names they offer may pass.
+export const REACTIONS: readonly string[] = [ 'thumbup', 'clap', 'party', 'laugh' ];
+
+export const isValidReaction = (value: unknown): value is string | null =>
+	value === null || (typeof value === 'string' && REACTIONS.includes(value));

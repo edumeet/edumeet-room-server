@@ -3,7 +3,7 @@ import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { verifyPeer } from '../common/token';
 import { updatePeerPermissions } from '../common/authorization';
-import { isValidPicture, isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
+import { isValidPicture, isValidReaction, isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
 
 const logger = new Logger('PeerMiddleware');
 
@@ -59,6 +59,9 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 			case 'raisedHand': {
 				const { raisedHand } = message.data;
 
+				if (typeof raisedHand !== 'boolean')
+					throw new Error('invalid raisedHand');
+
 				peer.raisedHand = raisedHand;
 
 				room.notifyPeers('raisedHand', {
@@ -74,6 +77,12 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 			case 'reaction': {
 				const { reaction } = message.data;
+
+				if (!room.reactionsEnabled)
+					throw new Error('reactions disabled');
+
+				if (!isValidReaction(reaction))
+					throw new Error('invalid reaction');
 
 				peer.sendReaction = reaction;
 
@@ -91,6 +100,9 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 			case 'recording': {
 				const { recording } = message.data;
 
+				if (typeof recording !== 'boolean')
+					throw new Error('invalid recording');
+
 				peer.recording = recording;
 
 				room.notifyPeers('recording', {
@@ -105,6 +117,9 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 			case 'escapeMeeting': {
 				const { escapeMeeting } = message.data;
+
+				if (typeof escapeMeeting !== 'boolean')
+					throw new Error('invalid escapeMeeting');
 
 				peer.escapeMeeting = escapeMeeting;
 
