@@ -125,13 +125,26 @@ describe('a headless peer coming back from a long disconnect', () => {
 		expect(allowPeer).not.toHaveBeenCalled();
 	});
 
-	test('is admitted again by a locked room on a reconnect', async () => {
+	test('is admitted again by a locked room on a reconnect when the tenant verified it', async () => {
+		const { room, allowPeer, parkPeer } = lockedRoom();
+		const bot = new Peer({ id: 'vbot', sessionId: 's', reconnectKey: 'k', headless: true, botVerified: true });
+
+		jest.spyOn(bot, 'notify').mockImplementation(() => undefined);
+		created.push(bot);
+
+		await room.addPeer(bot, true);
+
+		expect(allowPeer).toHaveBeenCalledTimes(1);
+		expect(parkPeer).not.toHaveBeenCalled();
+	});
+
+	test('waits in the lobby of a locked room on a reconnect when nobody verified it, like a guest', async () => {
 		const { room, allowPeer, parkPeer } = lockedRoom();
 
 		await room.addPeer(makePeer(true), true);
 
-		expect(allowPeer).toHaveBeenCalledTimes(1);
-		expect(parkPeer).not.toHaveBeenCalled();
+		expect(parkPeer).toHaveBeenCalledTimes(1);
+		expect(allowPeer).not.toHaveBeenCalled();
 	});
 
 	test('does not let a participant through the lock on a reconnect', async () => {
@@ -141,6 +154,41 @@ describe('a headless peer coming back from a long disconnect', () => {
 
 		expect(parkPeer).toHaveBeenCalledTimes(1);
 		expect(allowPeer).not.toHaveBeenCalled();
+	});
+});
+
+describe('a headless peer let in but not joined when the room is locked', () => {
+	const openRoom = () => {
+		const room = makeRoom();
+
+		room.locked = false;
+		jest.spyOn(room as unknown as { assignRouter: () => Promise<void> }, 'assignRouter').mockResolvedValue(undefined);
+		room.resolveRoomReady();
+
+		return room;
+	};
+
+	test('goes back to the lobby and cannot join, unless the tenant verified it', async () => {
+		const room = openRoom();
+		const unverified = makePeer(true);
+		const verified = new Peer({ id: 'vbot', sessionId: 's', reconnectKey: 'k', headless: true, botVerified: true });
+
+		jest.spyOn(verified, 'notify').mockImplementation(() => undefined);
+		created.push(verified);
+
+		await room.addPeer(unverified);
+		await room.addPeer(verified);
+		expect(room.pendingPeers.items).toEqual([ unverified, verified ]);
+
+		room.locked = true;
+
+		expect(room.lobbyPeers.items).toEqual([ unverified ]);
+		expect(room.pendingPeers.items).toEqual([ verified ]);
+		expect(unverified.admitted).toBe(false);
+		expect((await request(unverified, 'join', { sessionId: room.sessionId })).handled).toBe(false);
+		expect(room.peers.items).not.toContain(unverified);
+		expect((await request(verified, 'join', { sessionId: room.sessionId })).handled).toBe(true);
+		expect(room.peers.items).toContain(verified);
 	});
 });
 

@@ -397,9 +397,9 @@ export default class Room extends EventEmitter {
 			// This will update the permissions of the peer based on what we possibly got from the management service
 			updatePeerPermissions(this, peer, false, isReconnect);
 
-			// A bot that was in the room and comes back from a long disconnect is
-			// admitted again; the lock is for newcomers.
-			if (isAllowed(this, peer) || (isReconnect && peer.headless))
+			// The headless flag is the client's own claim, also on a reconnect: a bot passes
+			// the lock only with BYPASS_ROOM_LOCK, which the tenant's verified bots get.
+			if (isAllowed(this, peer))
 				this.allowPeer(peer);
 			else
 				this.parkPeer(peer);
@@ -518,12 +518,13 @@ export default class Room extends EventEmitter {
 	 * When the room is locked, peers admitted before but not joined yet go back to the
 	 * lobby, unless they may pass a lock. Otherwise someone let in while the room was open
 	 * could wait, and join the locked meeting later. Peers promoted from the lobby after
-	 * the lock was set are admitted on purpose and are not affected.
+	 * the lock was set are admitted on purpose and are not affected. A headless peer is
+	 * parked like anyone else: only verified bots carry BYPASS_ROOM_LOCK.
 	 */
 	@skipIfClosed
 	public parkPendingPeersOnLock(): void {
 		for (const peer of [ ...this.pendingPeers.items ]) {
-			if (peer.headless || peer.hasPermission(Permission.BYPASS_ROOM_LOCK)) continue;
+			if (peer.hasPermission(Permission.BYPASS_ROOM_LOCK)) continue;
 
 			logger.debug('parkPendingPeersOnLock() [id: %s]', peer.id);
 

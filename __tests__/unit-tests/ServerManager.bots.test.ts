@@ -629,3 +629,34 @@ describe('a bot that comes back after a long disconnect', () => {
 		expect(room.addPeer).toHaveBeenLastCalledWith(peers.get('second'), true);
 	});
 });
+
+describe('a participant that comes back as a bot', () => {
+	test('waits in the lobby of a room locked since it left', async () => {
+		const { manager, openRoom, peers } = setup({ verdict: { allowed: true, verified: false } });
+		const room = openRoom();
+
+		await manager.handleConnection(makeConnection(), 'former', 'r', 'tenant.example.edu', 'fk', 'Name');
+
+		const former = peers.get('former') as Peer;
+
+		former.admitted = true;
+		former.permissions = [ 'SHARE_AUDIO' ];
+		former.close();
+		room.locked = true;
+
+		jest.mocked(room.addPeer).mockRestore();
+		const addPeer = jest.spyOn(room, 'addPeer');
+
+		jest.spyOn(room as unknown as { assignRouter: () => Promise<void> }, 'assignRouter').mockResolvedValue(undefined);
+
+		await manager.handleConnection(makeConnection(), 'former', 'r', 'tenant.example.edu', 'fk', 'Name', undefined, undefined, true);
+		await new Promise((resolve) => setImmediate(resolve));
+
+		const returning = peers.get('former') as Peer;
+
+		expect(addPeer).toHaveBeenCalledWith(returning, true);
+		expect(room.lobbyPeers.items).toContain(returning);
+		expect(room.pendingPeers.items).not.toContain(returning);
+		expect(returning.admitted).toBe(false);
+	});
+});
