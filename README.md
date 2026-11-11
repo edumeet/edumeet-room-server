@@ -367,6 +367,16 @@ ignored entirely.
 
 The room server sends the media node's `secret` over this TLS connection. Without validation, someone on the network path between room server and media node can impersonate the node and read the secret, so the room server logs a warning at start for each such node. A media node on another host should have a certificate the room server can validate: one from a public CA (`rejectUnauthorized: true`), or a self-signed one given as `ca`. The certificate must name the media node as configured in `hostname`, as an IP address entry (SAN) when `hostname` is an IP address. A later release will validate by default.
 
+A self-signed certificate for a media node, made on the media node's host (replace the address with the node's `hostname`; use `subjectAltName=DNS:<name>` for a host name):
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 \
+  -subj '/CN=edumeet-media-node' -addext 'subjectAltName=IP:203.0.113.10' \
+  -keyout key.pem -out cert.pem
+```
+
+Start the media node with `--cert cert.pem --key key.pem` and copy `cert.pem`, not the key, to the room server as that node's `ca`. If the `ca` file cannot be read, the room server logs an error and does not use the node; it does not fall back to an unvalidated connection. The edumeet and edumeet-docker compose setups make and pin such a certificate for the media node on the same host.
+
 ---
 
 ### TURN Ports

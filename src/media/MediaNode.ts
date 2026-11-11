@@ -111,16 +111,28 @@ export class MediaNode extends EventEmitter {
 	#activeSpeakerMiddleware = createActiveSpeakerMiddleware({ routers: this.routers });
 	#recordersMiddleware = createRecordersMiddleware({ routers: this.routers });
 
+	// A ca that cannot be read must not stop the room-server, nor fall back to an unchecked
+	// connection: the node is then verified against the system CAs only, which a self-signed
+	// media node certificate fails, so the node stays unhealthy until the file is fixed.
+	private static loadTls(hostname: string, port: number, ca?: string, rejectUnauthorized?: boolean): { ca?: string; rejectUnauthorized: boolean } {
+		if (!ca) return { rejectUnauthorized: rejectUnauthorized ?? false };
+
+		try {
+			return { ca: fs.readFileSync(ca, 'utf8'), rejectUnauthorized: rejectUnauthorized ?? true };
+		} catch (error) {
+			logger.error({ err: error }, 'media node %s:%s: cannot read its "ca" file %s; the node is not used until the file can be read', hostname, port, ca);
+
+			return { rejectUnauthorized: true };
+		}
+	}
+
 	constructor({ id, hostname, port, secret, turnHostname, turnports, kdPoint, ca, rejectUnauthorized }: MediaNodeOptions) {
 		logger.debug('constructor() [id: %s]', id);
 
 		super();
 		this.setMaxListeners(Infinity);
 
-		this.tls = {
-			ca: ca ? fs.readFileSync(ca, 'utf8') : undefined,
-			rejectUnauthorized: rejectUnauthorized ?? Boolean(ca),
-		};
+		this.tls = MediaNode.loadTls(hostname, port, ca, rejectUnauthorized);
 
 		if (!this.tls.rejectUnauthorized)
 			logger.warn('media node %s:%s: TLS certificate not validated, the media secret is sent unprotected against a man in the middle; set "ca" or "rejectUnauthorized" in mediaNodes', hostname, port);
