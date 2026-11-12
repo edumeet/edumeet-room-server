@@ -43,7 +43,7 @@ const mediaService = MediaService.create();
 let managementService: ManagementService | undefined;
 
 if (config.managementService)
-	managementService = new ManagementService({ managedPeers, managedRooms, mediaService });
+	managementService = new ManagementService({ managedPeers, managedRooms, rooms, mediaService });
 
 const serverManager = new ServerManager({ peers, rooms, managedRooms, managedPeers, mediaService, managementService });
 

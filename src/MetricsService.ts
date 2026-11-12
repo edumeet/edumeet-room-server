@@ -330,9 +330,9 @@ export default class CustomMetricsService {
 				res.end(await this.customMetrics.metrics());
 			});
 
-			newServer.listen(port, () => {
-				logger.debug(`Server listening to ${port}, metrics exposed on /metrics endpoint`,);
-
+			// On the configured address only: the metrics name every room of every tenant.
+			newServer.listen(port, ip, () => {
+				logger.debug(`Server listening to ${ip}:${port}, metrics exposed on /metrics endpoint`,);
 			});
 
 			this.servers.set(`${ip}-${port}-http`, newServer);
@@ -350,9 +350,9 @@ export default class CustomMetricsService {
 				res.end(await this.customMetrics.metrics());
 			});
 
-			newServer.listen(port, () => {
-				logger.debug(`Server listening to ${port}, metrics exposed on /metrics endpoint`,);
-
+			// On the configured address only: the metrics name every room of every tenant.
+			newServer.listen(port, ip, () => {
+				logger.debug(`Server listening to ${ip}:${port}, metrics exposed on /metrics endpoint`,);
 			});
 
 			this.servers.set(`${ip}-${port}-https`, newServer);

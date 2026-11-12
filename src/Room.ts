@@ -27,7 +27,7 @@ import { MediaNode } from './media/MediaNode';
 import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import BotJobs, { MAX_ACTIVE_BOT_JOBS } from './BotJobs';
-import { Permission, ensureUnmanagedModerator, isAllowed, updatePeerPermissions } from './common/authorization';
+import { Permission, ensureUnmanagedModerator, isAllowed, lobbyPermissions, updatePeerPermissions } from './common/authorization';
 import { MeetingTokenRejection, admitMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
@@ -189,6 +189,9 @@ export default class Room extends EventEmitter {
 	// Counts revocations of owners, roles, groups and role permissions. Permissions cached for
 	// a slow reconnect are restored only if no right was revoked since (see ServerManager).
 	public permissionsRevision = 0;
+	// The default role is the tenant's (management defaults), not one the room sets itself, so a
+	// change of the tenant default applies to it.
+	public defaultRoleFromTenant = false;
 	private initialRouterAssignment?: Promise<void>;
 
 	public chatHistory: ChatMessage[] = [];
@@ -618,6 +621,11 @@ export default class Room extends EventEmitter {
 	@skipIfClosed
 	private parkPeer(peer: Peer): void {
 		logger.debug('parkPeer() [id: %s]', peer.id);
+
+		// In an unmanaged room the first to arrive is made moderator before the lock is
+		// checked; parked, it is not, and is let in with the default role only. A bot keeps
+		// the bot profile.
+		if (!this.managedId && !peer.headless) peer.permissions = lobbyPermissions(this);
 
 		this.lobbyPeers.add(peer);
 		peer.pipeline.use(this.#lobbyPeerMiddleware);

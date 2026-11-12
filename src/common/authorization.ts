@@ -1,6 +1,6 @@
 import { Peer } from '../Peer';
 import Room from '../Room';
-import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, MediaSourceType, RoomSettings } from './types';
+import { ManagedGroup, ManagedGroupRole, ManagedGroupUser, ManagedRole, ManagedRolePermission, ManagedRoom, ManagedRoomOwner, ManagedUserRole, MediaSourceType, RoomRole, RoomSettings } from './types';
 import { Logger } from 'edumeet-common';
 import { botProfile } from './botProfile';
 
@@ -111,6 +111,15 @@ export const ensureUnmanagedModerator = (room: Room): void => {
 	room.notifyPeers('moderatorHandover', { peerId: next.id });
 };
 
+// What a peer waiting in the lobby of an unmanaged room holds: the default role, nothing of a
+// moderator's. Who comes first to a locked room with nobody in it is not its moderator, and the
+// rights would otherwise go in with it when someone lets it in.
+export const lobbyPermissions = (room: Room): string[] => {
+	const permissions = room.defaultRole?.permissions.map((p) => p.name) ?? [];
+
+	return room.disableUnmanaged ? permissions.filter((p) => p !== Permission.BYPASS_ROOM_LOCK) : permissions;
+};
+
 export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, isReconnect = false): void => {
 	if (peer.headless) {
 		peer.permissions = [ ...(peer.botVerified ? botProfile.verifiedPermissions : botProfile.permissions) ];
@@ -180,6 +189,13 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 
 		shouldPromote = inLobby && peer.hasPermission(Permission.BYPASS_ROOM_LOCK);
 		shouldGiveLobbyPeers = !hadPromotePermission && peer.hasPermission(Permission.PROMOTE_PEER);
+	}
+
+	// A peer in the lobby of an unmanaged room that cannot pass the lock stays there: with the
+	// default role only.
+	if (!room.managedId && inLobby && !peer.hasPermission(Permission.BYPASS_ROOM_LOCK)) {
+		peer.permissions = lobbyPermissions(room);
+		shouldGiveLobbyPeers = false;
 	}
 
 	logger.debug({ peerPermissions: peer.permissions }, 'Final peer permissions');
@@ -378,13 +394,103 @@ export const removeRole = (room: Room, role: ManagedRole): void => {
 
 	const defaultRole = room.defaultRole as ManagedRole;
 
-	if (defaultRole?.id === role.id) {
-		room.defaultRole = undefined;
+	if (defaultRole && String(defaultRole.id) === String(role.id)) applyDefaultRole(room, undefined);
+};
 
-		const peers = room.getPeers();
+const permissionNames = (role?: ManagedRole | RoomRole): Set<string> =>
+	new Set((role?.permissions ?? []).map((p) => p.name));
 
-		peers.forEach((peer) => updatePeerPermissions(room, peer));
+/**
+ * The room's default role changed: a permission was added to or removed from it, the room
+ * or its tenant uses another one, or it was deleted. Every peer of the room, also those
+ * admitted and those in the lobby, loses what the old default role gave and the new one does
+ * not, and gets what the new one adds. What a peer was granted in the meeting stays, and so
+ * does what its own roles give.
+ */
+export const applyDefaultRole = (room: Room, role: ManagedRole | RoomRole | undefined): void => {
+	if (room.closed) return;
+
+	const before = permissionNames(room.defaultRole);
+	const after = permissionNames(role);
+	const sameId = String((room.defaultRole as ManagedRole | undefined)?.id ?? '') === String((role as ManagedRole | undefined)?.id ?? '');
+
+	if (sameId && before.size === after.size && [ ...before ].every((p) => after.has(p))) return;
+
+	const lost = [ ...before ].filter((p) => !after.has(p));
+
+	room.defaultRole = role;
+
+	const peers = [ ...room.peers.items, ...room.pendingPeers.items, ...room.lobbyPeers.items ]
+		.filter((p) => !p.headless);
+
+	for (const peer of peers) {
+		// The moderator of an unmanaged room has its rights for being moderator, as an owner has
+		// in a managed one, not from the default role.
+		const moderator = !room.managedId && peer.hasPermission(Permission.MODERATE_ROOM) && !lost.includes(Permission.MODERATE_ROOM);
+
+		if (lost.length > 0 && !moderator)
+			peer.permissions = peer.permissions.filter((p) => !lost.includes(p));
+
+		// Keeps the peer's permissions, as on a reconnect, and adds those of its roles.
+		updatePeerPermissions(room, peer, room.lobbyPeers.items.includes(peer), true);
 	}
+
+	// Taking MODERATE_ROOM from the default role may have left an unmanaged room without one.
+	ensureUnmanagedModerator(room);
+};
+
+// A managed room was patched. The event carries the room's own default role; without one, the
+// tenant's applies, which is fetched once when the room switches to it.
+export const updateRoomDefaultRole = async (
+	room: Room,
+	managedRoom: ManagedRoom,
+	tenantDefaultRole: (tenantId: number) => Promise<ManagedRole | undefined>
+): Promise<void> => {
+	if (managedRoom.defaultRole) {
+		room.defaultRoleFromTenant = false;
+
+		return applyDefaultRole(room, managedRoom.defaultRole);
+	}
+
+	if (room.defaultRoleFromTenant) return;
+
+	room.defaultRoleFromTenant = true;
+
+	let role: ManagedRole | undefined;
+
+	try {
+		role = await tenantDefaultRole(room.tenantId);
+	} catch (err) {
+		// Not knowing the tenant's default role is not the same as it having none: the room keeps
+		// the one it has, and the next patch asks again.
+		logger.warn({ err, tenantId: room.tenantId }, 'updateRoomDefaultRole() tenant default role not known');
+		room.defaultRoleFromTenant = false;
+
+		return;
+	}
+
+	// Unless the room got its own default role again meanwhile.
+	if (room.defaultRoleFromTenant) applyDefaultRole(room, role);
+};
+
+// The tenant's default role changed: the rooms of that tenant that use it get the new one.
+export const applyTenantDefaultRole = (rooms: Room[], defaults: { tenantId?: number | string; defaultRole?: ManagedRole }): void => {
+	for (const room of rooms) {
+		if (room.defaultRoleFromTenant && String(room.tenantId) === String(defaults.tenantId))
+			applyDefaultRole(room, defaults.defaultRole || undefined);
+	}
+};
+
+// A permission was added to or removed from a role: the room's default role, if it is that one.
+export const changeDefaultRolePermission = (room: Room, rolePermission: ManagedRolePermission, added: boolean): void => {
+	const role = room.defaultRole as ManagedRole | undefined;
+
+	if (!role || String(role.id) !== String(rolePermission.roleId)) return;
+
+	const others = (role.permissions ?? []).filter((p) => p.name !== rolePermission.permission.name);
+	const permissions = added ? [ ...others, rolePermission.permission ] : others;
+
+	applyDefaultRole(room, { ...role, permissions } as ManagedRole);
 };
 
 export const addRolePermission = (room: Room, rolePermission: ManagedRolePermission): void => {
