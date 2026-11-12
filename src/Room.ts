@@ -623,8 +623,9 @@ export default class Room extends EventEmitter {
 		logger.debug('parkPeer() [id: %s]', peer.id);
 
 		// In an unmanaged room the first to arrive is made moderator before the lock is
-		// checked; parked, it is not, and is let in with the default role only.
-		if (!this.managedId) peer.permissions = lobbyPermissions(this);
+		// checked; parked, it is not, and is let in with the default role only. A bot keeps
+		// the bot profile.
+		if (!this.managedId && !peer.headless) peer.permissions = lobbyPermissions(this);
 
 		this.lobbyPeers.add(peer);
 		peer.pipeline.use(this.#lobbyPeerMiddleware);

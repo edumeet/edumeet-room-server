@@ -3,13 +3,14 @@ import Room from '../../src/Room';
 import { Peer } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import { Permission, updatePeerPermissions } from '../../src/common/authorization';
+import { botProfile } from '../../src/common/botProfile';
 
 const PARTICIPANT = [ Permission.SEND_CHAT, Permission.SHARE_AUDIO, Permission.SHARE_VIDEO ];
 
 const created: Peer[] = [];
 
-const makePeer = (managedId?: string): Peer => {
-	const peer = new Peer({ id: `p-${created.length}`, sessionId: 's', reconnectKey: 'k', managedId });
+const makePeer = (managedId?: string, headless = false): Peer => {
+	const peer = new Peer({ id: `p-${created.length}`, sessionId: 's', reconnectKey: 'k', managedId, headless });
 
 	jest.spyOn(peer, 'notify').mockImplementation(() => undefined);
 	created.push(peer);
@@ -80,4 +81,22 @@ describe('a guest who arrives first at a locked, empty unmanaged room', () => {
 		expect(room.lobbyPeers.items).not.toContain(organiser);
 		expect(organiser.hasPermission(Permission.MODERATE_ROOM)).toBe(true);
 	});
+});
+
+test('A bot parked in the lobby of an unmanaged room keeps the bot profile, also when it is let in', async () => {
+	const room = lockedEmptyRoom();
+	const organiser = makePeer('42');
+
+	await room.addPeer(organiser);
+	room.joinPeer(organiser);
+
+	const bot = makePeer(undefined, true);
+
+	await room.addPeer(bot);
+	expect(room.lobbyPeers.items).toContain(bot);
+	expect(bot.permissions).toEqual(botProfile.permissions);
+
+	room.promotePeer(bot);
+	expect(bot.hasPermission(Permission.SHARE_AUDIO)).toBe(false);
+	expect(bot.hasPermission(Permission.SHARE_VIDEO)).toBe(false);
 });

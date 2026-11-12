@@ -676,17 +676,11 @@ export default class ManagementService {
 
 	@skipIfClosed
 	private async getTenantDefaultRole(tenantId: number): Promise<ManagedRole | undefined> {
-		try {
-			const { data } = await this.runAuthenticated(
-				() => this.#defaultsService.find({ query: { tenantId, $limit: 1 } })
-			);
+		const { data } = await this.runAuthenticated(
+			() => this.#defaultsService.find({ query: { tenantId, $limit: 1 } })
+		);
 
-			return data?.[0]?.defaultRole || undefined;
-		} catch (err) {
-			logger.warn({ err, tenantId }, 'getTenantDefaultRole() failed');
-
-			return undefined;
-		}
+		return data?.[0]?.defaultRole || undefined;
 	}
 
 	@skipIfClosed

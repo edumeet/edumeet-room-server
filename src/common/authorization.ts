@@ -403,9 +403,9 @@ const permissionNames = (role?: ManagedRole | RoomRole): Set<string> =>
 /**
  * The room's default role changed: a permission was added to or removed from it, the room
  * or its tenant uses another one, or it was deleted. Every peer of the room, also those
- * admitted and those in the lobby, gets its permissions again from the new definition, and
- * what the old default role gave and the new one does not is taken away also in an
- * unmanaged room, where permissions are otherwise only ever added.
+ * admitted and those in the lobby, loses what the old default role gave and the new one does
+ * not, and gets what the new one adds. What a peer was granted in the meeting stays, and so
+ * does what its own roles give.
  */
 export const applyDefaultRole = (room: Room, role: ManagedRole | RoomRole | undefined): void => {
 	if (room.closed) return;
@@ -424,10 +424,15 @@ export const applyDefaultRole = (room: Room, role: ManagedRole | RoomRole | unde
 		.filter((p) => !p.headless);
 
 	for (const peer of peers) {
-		if (!room.managedId && lost.length > 0)
+		// The moderator of an unmanaged room has its rights for being moderator, as an owner has
+		// in a managed one, not from the default role.
+		const moderator = !room.managedId && peer.hasPermission(Permission.MODERATE_ROOM) && !lost.includes(Permission.MODERATE_ROOM);
+
+		if (lost.length > 0 && !moderator)
 			peer.permissions = peer.permissions.filter((p) => !lost.includes(p));
 
-		updatePeerPermissions(room, peer, room.lobbyPeers.items.includes(peer));
+		// Keeps the peer's permissions, as on a reconnect, and adds those of its roles.
+		updatePeerPermissions(room, peer, room.lobbyPeers.items.includes(peer), true);
 	}
 
 	// Taking MODERATE_ROOM from the default role may have left an unmanaged room without one.
@@ -451,7 +456,18 @@ export const updateRoomDefaultRole = async (
 
 	room.defaultRoleFromTenant = true;
 
-	const role = await tenantDefaultRole(room.tenantId);
+	let role: ManagedRole | undefined;
+
+	try {
+		role = await tenantDefaultRole(room.tenantId);
+	} catch (err) {
+		// Not knowing the tenant's default role is not the same as it having none: the room keeps
+		// the one it has, and the next patch asks again.
+		logger.warn({ err, tenantId: room.tenantId }, 'updateRoomDefaultRole() tenant default role not known');
+		room.defaultRoleFromTenant = false;
+
+		return;
+	}
 
 	// Unless the room got its own default role again meanwhile.
 	if (room.defaultRoleFromTenant) applyDefaultRole(room, role);

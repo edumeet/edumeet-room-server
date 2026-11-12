@@ -28,18 +28,24 @@ const trustedProxies = (): BlockList => {
 	const list = new BlockList();
 
 	for (const entry of source ?? DEFAULT_TRUSTED_PROXIES) {
-		const [ network, bits ] = entry.split('/');
+		const [ network, bits, ...rest ] = entry.split('/');
 		const version = isIP(network);
+		const type = version === 4 ? 'ipv4' : 'ipv6';
 
-		if (!version) {
-			logger.warn('trustedProxies: not an address, ignored [entry: %s]', entry);
+		// A typo must neither trust everyone ('10.0.0.0/' would be /0) nor make every lookup throw.
+		const validPrefix = bits === undefined || (/^\d{1,3}$/.test(bits) && Number(bits) <= (version === 4 ? 32 : 128));
+
+		if (!version || rest.length > 0 || !validPrefix) {
+			logger.warn('trustedProxies: not an address or network, ignored [entry: %s]', entry);
 			continue;
 		}
 
-		const type = version === 4 ? 'ipv4' : 'ipv6';
-
-		if (bits === undefined) list.addAddress(network, type);
-		else list.addSubnet(network, Number(bits), type);
+		try {
+			if (bits === undefined) list.addAddress(network, type);
+			else list.addSubnet(network, Number(bits), type);
+		} catch (err) {
+			logger.warn({ err }, 'trustedProxies: entry ignored [entry: %s]', entry);
+		}
 	}
 
 	cached = { source, list };
@@ -63,9 +69,9 @@ export const isTrustedProxy = (address: string | undefined): boolean => {
 export const resolveClientIp = ({ address, forwardedFor }: ConnectionAddress): string | undefined => {
 	if (forwardedFor && isTrustedProxy(address)) {
 		const first = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-		const ip = first?.split(',')[0]?.trim();
+		const ip = unmapped(first?.split(',')[0]?.trim() ?? '');
 
-		if (ip) return ip;
+		if (isIP(ip)) return ip;
 	}
 
 	return address ? unmapped(address) : undefined;

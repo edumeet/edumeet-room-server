@@ -79,6 +79,21 @@ describe('a permission removed from the default role of a live room', () => {
 		expect(moderator.hasPermission(Permission.MODERATE_ROOM)).toBe(true);
 	});
 
+	test('is not taken from the moderator of an unmanaged room, whose rights are not from the default role', () => {
+		const room = makeRoom(false, role(5, ...BASE, Permission.SHARE_SCREEN));
+		const moderator = makePeer(allPermissions.filter((p) => p !== Permission.BYPASS_ROOM_LOCK));
+		const guest = makePeer([ ...BASE, Permission.SHARE_SCREEN ]);
+
+		room.joinPeer(moderator);
+		room.joinPeer(guest);
+
+		applyDefaultRole(room, role(5, ...BASE));
+
+		expect(guest.hasPermission(Permission.SHARE_SCREEN)).toBe(false);
+		expect(moderator.hasPermission(Permission.SHARE_SCREEN)).toBe(true);
+		expect(moderator.notify).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'moderatorHandover' }));
+	});
+
 	test('is taken from peers waiting in the lobby too', () => {
 		const room = makeRoom(true, role(5, ...WITH_MODERATION));
 		const waiting = makePeer(WITH_MODERATION);
@@ -123,6 +138,18 @@ describe('the default role of a live room', () => {
 		expect(moderator.hasPermission(Permission.MODERATE_ROOM)).toBe(true);
 	});
 
+	test('changed keeps what a moderator granted in the room, also in a managed room', () => {
+		const room = makeRoom(true, role(5, ...BASE));
+		const guest = makePeer(BASE);
+
+		room.joinPeer(guest);
+		guest.permissions = [ ...BASE, Permission.SHARE_SCREEN ];
+
+		applyDefaultRole(room, role(5, Permission.SEND_CHAT, Permission.SHARE_VIDEO));
+
+		expect(guest.permissions.sort()).toEqual([ Permission.SEND_CHAT, Permission.SHARE_SCREEN, Permission.SHARE_VIDEO ].sort());
+	});
+
 	test('unchanged (any room patch carries it) keeps what a moderator granted in the room', () => {
 		const room = makeRoom(true, role(5, ...BASE));
 		const guest = makePeer(BASE);
@@ -157,6 +184,24 @@ describe('management events', () => {
 		// Further patches without a room default do not fetch again.
 		await updateRoomDefaultRole(room, {} as ManagedRoom, tenantDefault);
 		expect(tenantDefault).toHaveBeenCalledTimes(1);
+	});
+
+	test('a tenant default role that cannot be fetched changes nothing, and the next patch asks again', async () => {
+		const room = makeRoom(true, role(5, ...BASE));
+		const guest = makePeer(BASE);
+		const tenantDefault = jest.fn()
+			.mockRejectedValueOnce(new Error('management server not reachable'))
+			.mockResolvedValueOnce(role(9, Permission.SEND_CHAT));
+
+		room.joinPeer(guest);
+
+		await updateRoomDefaultRole(room, {} as ManagedRoom, tenantDefault);
+		expect(guest.permissions.sort()).toEqual([ ...BASE ].sort());
+		expect(room.defaultRoleFromTenant).toBe(false);
+
+		await updateRoomDefaultRole(room, {} as ManagedRoom, tenantDefault);
+		expect(tenantDefault).toHaveBeenCalledTimes(2);
+		expect(guest.permissions).toEqual([ Permission.SEND_CHAT ]);
 	});
 
 	test('a tenant default change reaches the rooms of that tenant that use it, and only those', () => {
