@@ -59,9 +59,10 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 				// if (!peer.hasPermission(Permission.MODERATE_ROOM))
 				// 	throw new Error('peer not authorized');
 		
+				// The board stays: closing and opening it again is part of a meeting. It goes with
+				// erase all, and with the meeting's other content when the last participant leaves.
 				room.drawing.isEnabled = false;
-				room.drawing.canvasState = [];
-		
+
 				room.notifyPeers('disabledDrawing', {}, peer);
 			
 				context.handled = true;

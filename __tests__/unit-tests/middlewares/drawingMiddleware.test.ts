@@ -65,6 +65,20 @@ test('known objects are still modified and removed', async () => {
 	expect(room.drawing.canvasState[0].object).toEqual({ type: 'Path', id: 2, left: 5 });
 });
 
+test('closing the whiteboard keeps the board for when it is opened again', async () => {
+	const room = makeRoom([ 1, 2 ]);
+
+	await send(room, 'disableDrawing');
+
+	expect(room.drawing.isEnabled).toBe(false);
+	expect(storedIds(room)).toEqual([ 1, 2 ]);
+
+	await send(room, 'enableDrawing');
+
+	expect(room.drawing.isEnabled).toBe(true);
+	expect(storedIds(room)).toEqual([ 1, 2 ]);
+});
+
 test('erasing all clears what a late joiner would get', async () => {
 	const room = makeRoom([ 1, 2 ]);
 
