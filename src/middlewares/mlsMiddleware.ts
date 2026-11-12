@@ -2,11 +2,17 @@ import { Logger, Middleware } from 'edumeet-common';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { MlsGroup } from '../mls/MlsGroup';
+import { addressOf, limitHit } from '../common/suspiciousClients';
 
 const logger = new Logger('MlsMiddleware');
 
 const MAX_MESSAGE_LENGTH = 1024 * 1024;
 const MAX_SMALL_MESSAGE_LENGTH = 64 * 1024;
+const BUSY_RETRY_MS = 5_000;
+
+// The client sends these only in a room with end-to-end encryption on, which the room tells it.
+// In any other room they would only be relayed to the others and kept for recovery.
+const MLS_METHODS = new Set([ 'mlsJoin', 'mlsEpoch', 'mlsGroupInfo', 'mlsCommit', 'mlsKeyPackage', 'mlsKeyPackages', 'mlsProposal' ]);
 
 type PeerLike = PeerContext['peer'];
 
@@ -48,8 +54,23 @@ export const createMlsMiddleware = ({ room }: { room: Room; }): Middleware<PeerC
 		const { peer, message } = context;
 		const data = message.data ?? {};
 
+		if (MLS_METHODS.has(message.method) && !room.endToEndEncryption) throw new Error('end-to-end encryption is off');
+
 		switch (message.method) {
 			case 'mlsJoin': {
+				// The answer to a joiner is the stored GroupInfo, up to a megabyte. A peer that
+				// asks for it too often is told to wait, as when another joiner is at work,
+				// before the group notes anything about it. Not reported: a client that is told
+				// to wait asks again, and the answer costs nothing.
+				const length = group.joinAnswerLength(peer.id);
+
+				if (length > 0 && !peer.mlsJoins.take()) {
+					context.response = { role: 'wait', retryAfterMs: BUSY_RETRY_MS };
+					context.handled = true;
+
+					break;
+				}
+
 				watch(peer);
 
 				context.response = group.join(peer.id);
@@ -123,6 +144,13 @@ export const createMlsMiddleware = ({ room }: { room: Room; }): Middleware<PeerC
 			}
 
 			case 'mlsKeyPackages': {
+				// Every peer's key package, up to 64 kB each.
+				if (!peer.mlsKeyPackageRequests.take()) {
+					limitHit(addressOf(peer));
+
+					throw new Error('Too many requests');
+				}
+
 				context.response = { keyPackages: group.keyPackages() };
 				context.handled = true;
 
@@ -133,6 +161,13 @@ export const createMlsMiddleware = ({ room }: { room: Room; }): Middleware<PeerC
 				const { proposal, toPeerId } = data;
 
 				if (!isSmallMlsMessage(proposal)) throw new Error('invalid proposal');
+
+				// Passed on to everyone; the client does not send proposals.
+				if (!peer.mlsProposals.take()) {
+					limitHit(addressOf(peer));
+
+					throw new Error('Too many requests');
+				}
 				if (toPeerId !== undefined && typeof toPeerId !== 'string') throw new Error('invalid proposal target');
 
 				const relayed = { fromPeerId: peer.id, proposal };

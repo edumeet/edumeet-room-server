@@ -1,7 +1,8 @@
 import { Logger, Middleware } from 'edumeet-common';
 import { Permission } from '../common/authorization';
 import { DirectChatMessage } from '../common/types';
-import { isValidText, MAX_CHAT_MESSAGE_LENGTH } from '../common/textValidation';
+import { chatText } from '../common/textValidation';
+import { addressOf, limitHit } from '../common/suspiciousClients';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 
@@ -26,9 +27,10 @@ export const createPrivateChatMiddleware = ({ room }: { room: Room; }): Middlewa
 				if (!peer.hasPermission(Permission.SEND_CHAT))
 					throw new Error('peer not authorized');
 
-				const { text, to } = message.data;
+				const { to } = message.data;
+				const text = chatText(message.data.text);
 
-				if (!isValidText(text, MAX_CHAT_MESSAGE_LENGTH))
+				if (text === undefined)
 					throw new Error('invalid message');
 
 				if (!to || to === peer.id)
@@ -38,6 +40,12 @@ export const createPrivateChatMiddleware = ({ room }: { room: Room; }): Middlewa
 
 				if (!recipient)
 					throw new Error('peer not found');
+
+				if (!peer.chatMessages.take()) {
+					limitHit(addressOf(peer));
+
+					throw new Error('Too many messages');
+				}
 
 				const chatMessage = {
 					text,

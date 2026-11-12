@@ -71,6 +71,75 @@ describe('connection state recovery', () => {
 		client.close();
 	});
 
+	// A copy of a room's state is megabytes, and a client can ask for one with every reconnect.
+	describe('notifyOnce', () => {
+		const stored = () => (server.of('/').adapter as unknown as { packets: unknown[] }).packets.length;
+
+		const connectOne = async () => {
+			const client: ClientSocket = ioClient(url, { reconnection: false, transports: [ 'websocket' ] });
+			const received: Array<{ method: string, data: { chatHistory?: string[] } }> = [];
+
+			client.on('notification', (n) => received.push(n));
+			await until(() => connections.length === 1 && client.connected);
+
+			return { client, received, connection: connections[0] };
+		};
+
+		test('reaches the client and is not kept, while notify is', async () => {
+			const { client, received, connection } = await connectOne();
+
+			for (let i = 0; i < 50; i++) connection.notifyOnce({ method: 'peerReconnected', data: { chatHistory: [ 'x'.repeat(1000) ] } });
+			await until(() => received.length === 50);
+			expect(stored()).toBe(0);
+
+			connection.notify({ method: 'kept', data: {} });
+			expect(stored()).toBe(1);
+			client.close();
+		});
+
+		test('sends the state as it is at the call', async () => {
+			const { client, received, connection } = await connectOne();
+			const chatHistory = [ 'before' ];
+
+			connection.notifyOnce({ method: 'peerReconnected', data: { chatHistory } });
+			chatHistory.push('after');
+			await until(() => received.length === 1);
+
+			expect(received[0].data.chatHistory).toEqual([ 'before' ]);
+			client.close();
+		});
+
+		test('is not sent again when the socket recovers', async () => {
+			const { client, received, connection } = await connectOne();
+
+			connection.notify({ method: 'first', data: {} });
+			connection.notifyOnce({ method: 'peerReconnected', data: {} });
+			await until(() => received.length === 2);
+
+			client.io.engine.close();
+			await until(() => !client.connected && connection.disconnected);
+
+			// lost with the socket, and not kept either
+			connection.notifyOnce({ method: 'sessionIdChanged', data: {} });
+			connection.notify({ method: 'whileAway', data: {} });
+
+			client.connect();
+			await until(() => received.some((n) => n.method === 'whileAway'));
+
+			expect(client.recovered).toBe(true);
+			expect(received.map((n) => n.method)).toEqual([ 'first', 'peerReconnected', 'whileAway' ]);
+			client.close();
+		});
+
+		test('does nothing on a closed connection', async () => {
+			const { client, connection } = await connectOne();
+
+			connection.close();
+			expect(() => connection.notifyOnce({ method: 'peerReconnected', data: {} })).not.toThrow();
+			client.close();
+		});
+	});
+
 	test('restores nothing once the connection was closed', async () => {
 		const { client, received, connection } = await dropAndBuffer();
 

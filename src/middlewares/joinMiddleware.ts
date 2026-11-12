@@ -4,7 +4,8 @@ import { thisSession } from '../common/checkSessionId';
 import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { createConsumers } from '../common/consuming';
-import { isValidPicture, isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
+import { displayNameText, isValidPicture } from '../common/textValidation';
+import { roomStateSent } from '../common/suspiciousClients';
 
 const logger = new Logger('JoinMiddleware');
 
@@ -30,7 +31,9 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 					picture,
 				} = message.data;
 
-				if (isValidText(displayName, MAX_DISPLAY_NAME_LENGTH)) peer.displayName = displayName;
+				const name = displayNameText(displayName);
+
+				if (name !== undefined) peer.displayName = name;
 				if (isValidPicture(picture)) peer.picture = picture;
 
 				response.peers = room.getPeers().map((p) => (p.peerInfo));
@@ -47,6 +50,7 @@ export const createJoinMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 					response.tracker = room.tracker;
 
 				room.joinPeer(peer);
+				roomStateSent(peer);
 				context.handled = true;
 
 				if (peer.closed) break;

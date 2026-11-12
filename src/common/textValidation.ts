@@ -7,13 +7,51 @@ export const MAX_MAGNET_URI_LENGTH = 8192;
 export const isValidText = (value: unknown, maxLength: number): value is string =>
 	typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength;
 
+// JSON writes a control character or half of a surrogate pair as six characters, so they would
+// make the history sent to everyone up to six times its size. Text pasted from a document can
+// hold page and line breaks (vertical tab, form feed): those become line breaks.
+const DOCUMENT_BREAKS = /[\u000B\u000C]/g;
+const OTHER_CONTROL_CHARACTERS = /[\u0000-\u0008\u000E-\u001F\u007F-\u009F]/g;
+const LONE_SURROGATES = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+// The text of a chat message as it is stored and sent, or undefined if there is none.
+export const chatText = (value: unknown): string | undefined => {
+	if (typeof value !== 'string' || value.length > MAX_CHAT_MESSAGE_LENGTH) return undefined;
+
+	const text = value
+		.replace(LONE_SURROGATES, '\uFFFD')
+		.replace(DOCUMENT_BREAKS, '\n')
+		.replace(OTHER_CONTROL_CHARACTERS, '');
+
+	return isValidText(text, MAX_CHAT_MESSAGE_LENGTH) ? text : undefined;
+};
+
+const ALL_CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
+
+// A display name as it is stored and sent, or undefined if there is none. It goes into every
+// chat message and file entry, so it is cleaned as chat text is; a name has one line, so
+// tabs and line breaks become spaces.
+export const displayNameText = (value: unknown): string | undefined => {
+	if (typeof value !== 'string' || value.length > MAX_DISPLAY_NAME_LENGTH) return undefined;
+
+	const name = value
+		.replace(LONE_SURROGATES, '\uFFFD')
+		.replace(ALL_CONTROL_CHARACTERS, ' ');
+
+	return isValidText(name, MAX_DISPLAY_NAME_LENGTH) ? name : undefined;
+};
+
 // An empty picture means none; the client sends '' when it has no picture.
 export const isValidPicture = (value: unknown): value is string =>
 	typeof value === 'string' && value.length <= MAX_PICTURE_LENGTH;
 
+// A magnet link is printable ASCII: names and addresses in it are percent-encoded.
+const MAGNET_CHARACTERS = /^[\x21-\x7E]+$/;
+
 export const isValidMagnetUri = (value: unknown): value is string =>
 	typeof value === 'string' &&
 	value.length <= MAX_MAGNET_URI_LENGTH &&
+	MAGNET_CHARACTERS.test(value) &&
 	value.startsWith('magnet:?') &&
 	new URLSearchParams(value.slice('magnet:?'.length))
 		.getAll('xt')

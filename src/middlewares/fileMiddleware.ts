@@ -3,6 +3,7 @@ import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { FileMessage } from '../common/types';
 import { isValidMagnetUri, magnetInfoHashes } from '../common/textValidation';
+import { hasRoomForFile } from '../common/history';
 import { PeerContext } from '../Peer';
 import BreakoutRoom from '../BreakoutRoom';
 import Room from '../Room';
@@ -52,6 +53,9 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 				// shared again under a second owner, who could then clear it for everyone.
 				if (sharedByOthers(room, magnetURI, peer.id))
 					throw new Error('file already shared');
+
+				if (!hasRoomForFile(room.fileHistory, peer.id))
+					throw new Error('too many files');
 
 				const file = {
 					magnetURI,

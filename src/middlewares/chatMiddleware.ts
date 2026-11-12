@@ -2,14 +2,20 @@ import { Logger, Middleware } from 'edumeet-common';
 import { Permission } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { ChatMessage } from '../common/types';
-import { isValidText, MAX_CHAT_MESSAGE_LENGTH } from '../common/textValidation';
+import { chatText } from '../common/textValidation';
+import { addressOf, limitHit } from '../common/suspiciousClients';
+import { addChatMessage } from '../common/history';
 import { PeerContext } from '../Peer';
 import BreakoutRoom from '../BreakoutRoom';
 import Room from '../Room';
 
 const logger = new Logger('ChatMiddleware');
 
-export const createChatMiddleware = ({ room }: { room: Room | BreakoutRoom; }): Middleware<PeerContext> => {
+// inReconnectState: the chat history of this room is part of what a reconnecting peer gets, as
+// the main room's is and a breakout room's is not. Then a message is not kept for recovery.
+export const createChatMiddleware = (
+	{ room, inReconnectState = false }: { room: Room | BreakoutRoom; inReconnectState?: boolean; }
+): Middleware<PeerContext> => {
 	logger.debug('createChatMiddleware() [room: %s]', room.sessionId);
 
 	const middleware: Middleware<PeerContext> = async (
@@ -29,10 +35,16 @@ export const createChatMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 				if (!peer.hasPermission(Permission.SEND_CHAT))
 					throw new Error('peer not authorized');
 
-				const { text } = message.data;
+				const text = chatText(message.data.text);
 
-				if (!isValidText(text, MAX_CHAT_MESSAGE_LENGTH))
+				if (text === undefined)
 					throw new Error('invalid message');
+
+				if (!peer.chatMessages.take()) {
+					limitHit(addressOf(peer));
+
+					throw new Error('Too many messages');
+				}
 
 				const chatMessage = {
 					text,
@@ -42,12 +54,10 @@ export const createChatMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 					sessionId: room.sessionId,
 				} as ChatMessage;
 
-				room.chatHistory.push(chatMessage);
+				addChatMessage(room.chatHistory, chatMessage);
 
-				room.notifyPeers('chatMessage', {
-					peerId: peer.id,
-					chatMessage,
-				}, peer);
+				if (inReconnectState) (room as Room).notifyPeersOnce('chatMessage', { peerId: peer.id, chatMessage }, peer);
+				else room.notifyPeers('chatMessage', { peerId: peer.id, chatMessage }, peer);
 
 				context.handled = true;
 

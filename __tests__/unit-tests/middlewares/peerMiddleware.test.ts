@@ -70,6 +70,23 @@ test('Should notify peers on a valid display name', async () => {
 	expect(context.handled).toBeTruthy();
 });
 
+// A display name goes into every chat message and file entry of the history.
+test('A display name is cleaned of control characters and broken surrogate pairs before it is stored and sent', async () => {
+	const room = createRoom();
+	const sut = createPeerMiddleware({ room });
+	const peer = { id: 'peer1', displayName: 'Peer One' };
+	const change = (displayName: string) =>
+		sut({ peer, message: { method: 'changeDisplayName', data: { displayName } }, handled: false } as unknown as PeerContext, next);
+
+	await change('Anna\nNowak\u0000\u001b[1m \ud800 \u0085zażółć 🙂');
+
+	expect(peer.displayName).toBe('Anna Nowak  [1m �  zażółć 🙂');
+	expect(room.notifyPeers).toHaveBeenCalledWith('changeDisplayName', { peerId: 'peer1', displayName: peer.displayName }, peer);
+
+	await expect(change('\u0000\n\t')).rejects.toThrow('invalid display name');
+	expect(peer.displayName).toBe('Anna Nowak  [1m �  zażółć 🙂');
+});
+
 describe('escapeMeeting', () => {
 	const voteRoom = (participants: { escapeMeeting: boolean }[]) => ({
 		id: 'id',

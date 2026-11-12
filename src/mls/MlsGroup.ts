@@ -5,6 +5,7 @@ const logger = new Logger('MlsGroup');
 export const FOUNDER_TIMEOUT_MS = 10_000;
 export const JOINER_TIMEOUT_MS = 5_000;
 export const WAIT_RETRY_MS = 500;
+export const DEPARTURE_COMMIT_MS = 60_000;
 
 export type JoinInfo =
 	| { role: 'founder' }
@@ -26,12 +27,20 @@ export type CommitResult = { accepted: boolean; epoch: number };
 // start over, which in a room where two hundred people arrive together is quadratic work and a
 // good chance of giving up. A joiner holds its turn until its commit is accepted, it leaves, or
 // it times out.
+//
+// A commit also needs a reason: it adds the joiner whose turn it is, or removes members who left.
+// Those are the only commits the client makes, and without the rule any member could offer
+// commits in a loop, each passed on to everyone. Each member that leaves lets one commit through
+// within DEPARTURE_COMMIT_MS: one commit may remove several, and members who leave while a
+// removal is on its way need a commit of their own.
 export class MlsGroup {
 	#epoch?: number;
 	#groupInfo?: string;
 	#founder?: { peerId: string; since: number };
 	#joiner?: { peerId: string; since: number };
 	#committer?: string;
+	// When members left, oldest first; each lets one commit through.
+	#departures: number[] = [];
 	#keyPackages = new Map<string, string>();
 
 	public get exists(): boolean {
@@ -46,11 +55,21 @@ export class MlsGroup {
 		return this.#founder?.peerId;
 	}
 
+	#joinerBusy(peerId: string, now: number): boolean {
+		return this.#joiner !== undefined && this.#joiner.peerId !== peerId && now - this.#joiner.since < JOINER_TIMEOUT_MS;
+	}
+
+	// How long the GroupInfo is that join() would answer this peer with now; 0 when it
+	// would answer something else. For the caller to limit how often it is handed out.
+	public joinAnswerLength(peerId: string, now = Date.now()): number {
+		if (this.#epoch === undefined || this.#groupInfo === undefined || this.#joinerBusy(peerId, now)) return 0;
+
+		return this.#groupInfo.length;
+	}
+
 	public join(peerId: string, now = Date.now()): JoinInfo {
 		if (this.#epoch !== undefined && this.#groupInfo !== undefined) {
-			const busy = this.#joiner && this.#joiner.peerId !== peerId && now - this.#joiner.since < JOINER_TIMEOUT_MS;
-
-			if (busy) return { role: 'wait', retryAfterMs: WAIT_RETRY_MS };
+			if (this.#joinerBusy(peerId, now)) return { role: 'wait', retryAfterMs: WAIT_RETRY_MS };
 
 			if (this.#joiner?.peerId !== peerId) this.#joiner = { peerId, since: now };
 
@@ -90,7 +109,7 @@ export class MlsGroup {
 		return true;
 	}
 
-	public commit(peerId: string, epoch: number, groupInfo: string): CommitResult {
+	public commit(peerId: string, epoch: number, groupInfo: string, now = Date.now()): CommitResult {
 		if (!this.exists || this.#epoch === undefined) return { accepted: false, epoch: -1 };
 
 		if (epoch !== this.#epoch) {
@@ -99,11 +118,22 @@ export class MlsGroup {
 			return { accepted: false, epoch: this.#epoch };
 		}
 
+		const joining = this.#joiner?.peerId === peerId;
+
+		while (this.#departures.length > 0 && now - this.#departures[0] >= DEPARTURE_COMMIT_MS) this.#departures.shift();
+
+		if (!joining && this.#departures.length === 0) {
+			logger.debug('commit() refused, no turn to join and nobody left [peerId: %s, epoch: %s]', peerId, epoch);
+
+			return { accepted: false, epoch: this.#epoch };
+		}
+
 		this.#epoch = epoch + 1;
 		this.#groupInfo = groupInfo;
 		this.#committer = peerId;
 
-		if (this.#joiner?.peerId === peerId) this.#joiner = undefined;
+		if (joining) this.#joiner = undefined;
+		else this.#departures.shift();
 
 		return { accepted: true, epoch: this.#epoch };
 	}
@@ -116,8 +146,9 @@ export class MlsGroup {
 		return Object.fromEntries(this.#keyPackages);
 	}
 
-	public removePeer(peerId: string): void {
+	public removePeer(peerId: string, now = Date.now()): void {
 		this.#keyPackages.delete(peerId);
+		this.#departures.push(now);
 
 		if (this.#founder?.peerId === peerId) this.#founder = undefined;
 		if (this.#joiner?.peerId === peerId) this.#joiner = undefined;
@@ -129,6 +160,7 @@ export class MlsGroup {
 		this.#founder = undefined;
 		this.#joiner = undefined;
 		this.#committer = undefined;
+		this.#departures = [];
 		this.#keyPackages.clear();
 	}
 }

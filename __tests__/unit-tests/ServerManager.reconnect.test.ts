@@ -8,6 +8,8 @@ import { BaseConnection } from 'edumeet-common';
 import { createModeratorMiddleware } from '../../src/middlewares/moderatorMiddleware';
 import { PeerContext } from '../../src/Peer';
 import { Permission } from '../../src/common/authorization';
+import { MAX_RECONNECTS_PER_MINUTE } from '../../src/common/rateLimiter';
+import * as suspiciousClients from '../../src/common/suspiciousClients';
 
 const makeConnection = () => ({
 	id: `c-${Math.random()}`,
@@ -100,6 +102,63 @@ describe('reconnect', () => {
 		await connect('attacker', 'a', 'ak');
 		expect(attacker.switchConnection).toHaveBeenCalled();
 		expect(roomA.reconnectPeer).toHaveBeenCalledWith(attacker);
+	});
+
+	test('sends the room state past connection state recovery', async () => {
+		const { roomA, attacker, connect } = setup();
+		const once = jest.spyOn(attacker, 'notifyOnce').mockImplementation(() => undefined);
+
+		// eslint-disable-next-line no-unused-vars
+		jest.spyOn(roomA as unknown as { assignRouter: (peer: Peer) => void }, 'assignRouter').mockImplementation(() => undefined);
+		roomA.chatHistory.push({ peerId: 'attacker', text: 'hello' } as unknown as Room['chatHistory'][number]);
+
+		await connect('attacker', 'a', 'ak');
+
+		expect(once).toHaveBeenCalledTimes(1);
+		expect(once.mock.calls[0][0].method).toBe('peerReconnected');
+		expect(once.mock.calls[0][0].data.chatHistory).toHaveLength(1);
+		expect((attacker.notify as jest.Mock).mock.calls.map(([ m ]) => m.method)).not.toContain('peerReconnected');
+	});
+
+	test('refused too often is reported for the address it came from', async () => {
+		const { roomA, connect } = setup();
+		const reported = jest.spyOn(suspiciousClients, 'limitHit').mockImplementation(() => undefined);
+
+		try {
+			jest.spyOn(roomA, 'reconnectPeer').mockImplementation(() => undefined);
+
+			for (let i = 0; i < MAX_RECONNECTS_PER_MINUTE; i++) await connect('attacker', 'a', 'ak');
+
+			expect(reported).not.toHaveBeenCalled();
+
+			await expect(connect('attacker', 'a', 'ak')).rejects.toThrow('Too many reconnects');
+			expect(reported).toHaveBeenCalledWith('10.0.0.2');
+		} finally {
+			reported.mockRestore();
+		}
+	});
+
+	test('is refused once a peer has reconnected too often within a minute', async () => {
+		const { roomA, attacker, connect } = setup();
+
+		jest.spyOn(roomA, 'reconnectPeer').mockImplementation(() => undefined);
+
+		for (let i = 0; i < MAX_RECONNECTS_PER_MINUTE; i++) await connect('attacker', 'a', 'ak');
+
+		await expect(connect('attacker', 'a', 'ak')).rejects.toThrow('Too many reconnects');
+		expect(attacker.switchConnection).toHaveBeenCalledTimes(MAX_RECONNECTS_PER_MINUTE);
+		expect(roomA.reconnectPeer).toHaveBeenCalledTimes(MAX_RECONNECTS_PER_MINUTE);
+
+		// a wrong key is not counted against the peer
+		await expect(connect('attacker', 'a', 'wrong')).rejects.toThrow('Invalid reconnectKey');
+
+		jest.useFakeTimers({ now: Date.now() + 61_000 });
+		try {
+			await connect('attacker', 'a', 'ak');
+			expect(roomA.reconnectPeer).toHaveBeenCalledTimes(MAX_RECONNECTS_PER_MINUTE + 1);
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 
 	test('sends roomReady again, not the history, to a peer admitted but not joined, and assigns it a router', () => {

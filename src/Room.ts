@@ -19,6 +19,7 @@ import { createInitialMediaMiddleware } from './middlewares/initialMediaMiddlewa
 import { CanvasObject, ChatMessage, FileMessage, ManagedGroupRole, ManagedRole, ManagedRoomOwner, ManagedUserRole, RoomRole, RoomSettings } from './common/types';
 import { createBreakoutMiddleware } from './middlewares/breakoutMiddleware';
 import { createDrawingMiddleware } from './middlewares/drawingMiddleware';
+import { roomStateSent } from './common/suspiciousClients';
 
 import { List, Logger, Middleware, skipIfClosed } from 'edumeet-common';
 import { botProfile, BotProvider, BotRecipient, RoomMiddlewareName } from './common/botProfile';
@@ -252,7 +253,7 @@ export default class Room extends EventEmitter {
 		this.#lockMiddleware = createLockMiddleware({ room: this });
 		this.#lobbyMiddleware = createLobbyMiddleware({ room: this });
 		this.#breakoutMiddleware = createBreakoutMiddleware({ room: this });
-		this.#chatMiddleware = createChatMiddleware({ room: this });
+		this.#chatMiddleware = createChatMiddleware({ room: this, inReconnectState: true });
 		this.#privateChatMiddleware = createPrivateChatMiddleware({ room: this });
 		this.#mlsMiddleware = createMlsMiddleware({ room: this });
 		this.#fileMiddleware = createFileMiddleware({ room: this });
@@ -492,11 +493,11 @@ export default class Room extends EventEmitter {
 			? this.lobbyPeers.items.map((p) => (p.peerInfo))
 			: [];
 
-		// socket.io keeps a notification for connection state recovery and sends it again as
-		// it is then, so it gets a copy: a replay must not show what was said or drawn later.
-		peer.notify({
+		// The whole state of the room, up to megabytes of it: written to the socket and not
+		// kept for connection state recovery, where every reconnect would leave one more.
+		peer.notifyOnce({
 			method: 'peerReconnected',
-			data: structuredClone({
+			data: {
 				sessionId: peer.sessionId,
 				roomSessionId: this.sessionId,
 				creationTimestamp: this.creationTimestamp,
@@ -508,8 +509,9 @@ export default class Room extends EventEmitter {
 				lobbyPeers,
 				drawing: this.drawing,
 				countdownTimer: this.countdownTimer,
-			})
+			}
 		});
+		roomStateSent(peer);
 
 		// A job may have changed state while the connection was away.
 		if (!peer.headless && this.botProviders.length > 0)
@@ -755,6 +757,15 @@ export default class Room extends EventEmitter {
 	@skipIfClosed
 	public notifyPeers(method: string, data: unknown, excludePeer?: Peer): void {
 		this.getPeers(excludePeer).forEach((p) => p.notify({ method, data }));
+	}
+
+	// For changes that every reconnect hands out again with the state of the room (peerReconnected)
+	// and that the client then applies, so socket.io does not have to keep them for one recipient
+	// after another, and for what is out of date at once. The main-room chat is handed out again;
+	// the whiteboard is not: an open one is not redrawn. A dragged object is out of date at once.
+	@skipIfClosed
+	public notifyPeersOnce(method: string, data: unknown, excludePeer?: Peer): void {
+		this.getPeers(excludePeer).forEach((p) => p.notifyOnce({ method, data }));
 	}
 
 	@skipIfClosed

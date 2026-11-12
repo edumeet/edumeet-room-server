@@ -5,9 +5,14 @@ import { thisSession } from '../common/checkSessionId';
 import { Peer, PeerContext } from '../Peer';
 import BreakoutRoom from '../BreakoutRoom';
 import { createConsumers } from '../common/consuming';
+import { addressOf, limitHit } from '../common/suspiciousClients';
 import Room from '../Room';
 
 const logger = new Logger('BreakoutMiddleware');
+
+// Each breakout room is listed in the state every join and reconnect gets, and holds a chat and
+// file history of its own. More than this cannot be managed from the client.
+export const MAX_BREAKOUT_ROOMS = 50;
 
 export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<PeerContext> => {
 	logger.debug('createBreakoutMiddleware() [room: %s]', room.sessionId);
@@ -32,6 +37,7 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				const { name } = message.data;
 
 				if (!isValidText(name, MAX_BREAKOUT_ROOM_NAME_LENGTH)) throw new Error('invalid name');
+				if (room.breakoutRooms.size >= MAX_BREAKOUT_ROOMS) throw new Error('Too many breakout rooms');
 
 				const newBreakoutRoom = new BreakoutRoom({ parent: room, name });
 
@@ -99,6 +105,8 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				if (!roomToJoin)
 					throw new Error('Session not found');
 
+				takeSessionChange(peer, peer);
+
 				roomToJoin.addPeer(peer);
 
 				changeRoom(roomToJoin, peer);
@@ -117,6 +125,8 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				if (peer.sessionId === room.sessionId)
 					throw new Error('Already in parent');
+
+				takeSessionChange(peer, peer);
 
 				changeRoom(room, peer);
 
@@ -148,6 +158,8 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 					if (peerToBeMoved.sessionId === roomSessionId)
 						throw new Error('Already in session');
 
+					takeSessionChange(peerToBeMoved, peer, true);
+
 					changeRoom(room, peerToBeMoved, true);
 
 					context.handled = true;
@@ -163,6 +175,8 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 
 				if (peerToBeMoved.sessionId === roomSessionId)
 					throw new Error('Already in session');
+
+				takeSessionChange(peerToBeMoved, peer, true);
 
 				roomToBeMovedTo.addPeer(peerToBeMoved);
 
@@ -181,6 +195,17 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		return next();
 	};
 
+	// Each change sends the peer the history of the session it enters. A session that closes
+	// still moves its peers out: they got in through one of the changes counted here.
+	// A refused move is reported for whoever asked for it, the moderator for a move.
+	const takeSessionChange = (peer: Peer, asker: Peer, byModerator = false): void => {
+		if ((byModerator ? peer.sessionMoves : peer.sessionChanges).take()) return;
+
+		limitHit(addressOf(asker));
+
+		throw new Error('Too many session changes');
+	};
+
 	const changeRoom = (roomToJoin: Room | BreakoutRoom, peer: Peer, messagePeer = false) => {
 		const roomToLeave = room.breakoutRooms.get(peer.sessionId);
 
@@ -192,14 +217,14 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		peer.sessionId = roomToJoin.sessionId;
 
 		if (messagePeer)
-			peer.notify({
+			// Like peerReconnected, not kept for connection state recovery.
+			peer.notifyOnce({
 				method: 'sessionIdChanged',
-				// A copy, as for peerReconnected: socket.io may send it again later.
-				data: structuredClone({
+				data: {
 					sessionId: roomToJoin.sessionId,
 					chatHistory: roomToJoin.chatHistory,
 					fileHistory: roomToJoin.fileHistory
-				})
+				}
 			});
 
 		// Create consumers for the peer in the new room

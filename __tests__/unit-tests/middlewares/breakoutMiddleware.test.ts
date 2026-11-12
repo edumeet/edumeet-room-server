@@ -5,6 +5,9 @@ import { Peer, PeerContext } from '../../../src/Peer';
 import MediaService from '../../../src/MediaService';
 import { createBreakoutMiddleware } from '../../../src/middlewares/breakoutMiddleware';
 import { Permission } from '../../../src/common/authorization';
+import { MAX_SESSION_CHANGES_PER_MINUTE } from '../../../src/common/rateLimiter';
+import * as suspiciousClients from '../../../src/common/suspiciousClients';
+import { MAX_BREAKOUT_ROOMS } from '../../../src/middlewares/breakoutMiddleware';
 
 const next = jest.fn();
 const created: Peer[] = [];
@@ -96,4 +99,120 @@ describe('a bot in a breakout room', () => {
 
 		expect(context.handled).toBe(false);
 	});
+});
+
+// Each change of session sends the peer the chat and file history of the session it enters.
+describe('changes of session', () => {
+	test('send the history past connection state recovery when a moderator moves a peer', async () => {
+		const { room, moderator, human } = setup();
+		const once = jest.spyOn(human, 'notifyOnce').mockImplementation(() => undefined);
+
+		room.chatHistory.push({ peerId: 'x', text: 'hello' } as unknown as Room['chatHistory'][number]);
+		await request(room, moderator, 'moveToBreakoutRoom', { roomSessionId: room.sessionId, roomPeerId: human.id });
+
+		expect(once).toHaveBeenCalledWith({
+			method: 'sessionIdChanged',
+			data: { sessionId: room.sessionId, chatHistory: room.chatHistory, fileHistory: room.fileHistory }
+		});
+		expect((human.notify as jest.Mock).mock.calls.map(([ m ]) => m.method)).not.toContain('sessionIdChanged');
+	});
+
+	test('are refused for a peer a moderator moves back and forth too often', async () => {
+		const { room, moderator, human, breakout } = setup();
+
+		jest.spyOn(human, 'notifyOnce').mockImplementation(() => undefined);
+
+		const move = (to: string) => request(room, moderator, 'moveToBreakoutRoom', { roomSessionId: to, roomPeerId: human.id });
+
+		for (let i = 0; i < MAX_SESSION_CHANGES_PER_MINUTE; i++) await move(i % 2 ? breakout.sessionId : room.sessionId);
+
+		const before = human.sessionId;
+
+		await expect(move(before === room.sessionId ? breakout.sessionId : room.sessionId)).rejects.toThrow('Too many session changes');
+		expect(human.sessionId).toBe(before);
+		expect(human.notifyOnce).toHaveBeenCalledTimes(MAX_SESSION_CHANGES_PER_MINUTE);
+	});
+
+	test('are refused for a peer that joins and leaves too often', async () => {
+		const { room, moderator, breakout } = setup();
+
+		for (let i = 0; i < MAX_SESSION_CHANGES_PER_MINUTE; i++) {
+			if (i % 2) await request(room, moderator, 'leaveBreakoutRoom', {});
+			else await request(room, moderator, 'joinBreakoutRoom', { roomSessionId: breakout.sessionId });
+		}
+
+		expect(moderator.sessionId).toBe(room.sessionId);
+		await expect(request(room, moderator, 'joinBreakoutRoom', { roomSessionId: breakout.sessionId })).rejects.toThrow('Too many session changes');
+		expect(moderator.sessionId).toBe(room.sessionId);
+		expect(breakout.getPeers()).not.toContain(moderator);
+	});
+
+	test('of a peer that used up its own are still open to a moderator, and the other way round', async () => {
+		const { room, moderator, human } = setup();
+
+		jest.spyOn(human, 'notifyOnce').mockImplementation(() => undefined);
+		human.permissions = [ Permission.CHANGE_ROOM ];
+		while (human.sessionChanges.take());
+
+		await expect(request(room, human, 'leaveBreakoutRoom', {})).rejects.toThrow('Too many session changes');
+		await request(room, moderator, 'moveToBreakoutRoom', { roomSessionId: room.sessionId, roomPeerId: human.id });
+		expect(human.sessionId).toBe(room.sessionId);
+
+		const other = setup();
+
+		jest.spyOn(other.human, 'notifyOnce').mockImplementation(() => undefined);
+		other.human.permissions = [ Permission.CHANGE_ROOM ];
+		while (other.human.sessionMoves.take());
+
+		await expect(request(other.room, other.moderator, 'moveToBreakoutRoom', { roomSessionId: other.room.sessionId, roomPeerId: other.human.id }))
+			.rejects.toThrow('Too many session changes');
+		await request(other.room, other.human, 'leaveBreakoutRoom', {});
+		expect(other.human.sessionId).toBe(other.room.sessionId);
+	});
+
+	test('still move a peer out of a session that closes', async () => {
+		const { room, moderator, human, breakout } = setup();
+
+		jest.spyOn(human, 'notifyOnce').mockImplementation(() => undefined);
+		while (human.sessionChanges.take());
+		while (human.sessionMoves.take());
+
+		await request(room, moderator, 'removeBreakoutRoom', { roomSessionId: breakout.sessionId });
+		expect(human.sessionId).toBe(room.sessionId);
+	});
+});
+
+test('A refused move is reported for the moderator who asked for it, a refused own change for the peer', async () => {
+	const { room, moderator, human } = setup();
+	const addresses = jest.spyOn(suspiciousClients, 'addressOf').mockImplementation((peer) => `address-of-${peer.id}`);
+	const reported = jest.spyOn(suspiciousClients, 'limitHit').mockImplementation(() => undefined);
+
+	try {
+		jest.spyOn(human, 'notifyOnce').mockImplementation(() => undefined);
+		while (human.sessionMoves.take());
+		while (human.sessionChanges.take());
+
+		await expect(request(room, moderator, 'moveToBreakoutRoom', { roomSessionId: room.sessionId, roomPeerId: human.id }))
+			.rejects.toThrow('Too many session changes');
+		expect(reported).toHaveBeenLastCalledWith(`address-of-${moderator.id}`);
+
+		human.permissions = [ Permission.CHANGE_ROOM ];
+
+		await expect(request(room, human, 'leaveBreakoutRoom', {}))
+			.rejects.toThrow('Too many session changes');
+		expect(reported).toHaveBeenLastCalledWith(`address-of-${human.id}`);
+	} finally {
+		addresses.mockRestore();
+		reported.mockRestore();
+	}
+});
+
+test('A room has at most MAX_BREAKOUT_ROOMS breakout rooms', async () => {
+	const { room, moderator } = setup();
+
+	while (room.breakoutRooms.size < MAX_BREAKOUT_ROOMS)
+		await request(room, moderator, 'createBreakoutRoom', { name: `room ${room.breakoutRooms.size}` });
+
+	await expect(request(room, moderator, 'createBreakoutRoom', { name: 'one more' })).rejects.toThrow('Too many breakout rooms');
+	expect(room.breakoutRooms.size).toBe(MAX_BREAKOUT_ROOMS);
 });

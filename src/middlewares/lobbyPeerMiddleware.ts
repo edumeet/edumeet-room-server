@@ -4,7 +4,7 @@ import { PeerContext } from '../Peer';
 import Room from '../Room';
 import { verifyPeer } from '../common/token';
 import { Permission, updatePeerPermissions } from '../common/authorization';
-import { isValidPicture, isValidText, MAX_DISPLAY_NAME_LENGTH } from '../common/textValidation';
+import { displayNameText, isValidPicture } from '../common/textValidation';
 
 const logger = new Logger('LobbyPeerMiddleware');
 
@@ -25,9 +25,9 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 		
 		switch (message.method) {
 			case 'changeDisplayName': {
-				const { displayName } = message.data;
+				const displayName = displayNameText(message.data.displayName);
 
-				if (!isValidText(displayName, MAX_DISPLAY_NAME_LENGTH))
+				if (displayName === undefined)
 					throw new Error('invalid display name');
 
 				peer.displayName = displayName;

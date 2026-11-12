@@ -60,6 +60,7 @@ docker run -v $(pwd)/config:/usr/src/app/config -p 8443:8443 -d edumeet-room-ser
 | defaultRoomSettings | Default permissions for rooms | `"object"` | | 
 | liveReload | live reload for prometheus exporter config | `"bool"` | | 
 | prometheus | prometheus exporter for rooms | `"object"` | | 
+| suspiciousClients | Write the addresses of clients that behave unusually to a file | `object` | off |
 
 ---
 # Configuration Reference (`config.json`)
@@ -483,6 +484,64 @@ In the management server, each tenant can have an `allowedMediaNodeRegions` arra
 
 Media nodes can be run by other organisations, which is why this is opt-in. It applies to end-to-end encrypted rooms like any other.
 
+## Suspicious clients
+
+### `suspiciousClients`
+
+- **Type:** `object`, optional
+- **Default:** off
+- **Description:** The room-server writes the addresses of clients that behave unusually to a file: clients that open and close connections again and again, whose requests the limits per participant refuse, or that do not read what they are sent. The room-server does not block anyone. What to do with the file, for example a temporary firewall ban, is the decision of the operator.
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `file` | `string` | | The file that the lines are appended to. Without it, the function is off. |
+| `windowSeconds` | `integer` | `300` | The length of the time window in which events are counted. |
+| `shortConnectionSeconds` | `integer` | `30` | A connection that received the state of a room and lasted less than this counts as short. |
+| `maxShortConnections` | `integer` | `50` | Short connections of one address in one window before it is written. |
+| `maxLimitHits` | `integer` | `10` | Refused requests, and connections closed because the client did not read, of one address in one window before it is written. |
+
+```json
+"suspiciousClients": {
+	"file": "/usr/src/app/suspicious/suspicious-ips.log"
+}
+```
+
+The room-server writes at most one line for each address in each window. Each line starts with the time (UTC, ISO 8601) and the address. The counts follow:
+
+```
+2026-11-12T11:05:00.000Z 203.0.113.7 short_connections=57 limit_hits=3 window=300s
+```
+
+The address is the client address that the room-server also uses for bot tokens (see [Bots](#bots)). The room-server must see the real address of each client: the reverse proxy is listed in `trustedProxies` and overwrites `x-forwarded-for`, and clients reach the room-server only through the proxy.
+
+With Docker, mount a folder of the host and put the file in it:
+
+```yaml
+volumes:
+  - ./data/suspicious:/usr/src/app/suspicious
+```
+
+The file only grows. Rotate it on the host, for example with logrotate.
+
+One address can be many people: a university network, or a mobile network that puts many users behind one address. A ban stops all of them. Look at the file for some time before a tool acts on it, and keep the settings high and the bans short. An example for fail2ban, which bans a written address for 15 minutes:
+
+```ini
+# /etc/fail2ban/filter.d/edumeet-suspicious.conf
+[Definition]
+failregex = <HOST> short_connections=
+```
+
+```ini
+# /etc/fail2ban/jail.d/edumeet-suspicious.conf
+[edumeet-suspicious]
+enabled  = true
+filter   = edumeet-suspicious
+logpath  = /path/to/data/suspicious/suspicious-ips.log
+maxretry = 1
+bantime  = 900
+port     = http,https
+```
+
 ## Bots
 
 A connection with `headless=1` in the query is a bot (a recorder, streamer or transcriber page). It is refused unless the room is open with at least one participant in it. Inside a tenant the room-server asks the management server's `bot-verify` service, sending the tenant, the bot token from the socket handshake `auth` payload (never from the URL) and the client address; the management server applies the tenant's bot policy, the token and its allowed address ranges. A management server without that service makes the room-server refuse every bot in a tenant, so upgrade the management server first. Outside a tenant, bots are admitted without a token.
@@ -491,7 +550,7 @@ A bot sends nothing but one thing: when the deployment collects client monitorin
 
 A bot records one session. A connection with `session=<breakout session id>` in the query is placed in that breakout room at join, whether or not anyone is in it yet; it is refused with `sessionNotOpen` when no such breakout room exists, and it is ended with `sessionClosed` when the breakout room is removed or ejected, while the participants are moved back to the main room as before. A moderator cannot move a bot between sessions. The join response carries the peer's actual `sessionId`.
 
-The client address is the first entry of `x-forwarded-for`, or the socket address without a proxy. The proxy configuration shipped with edumeet-docker overwrites that header with the PROXY-protocol address for the room-server, so a client cannot supply it; a proxy that appends to the header instead must be configured to overwrite it, or the address ranges of the bot tokens cannot be trusted.
+The client address is the first entry of `x-forwarded-for` when the connection comes from one of the `trustedProxies`, and the socket address otherwise. The proxy configuration shipped with edumeet-docker overwrites that header with the PROXY-protocol address for the room-server, so a client cannot supply it; a proxy that appends to the header instead must be configured to overwrite it, or the address ranges of the bot tokens cannot be trusted.
 
 ### Bot jobs
 

@@ -6,6 +6,7 @@ import { verifyPeer } from './common/token';
 import MediaService from './MediaService';
 import { Peer } from './Peer';
 import Room from './Room';
+import { limitHit } from './common/suspiciousClients';
 import { MAX_ACTIVE_BOT_JOBS, MAX_BOT_JOBS_LIMIT } from './BotJobs';
 import ManagementService from './ManagementService';
 import { RoomSettings } from './common/types';
@@ -145,6 +146,13 @@ export default class ServerManager {
 			// reconnect into any live room. A missing room and a wrong one are refused alike.
 			if (reconnectKey === peer.reconnectKey && room?.holds(peer)) {
 				logger.debug('handleConnection() reconnectKey equal, doing socket swap [peerId: %s]', peerId);
+
+				// Each one makes the server encode and send the state of the room.
+				if (!peer.reconnects.take()) {
+					limitHit(resolveClientIp((connection as unknown as IOServerConnection).address));
+
+					throw new Error('Too many reconnects');
+				}
 
 				peer.switchConnection(connection);
 				room.reconnectPeer(peer);

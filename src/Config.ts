@@ -1,5 +1,6 @@
 import { MediaNodeConfig } from './MediaService';
 import { RoomRole } from './common/types';
+import type { SuspiciousClientsConfig } from './common/suspiciousClients';
 import fs from 'fs';
 
 let config: Config;
@@ -73,6 +74,7 @@ export interface Config {
 	defaultAllowedMediaNodeRegions?: string[];
 	maxBotJobsPerRoom?: number;
 	clientMonitoring?: ClientMonitoringConfig;
+	suspiciousClients?: SuspiciousClientsConfig;
 }
 
 export interface ClientMonitoringConfig {

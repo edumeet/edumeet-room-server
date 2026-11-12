@@ -1,4 +1,5 @@
 import 'jest';
+import { ByteBudget, MAX_CHAT_MESSAGES_PER_MINUTE, RateLimiter, WHITEBOARD_BURST_BYTES, WHITEBOARD_BYTES_PER_SECOND } from '../../src/common/rateLimiter';
 import fs from 'fs';
 import path from 'path';
 import { Socket } from 'socket.io';
@@ -36,6 +37,9 @@ const run = async (middleware: ReturnType<typeof createPeerMiddleware>, peer: un
 
 const makePeer = (id: string, permissions: Permission[] = []) => ({
 	id,
+	connections: { items: [] },
+	chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000),
+	whiteboardBytes: new ByteBudget(WHITEBOARD_BURST_BYTES, WHITEBOARD_BYTES_PER_SECOND),
 	displayName: id,
 	picture: undefined as unknown,
 	permissions,
@@ -84,7 +88,7 @@ describe('3.17 picture', () => {
 			chatHistory: [],
 			fileHistory: [],
 			countdownTimer: {},
-			drawing: {},
+			drawing: { canvasState: [] },
 			locked: false,
 			getPeers: () => [],
 			getBreakoutRooms: () => [],

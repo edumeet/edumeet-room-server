@@ -21,7 +21,7 @@ const setup = (permissions: Permission[]) => {
 		chatHistory: [],
 		fileHistory: [],
 		countdownTimer: {},
-		drawing: {},
+		drawing: { canvasState: [] },
 		locked: true,
 		getPeers: () => [],
 		getBreakoutRooms: () => [],
@@ -29,6 +29,7 @@ const setup = (permissions: Permission[]) => {
 	} as unknown as Room;
 	const peer = {
 		id: 'joiner',
+		connections: { items: [] },
 		permissions,
 		hasPermission: (p: Permission) => permissions.includes(p),
 		initialConsume: false,

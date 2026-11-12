@@ -100,6 +100,22 @@ export const AppConfigSchema = z.object({
 	clientMonitoring: z.object({
 		roomInfo: z.boolean().optional(),
 		obfuscateRoomName: z.boolean().optional()
+	}).optional(),
+	suspiciousClients: z.object({
+		file: z.string().min(1)
+			.optional(),
+		windowSeconds: z.number().int()
+			.positive()
+			.optional(),
+		shortConnectionSeconds: z.number().int()
+			.positive()
+			.optional(),
+		maxShortConnections: z.number().int()
+			.positive()
+			.optional(),
+		maxLimitHits: z.number().int()
+			.positive()
+			.optional()
 	}).optional()
 
 });

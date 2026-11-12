@@ -23,7 +23,22 @@ import { Permission } from './common/authorization';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 import { RtpCapabilities } from 'mediasoup/types';
-import { isValidText, MAX_DISPLAY_NAME_LENGTH } from './common/textValidation';
+import { displayNameText } from './common/textValidation';
+import {
+	ByteBudget,
+	MAX_CHAT_MESSAGES_PER_MINUTE,
+	MAX_MLS_JOINS_PER_MINUTE,
+	MAX_MLS_KEY_PACKAGE_REQUESTS_PER_MINUTE,
+	MAX_MLS_PROPOSALS_PER_MINUTE,
+	MAX_RECONNECTS_PER_MINUTE,
+	MAX_SESSION_CHANGES_PER_MINUTE,
+	RateLimiter,
+	Throttle,
+	WHITEBOARD_BURST_BYTES,
+	WHITEBOARD_BYTES_PER_SECOND,
+	WHITEBOARD_MOVE_BYTES_PER_SECOND,
+	WHITEBOARD_MOVE_INTERVAL_MS,
+} from './common/rateLimiter';
 
 const logger = new Logger('Peer');
 
@@ -97,6 +112,20 @@ export class Peer extends EventEmitter {
 	#permissions: Set<string> = new Set();
 
 	public connections = List<BaseConnection>();
+	// Each reconnect and each change of session makes the server encode and send room state.
+	public readonly reconnects = new RateLimiter(MAX_RECONNECTS_PER_MINUTE, 60_000);
+	public readonly sessionChanges = new RateLimiter(MAX_SESSION_CHANGES_PER_MINUTE, 60_000);
+	// Counted apart, so that a peer cannot use up what a moderator needs to move it, nor
+	// a moderator what the peer needs to move itself.
+	public readonly sessionMoves = new RateLimiter(MAX_SESSION_CHANGES_PER_MINUTE, 60_000);
+	// mlsJoin answers with the group's GroupInfo, up to a megabyte.
+	public readonly mlsJoins = new RateLimiter(MAX_MLS_JOINS_PER_MINUTE, 60_000);
+	public readonly mlsKeyPackageRequests = new RateLimiter(MAX_MLS_KEY_PACKAGE_REQUESTS_PER_MINUTE, 60_000);
+	public readonly mlsProposals = new RateLimiter(MAX_MLS_PROPOSALS_PER_MINUTE, 60_000);
+	// What this peer sends that is passed on to everyone and kept for connection state recovery.
+	public readonly chatMessages = new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000);
+	public readonly whiteboardBytes = new ByteBudget(WHITEBOARD_BURST_BYTES, WHITEBOARD_BYTES_PER_SECOND);
+	public readonly whiteboardMoves = new Throttle(WHITEBOARD_MOVE_INTERVAL_MS, WHITEBOARD_MOVE_BYTES_PER_SECOND);
 
 	public displayName: string;
 	public readonly meetingToken?: string;
@@ -170,7 +199,7 @@ export class Peer extends EventEmitter {
 
 		this.id = id;
 		this.#sessionId = sessionId;
-		this.displayName = isValidText(displayName, MAX_DISPLAY_NAME_LENGTH) ? displayName : 'Guest';
+		this.displayName = displayNameText(displayName) ?? 'Guest';
 		this.picture = picture;
 		this.#managedId = managedId;
 		this.#reconnectKey = reconnectKey;
@@ -527,6 +556,22 @@ export class Peer extends EventEmitter {
 		}
 
 		logger.warn('notify() no connection available [peerId: %s]', this.id);
+	}
+
+	// For the state of a room at one moment, see IOServerConnection.notifyOnce().
+	public notifyOnce(notification: SocketMessage): void {
+		logger.debug('notifyOnce() [peerId: %s, method: %s]', this.id, notification.method);
+
+		for (const connection of this.connections.items) {
+			try {
+				// Another kind of connection may keep what it is given, so it gets a copy.
+				return connection instanceof IOServerConnection ? connection.notifyOnce(notification) : connection.notify(structuredClone(notification));
+			} catch (error) {
+				logger.error({ err: error }, 'notifyOnce() failed');
+			}
+		}
+
+		logger.warn('notifyOnce() no connection available [peerId: %s]', this.id);
 	}
 
 	@skipIfClosed

@@ -1,4 +1,5 @@
 import { createPrivateChatMiddleware } from '../../../src/middlewares/privateChatMiddleware';
+import { MAX_CHAT_MESSAGES_PER_MINUTE, RateLimiter } from '../../../src/common/rateLimiter';
 import { PeerContext } from '../../../src/Peer';
 import Room from '../../../src/Room';
 
@@ -30,7 +31,7 @@ test('Should throw on peer not authorized', async () => {
 test('Should throw on missing recipient', async () => {
 	const sut = createPrivateChatMiddleware({ room: createRoom() });
 
-	const peer = { id: 'peer1', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: 'text' } };
 
 	const context = { peer, message } as unknown as PeerContext;
@@ -41,7 +42,7 @@ test('Should throw on missing recipient', async () => {
 test('Should throw on message to self', async () => {
 	const sut = createPrivateChatMiddleware({ room: createRoom() });
 
-	const peer = { id: 'peer1', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: 'text', to: 'peer1' } };
 
 	const context = { peer, message } as unknown as PeerContext;
@@ -52,7 +53,7 @@ test('Should throw on message to self', async () => {
 test('Should throw on a message that is not a string', async () => {
 	const sut = createPrivateChatMiddleware({ room: createRoom() });
 
-	const peer = { id: 'peer1', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: { evil: true }, to: 'peer2' } };
 
 	const context = { peer, message } as unknown as PeerContext;
@@ -63,7 +64,7 @@ test('Should throw on a message that is not a string', async () => {
 test('Should throw on an empty message', async () => {
 	const sut = createPrivateChatMiddleware({ room: createRoom() });
 
-	const peer = { id: 'peer1', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: '', to: 'peer2' } };
 
 	const context = { peer, message } as unknown as PeerContext;
@@ -75,7 +76,7 @@ test('Should throw on an over long message', async () => {
 	const recipient = { id: 'peer2', notify: jest.fn() };
 	const sut = createPrivateChatMiddleware({ room: createRoom(recipient) });
 
-	const peer = { id: 'peer1', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: 'a'.repeat(10001), to: 'peer2' } };
 
 	const context = { peer, message } as unknown as PeerContext;
@@ -87,7 +88,7 @@ test('Should throw on an over long message', async () => {
 test('Should throw on unknown recipient', async () => {
 	const sut = createPrivateChatMiddleware({ room: createRoom(undefined) });
 
-	const peer = { id: 'peer1', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: 'text', to: 'peer2' } };
 
 	const context = { peer, message } as unknown as PeerContext;
@@ -101,7 +102,7 @@ test('Should notify only the recipient on authorized peer sending private chat m
 	const room = createRoom(recipient);
 	const sut = createPrivateChatMiddleware({ room });
 
-	const peer = { id: 'peer1', displayName: 'Peer One', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', displayName: 'Peer One', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: 'text', to: 'peer2' } };
 
 	const context = { peer, message, handled: false } as unknown as PeerContext;
@@ -129,7 +130,7 @@ test('Should not store history and should not notify the room', async () => {
 	const room = createRoom(recipient);
 	const sut = createPrivateChatMiddleware({ room });
 
-	const peer = { id: 'peer1', displayName: 'Peer One', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', displayName: 'Peer One', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: 'text', to: 'peer2' } };
 
 	const context = { peer, message, handled: false } as unknown as PeerContext;
@@ -145,7 +146,7 @@ test('Should not consult the session of either peer', async () => {
 	const room = createRoom(recipient);
 	const sut = createPrivateChatMiddleware({ room });
 
-	const peer = { id: 'peer1', sessionId: 'breakout2', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', sessionId: 'breakout2', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = { method: 'privateChatMessage', data: { text: 'text', to: 'peer2' } };
 
 	const context = { peer, message, handled: false } as unknown as PeerContext;
@@ -159,7 +160,7 @@ test('Should not consult the session of either peer', async () => {
 test('Should call next middleware if not private chat message', async () => {
 	const sut = createPrivateChatMiddleware({ room: createRoom() });
 
-	const peer = { id: 'peer1', hasPermission: jest.fn(() => true) };
+	const peer = { id: 'peer1', hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const message = {};
 
 	const context = { peer, message, handled: false } as unknown as PeerContext;

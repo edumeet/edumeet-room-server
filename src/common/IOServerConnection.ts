@@ -35,6 +35,24 @@ export type clientAddress = {
 
 const logger = new Logger('SocketIOConnection');
 
+// socket.io-parser's PacketType.EVENT
+const EVENT_PACKET = 2;
+
+// What engine.io, the WebSocket and its TCP socket hold of a connection. Not part of socket.io's
+// documented interface; missing parts count as nothing waiting.
+type WebSocketInternals = {
+	bufferedAmount?: number;
+	terminate?: () => void;
+	_socket?: { _handle?: { writeQueueSize?: number } };
+};
+type EngineInternals = {
+	readyState?: string;
+	writeBuffer?: Array<{ data?: unknown }>;
+	transport?: { socket?: WebSocketInternals };
+	// eslint-disable-next-line no-unused-vars
+	close?: (discard?: boolean) => void;
+};
+
 // Deeper than anything the client sends. socket.io decodes nesting of any depth, but
 // encoding it again overflows the stack, and with connection state recovery a stored
 // packet is encoded again where nothing catches the error, which ends the process.
@@ -57,9 +75,23 @@ export const tooDeep = (value: unknown, max = MAX_DEPTH): boolean => {
 };
 
 export class IOServerConnection extends BaseConnection {
+	// A client that does not read keeps in memory everything sent to it, as long as it answers
+	// pings. About twice the largest state of a room may wait; past that the connection is cut,
+	// and a client that reads connects again.
+	public static maxUnsentBytes = 32 * 1024 * 1024;
+	// Counting stops here: a client this far behind is cut whatever the packets hold.
+	public static maxUnsentPackets = 20_000;
+	// How long data may wait without any of it going out before the connection is cut: after a
+	// close, or while more than stallBytes wait. The system takes more from a full send buffer
+	// only once much of it has been read, so a client that reads slowly can show no progress
+	// for many seconds.
+	public static stallMs = 30_000;
+	public static stallBytes = 1024 * 1024;
+
 	public closed = false;
 	private socket: Socket<ClientServerEvents, ServerClientEvents>;
 	private reconnectTimer?: ReturnType<typeof setTimeout>;
+	private stallWatch?: ReturnType<typeof setInterval>;
 
 	constructor(socket: Socket<ClientServerEvents, ServerClientEvents>) {
 		super();
@@ -81,8 +113,14 @@ export class IOServerConnection extends BaseConnection {
 			this.reconnectTimer = undefined;
 		}
 
-		if (this.socket.connected)
+		if (this.socket.connected) {
+			// Ends the session without keeping it; what was sent last (a kick, a refusal) still goes
+			// out first. engine.io closes once that has gone out, which a client that does not read
+			// never lets happen.
 			this.socket.disconnect(true);
+
+			if (this.unsentBytes > 0) this.watchDelivery();
+		}
 
 		this.forgetRecoverableSession();
 
@@ -126,11 +164,139 @@ export class IOServerConnection extends BaseConnection {
 		return address;
 	}
 
+	// Bytes handed to socket.io for this client that have not gone out yet.
+	public get unsentBytes(): number {
+		const engine = this.engine;
+		const waiting = engine?.writeBuffer ?? [];
+
+		if (waiting.length > IOServerConnection.maxUnsentPackets) return Number.POSITIVE_INFINITY;
+
+		let bytes = engine?.transport?.socket?.bufferedAmount ?? 0;
+
+		for (const { data } of waiting) {
+			if (typeof data === 'string') bytes += data.length;
+			else if (data instanceof Uint8Array) bytes += data.byteLength;
+		}
+
+		return bytes;
+	}
+
+	private get engine() {
+		return this.socket.conn as unknown as EngineInternals | undefined;
+	}
+
+	private get webSocket() {
+		return this.engine?.transport?.socket;
+	}
+
+	// What the system still has to take of the message going out. unsentBytes goes down only
+	// once a whole message has gone out; this goes down while it does.
+	private get queuedBytes(): number {
+		return this.webSocket?._socket?._handle?.writeQueueSize ?? 0;
+	}
+
+	// Ends the connection at once, as a network failure does: a graceful close would wait, with
+	// the buffers, for a client that does not read.
+	private cut(): void {
+		const webSocket = this.webSocket;
+
+		if (typeof webSocket?.terminate === 'function') webSocket.terminate();
+		else this.engine?.close?.(true);
+	}
+
+	private notReading(): void {
+		logger.warn('the client does not read what it is sent, connection cut [id: %s]', this.id);
+
+		if (!this.closed) this.emit('notReading');
+
+		this.cut();
+	}
+
+	// After a close nothing more is sent, so what waits only gets less while the client reads;
+	// before, the client is watched while more than stallBytes wait. Once nothing has gone out
+	// for stallMs, the connection is cut.
+	private watchDelivery(): void {
+		if (this.stallWatch) return;
+
+		let unsent = this.unsentBytes;
+		let queued = this.queuedBytes;
+		let progressAt = Date.now();
+
+		this.stallWatch = setInterval(() => {
+			const nowUnsent = this.unsentBytes;
+			const nowQueued = this.queuedBytes;
+
+			if (this.engine?.readyState === 'closed' || nowUnsent <= (this.closed ? 0 : IOServerConnection.stallBytes))
+				return this.stopWatching();
+
+			if (nowUnsent < unsent || nowQueued < queued) progressAt = Date.now();
+			else if (Date.now() - progressAt >= IOServerConnection.stallMs) {
+				this.stopWatching();
+
+				return this.notReading();
+			}
+
+			unsent = nowUnsent;
+			queued = nowQueued;
+		}, Math.min(1_000, IOServerConnection.stallMs / 4));
+
+		this.stallWatch.unref?.();
+	}
+
+	private stopWatching(): void {
+		clearInterval(this.stallWatch);
+		this.stallWatch = undefined;
+	}
+
+	private keepsUp(): boolean {
+		if (this.unsentBytes <= IOServerConnection.maxUnsentBytes) return true;
+
+		this.notReading();
+
+		return false;
+	}
+
+	private sent(): void {
+		if (!this.stallWatch && this.unsentBytes > IOServerConnection.stallBytes) this.watchDelivery();
+	}
+
 	@skipIfClosed
 	public notify(notification: SocketMessage): void {
 		logger.debug('notification() [notification: %o]', notification);
 
+		if (!this.keepsUp()) return;
+
 		this.socket.emit('notification', notification);
+		this.sent();
+	}
+
+	/**
+	 * A notification that is written to the socket and then forgotten. What notify() sends,
+	 * socket.io keeps for connection state recovery until the recovery time has passed,
+	 * whoever it was for. A copy of a room's state must not pile up there: a client can ask
+	 * for one as often as it likes. The packet is encoded here and now, so it needs no copy
+	 * of its own, and a client that misses it gets a newer one when it connects again.
+	 */
+	@skipIfClosed
+	public notifyOnce(notification: SocketMessage): void {
+		logger.debug('notifyOnce() [method: %s]', notification.method);
+
+		if (!this.keepsUp()) return;
+
+		// eslint-disable-next-line no-unused-vars
+		const socket = this.socket as unknown as { packet?: (...args: unknown[]) => void };
+
+		// Not part of socket.io's documented interface. Without it the state still has to
+		// arrive, as a copy: what socket.io keeps, it encodes again at a replay, and that
+		// must not show what was said or drawn later.
+		if (typeof socket.packet !== 'function') {
+			logger.error('notifyOnce() socket.packet() is missing, the notification is kept for recovery');
+
+			return this.notify(structuredClone(notification));
+		}
+
+		socket.packet({ type: EVENT_PACKET, data: [ 'notification', notification ] });
+		this.sent();
 	}
 
 	@skipIfClosed
@@ -138,6 +304,8 @@ export class IOServerConnection extends BaseConnection {
 		return new Promise((resolve, reject) => {
 			if (!this.socket) {
 				reject('No socket connection');
+			} else if (!this.keepsUp()) {
+				reject(new Error('the client does not read what it is sent'));
 			} else {
 				this.socket.timeout(3000).emit('request', socketMessage, (timeout, serverError, response) => {
 					if (timeout) reject(new SocketTimeoutError('Request timed out'));
@@ -147,6 +315,7 @@ export class IOServerConnection extends BaseConnection {
 					else if (tooDeep(response)) reject(new Error('answer nested too deeply'));
 					else resolve(response);
 				});
+				this.sent();
 			}
 		});
 	}
@@ -208,13 +377,22 @@ export class IOServerConnection extends BaseConnection {
 			if (!request || typeof request !== 'object' || typeof request.method !== 'string' || tooDeep(request))
 				return result('Invalid request', null);
 
+			// An answer waits for a client that does not read like any notification does.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const answer = (error: any, response: any) => {
+				if (!this.keepsUp()) return;
+
+				result(error, response);
+				this.sent();
+			};
+
 			this.emit(
 				'request',
 				request,
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(response: any) => result(null, response),
+				(response: any) => answer(null, response),
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(error: any) => result(error, null)
+				(error: any) => answer(error, null)
 			);
 		});
 	}

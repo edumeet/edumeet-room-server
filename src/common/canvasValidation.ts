@@ -1,3 +1,5 @@
+import { CanvasObject } from './types';
+
 // What the whiteboard sends: freehand paths and text, and the clipping group the eraser adds.
 // Every client passes these objects to fabric, which loads images, patterns and filters itself,
 // so anything else could make all participants' browsers fetch a URL of the sender's choice.
@@ -8,7 +10,10 @@ const MAX_DEPTH = 12;
 // An erased object carries every eraser stroke, so one object may be as large as a socket.io message.
 export const MAX_CANVAS_OBJECT_BYTES = 1_000_000;
 export const MAX_CANVAS_OBJECTS = 10_000;
-export const MAX_CANVAS_BYTES = 20_000_000;
+// A room sends its whole whiteboard to everyone who joins or reconnects. Erasing makes it grow,
+// as every object the eraser touches keeps the part of each stroke near it: twenty strokes over
+// a block of handwriting of 0.3 MB make it 1.1 MB.
+export const MAX_CANVAS_BYTES = 5_000_000;
 
 export interface CanvasAction {
 	object: Record<string, unknown> & { id: string | number };
@@ -143,6 +148,12 @@ const isValidObject = (object: Record<string, unknown>): boolean =>
 	ofType(object.type as string)(object, 0);
 
 export const canvasObjectBytes = (object: object): number => JSON.stringify(object).length;
+
+// The size of each stored entry, measured when it was accepted.
+export const objectBytes = new WeakMap<CanvasObject, number>();
+
+export const canvasStateBytes = (canvasState: CanvasObject[]): number =>
+	canvasState.reduce((total, entry) => total + (objectBytes.get(entry) ?? canvasObjectBytes(entry.object)), 0);
 
 export const isValidCanvasAction = (action: unknown): action is CanvasAction => {
 	if (!isPlainObject(action) || !STATUSES.has(action.status as string)) return false;

@@ -4,6 +4,8 @@ import { IOServerConnection } from './IOServerConnection';
 import { normalizeMeetingToken } from './meetingToken';
 import { asBotId } from './botProfile';
 import { isValidPeerId } from './textValidation';
+import { connectionEnded, limitHit } from './suspiciousClients';
+import { resolveClientIp } from './clientAddress';
 
 const logger = new Logger('socketHandler');
 
@@ -89,6 +91,10 @@ export const socketHandler = (socket: Socket) => {
 	}
 
 	const socketConnection = new IOServerConnection(socket);
+	const connectedAt = Date.now();
+
+	socket.once('disconnect', () => connectionEnded(socketConnection, Date.now() - connectedAt));
+	socketConnection.once('notReading', () => limitHit(resolveClientIp(socketConnection.address)));
 
 	void serverManager.handleConnection(
 		socketConnection,

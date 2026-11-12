@@ -4,6 +4,7 @@ import Room from '../../../src/Room';
 import { Permission } from '../../../src/common/authorization';
 import { FileMessage } from '../../../src/common/types';
 import { magnetInfoHashes } from '../../../src/common/textValidation';
+import { MAX_FILE_HISTORY_PER_PEER } from '../../../src/common/history';
 
 const next = jest.fn();
 const HEX = 'c12fe1c06bba254a9dc9f519b335aa7c1367a88a';
@@ -154,4 +155,37 @@ describe('a file whose sharer left the room', () => {
 		await expect(send(room, makePeer('attacker'), 'clearFile', victimLink)).rejects.toThrow('peer not authorized');
 		expect(room.fileHistory).toHaveLength(2);
 	});
+});
+
+// The history goes to everyone who joins or reconnects. It refuses rather than forgets: a
+// forgotten file could be shared again by another peer and then cleared for everyone.
+describe('a full file history', () => {
+	const link = (i: number) => `magnet:?xt=urn:btih:${i.toString(16).padStart(40, '0')}`;
+
+	test('takes no more files of a peer that shared the most one peer may', async () => {
+		const room = createRoom();
+		const flooder = makePeer('flooder');
+
+		await send(room, makePeer('victim'), 'sendFile', victimLink);
+		for (let i = 0; i < MAX_FILE_HISTORY_PER_PEER; i++) await send(room, flooder, 'sendFile', link(i));
+
+		await expect(send(room, flooder, 'sendFile', link(9999))).rejects.toThrow('too many files');
+		expect(room.fileHistory[0].magnetURI).toBe(victimLink);
+		await expect(send(room, makePeer('attacker'), 'sendFile', victimLink)).rejects.toThrow('file already shared');
+		await send(room, makePeer('other'), 'sendFile', link(10000));
+	});
+});
+
+test('A magnet link with characters that are not printable ASCII is refused', async () => {
+	const room = createRoom();
+
+	for (const link of [
+		`magnet:?xt=urn:btih:${'a'.repeat(40)}&dn=\u0001name`,
+		`magnet:?xt=urn:btih:${'a'.repeat(40)}&dn=zażółć`,
+		`magnet:?xt=urn:btih:${'a'.repeat(40)}&dn=two words`,
+	])
+		await expect(send(room, makePeer('p'), 'sendFile', link)).rejects.toThrow();
+
+	await send(room, makePeer('p'), 'sendFile', `magnet:?xt=urn:btih:${'a'.repeat(40)}&dn=za%C5%BC%C3%B3%C5%82%C4%87`);
+	expect(room.fileHistory).toHaveLength(1);
 });
