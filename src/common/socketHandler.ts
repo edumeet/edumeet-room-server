@@ -9,6 +9,26 @@ import { resolveClientIp } from './clientAddress';
 
 const logger = new Logger('socketHandler');
 
+// A socket that recovered a session holds that session's replay already: refused, it is cut, so the
+// replay does not wait for a client that does not read, and the session it would leave on its drop
+// is forgotten, so the replay cannot be asked for again. Other refused sockets are told to leave.
+const refuse = (socket: Socket): void => {
+	const webSocket = (socket.conn as unknown as { transport?: { socket?: { terminate?: () => void } } })?.transport?.socket;
+
+	if (!socket.recovered || typeof webSocket?.terminate !== 'function') {
+		socket.disconnect(true);
+
+		return;
+	}
+
+	const { pid, nsp } = socket as unknown as { pid?: string; nsp?: { adapter?: { sessions?: Map<string, unknown> } } };
+
+	socket.once('disconnect', () => {
+		if (pid) nsp?.adapter?.sessions?.delete(pid);
+	});
+	webSocket.terminate();
+};
+
 export const socketHandler = (socket: Socket) => {
 	const {
 		roomId,
@@ -38,13 +58,13 @@ export const socketHandler = (socket: Socket) => {
 	if (!roomId || !peerId || !reconnectKey) {
 		logger.warn('socketHandler() - socket invalid roomId or peerId or reconnectKey');
 
-		return socket.disconnect(true);
+		return refuse(socket);
 	}
 
 	if (!isValidPeerId(peerId)) {
 		logger.warn('socketHandler() - socket invalid peerId');
 
-		return socket.disconnect(true);
+		return refuse(socket);
 	}
 
 	let tenantFqdnParsed = '';
@@ -74,7 +94,7 @@ export const socketHandler = (socket: Socket) => {
 					} catch {
 						logger.warn('socketHandler() - socket error parsing origin');
 
-						return socket.disconnect(true);
+						return refuse(socket);
 					}
 				}
 			}
@@ -87,7 +107,7 @@ export const socketHandler = (socket: Socket) => {
 			'socketHandler() - cannot determine clientHost'
 		);
 
-		return socket.disconnect(true);
+		return refuse(socket);
 	}
 
 	const socketConnection = new IOServerConnection(socket);

@@ -161,3 +161,18 @@ test('A removal is not counted, and passes on what the room had without its eras
 		'updateCanvas', { action: { status: 'removed', object: { type: 'Path', id: 1, path: [ [ 'M', 0, 0 ] ] } } }, room.peer);
 	await expect(send(room, 'updateCanvasState', { status: 'removed', object: erased })).rejects.toThrow('Too much whiteboard data');
 });
+
+test('Only the object and the status are passed on and answered, whatever else the client sent next to them', async () => {
+	const room = makeRoom([ 1 ]);
+	const object = { type: 'Path', id: 2 };
+	const junk = 'x'.repeat(10_000);
+
+	const added = await send(room, 'updateCanvasState', { status: 'added', object, junk });
+
+	expect(room.notifyPeers).toHaveBeenLastCalledWith('updateCanvas', { action: { object, status: 'added' } }, room.peer);
+	expect((added.response as { canvasAction: unknown }).canvasAction).toEqual({ object, status: 'added' });
+
+	await send(room, 'updateCanvasState', { status: 'editing', object: { type: 'Path', id: 1 }, junk });
+
+	expect(room.notifyPeersOnce).toHaveBeenLastCalledWith('updateCanvas', { action: { object: { type: 'Path', id: 1 }, status: 'editing' } }, room.peer);
+});
