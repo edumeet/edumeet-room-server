@@ -58,7 +58,7 @@ test('An address with too many short connections is written once in a window', (
 	connectionEnded(connectionFrom('203.0.113.7'), 1_000, T0 + 100);
 
 	expect(mockAppended).toEqual([
-		{ file: FILE, line: '2026-11-12T10:00:00.100Z 203.0.113.7 short_connections=51 limit_hits=0 window=300s\n' }
+		{ file: FILE, line: `2026-11-12T10:00:00.100Z 203.0.113.7 short_connections=${maxShortConnections + 1} limit_hits=0 window=300s\n` }
 	]);
 
 	for (let i = 0; i < 100; i++) connectionEnded(connectionFrom('203.0.113.7'), 1_000, T0 + 200);
@@ -91,6 +91,20 @@ test('The count starts again in a new window', () => {
 // A lecture behind one university address loses its network: every connection ends at once.
 test('Connections that lasted a meeting do not count, however many end together', () => {
 	for (let i = 0; i < 500; i++) connectionEnded(connectionFrom('198.51.100.1'), 40 * 60_000, T0);
+
+	expect(mockAppended).toEqual([]);
+});
+
+// The same lecture loses its network 20 seconds after it joined, and everyone reconnects.
+test('A class whose connections end 20 seconds after they got the state of the room is not written', () => {
+	for (let i = 0; i < 500; i++) connectionEnded(connectionFrom('198.51.100.2'), 20_000, T0);
+
+	expect(mockAppended).toEqual([]);
+});
+
+// A class loses its network right after it joined.
+test('A class of 200 whose connections end at once after they got the state of the room is not written', () => {
+	for (let i = 0; i < 200; i++) connectionEnded(connectionFrom('198.51.100.3'), 1_000, T0);
 
 	expect(mockAppended).toEqual([]);
 });

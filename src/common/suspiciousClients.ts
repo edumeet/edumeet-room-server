@@ -15,11 +15,13 @@ export interface SuspiciousClientsConfig {
 	maxLimitHits?: number;
 }
 
-// High on purpose: a whole university can share one address.
+// High on purpose: a whole university can share one address. A class of hundreds that loses its
+// network shortly after it joined reconnects all at once, so a short connection is a short one and
+// the limit is above the size of a class.
 export const SUSPICIOUS_CLIENTS_DEFAULTS = {
 	windowSeconds: 300,
-	shortConnectionSeconds: 30,
-	maxShortConnections: 50,
+	shortConnectionSeconds: 10,
+	maxShortConnections: 200,
 	maxLimitHits: 10,
 };
 

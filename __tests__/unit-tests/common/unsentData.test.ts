@@ -90,7 +90,6 @@ describe('a client that does not read', () => {
 	// A graceful close waits for the client to read what is queued, which it never does.
 	test('closed while data waits and nothing goes out, it is cut after stallMs, and its session is not kept', async () => {
 		IOServerConnection.maxUnsentBytes = Number.MAX_SAFE_INTEGER;
-		IOServerConnection.stallMs = 200;
 
 		const { client, connection, socket } = await connect();
 		let gone = false;
@@ -107,6 +106,9 @@ describe('a client that does not read', () => {
 
 		expect(connection.unsentBytes).toBeGreaterThan(0);
 
+		// Short only from here on: on a slow machine, filling the client takes longer than stallMs,
+		// and the open connection would be cut before it is closed.
+		IOServerConnection.stallMs = 200;
 		connection.close();
 		await until(() => gone);
 
