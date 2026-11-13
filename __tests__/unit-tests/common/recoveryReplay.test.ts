@@ -85,12 +85,17 @@ describe('a recovered session', () => {
 	const recover = async (pid: string, offset: string, options: Record<string, unknown> = {}) => {
 		const count = sockets.length;
 		const received: string[] = [];
+		const ended = { reason: '' };
 		const again = client({ auth: { pid, offset }, ...options });
 
 		again.on('notification', (n: { data: string }) => received.push(n.data));
+		// Listened for from the start: a socket the room server refuses can be cut before this returns.
+		again.on('disconnect', (why: string) => {
+			ended.reason = why;
+		});
 		await until(() => sockets.length === count + 1);
 
-		return { socket: sockets[count], received, client: again };
+		return { socket: sockets[count], received, client: again, ended };
 	};
 
 	// The normal case: the network drops, the client reconnects by itself and gets what it missed.
@@ -158,19 +163,15 @@ describe('a recovered session', () => {
 
 	test('refused by the room server, is cut, and its session cannot be asked for again', async () => {
 		const { pid, offsets } = await dropped([ 'a', 'b' ]);
-		let reason = '';
 
 		onConnection = socketHandler;
 
 		const refused = await recover(pid, offsets[0], { query: {} });
 
-		refused.client.on('disconnect', (why: string) => {
-			reason = why;
-		});
-		await until(() => reason !== '');
+		await until(() => refused.ended.reason !== '');
 
 		expect(refused.socket.recovered).toBe(true);
-		expect(reason).toMatch(/^transport (close|error)$/);
+		expect(refused.ended.reason).toMatch(/^transport (close|error)$/);
 		await until(() => !kept().sessions.has(pid));
 		expect(kept().sessions.has(pid)).toBe(false);
 	});
