@@ -521,26 +521,11 @@ volumes:
   - ./data/suspicious:/usr/src/app/suspicious
 ```
 
+In its container, the room-server runs as the user with the uid 1001. Make this user the owner of the folder before the container starts (`chown 1001:1001 data/suspicious`). If Docker makes the folder, root owns it, and the room-server cannot write the file.
+
 The file only grows. Rotate it on the host, for example with logrotate.
 
-One address can be many people: a university network, or a mobile network that puts many users behind one address. A ban stops all of them. Look at the file for some time before a tool acts on it, and keep the settings high and the bans short. An example for fail2ban, which bans a written address for 15 minutes:
-
-```ini
-# /etc/fail2ban/filter.d/edumeet-suspicious.conf
-[Definition]
-failregex = <HOST> short_connections=
-```
-
-```ini
-# /etc/fail2ban/jail.d/edumeet-suspicious.conf
-[edumeet-suspicious]
-enabled  = true
-filter   = edumeet-suspicious
-logpath  = /path/to/data/suspicious/suspicious-ips.log
-maxretry = 1
-bantime  = 900
-port     = http,https
-```
+One address can be many people: a university network, or a mobile network that puts many users behind one address. A ban stops all of them. Look at the file for some time before a tool acts on it, and keep the settings high and the bans short. For a complete setup with logrotate and fail2ban, also when the reverse proxy runs in Docker, see [SUSPICIOUS-CLIENTS.md](https://github.com/edumeet/edumeet/blob/main/SUSPICIOUS-CLIENTS.md) in the edumeet repository.
 
 ## Bots
 
