@@ -100,6 +100,9 @@ export class IOServerConnection extends BaseConnection {
 
 		this.socket = socket;
 		this.handleSocket();
+
+		// A recovered session's replay was written before this connection existed.
+		if (socket.recovered) this.sent();
 	}
 
 	@skipIfClosed
@@ -204,10 +207,12 @@ export class IOServerConnection extends BaseConnection {
 		else this.engine?.close?.(true);
 	}
 
-	private notReading(): void {
+	// Only a client that took nothing at all for stallMs is reported: one that reads, but slowly,
+	// may just have a slow link.
+	private notReading(stalled: boolean): void {
 		logger.warn('the client does not read what it is sent, connection cut [id: %s]', this.id);
 
-		if (!this.closed) this.emit('notReading');
+		if (stalled && !this.closed) this.emit('notReading');
 
 		this.cut();
 	}
@@ -233,7 +238,7 @@ export class IOServerConnection extends BaseConnection {
 			else if (Date.now() - progressAt >= IOServerConnection.stallMs) {
 				this.stopWatching();
 
-				return this.notReading();
+				return this.notReading(true);
 			}
 
 			unsent = nowUnsent;
@@ -251,7 +256,7 @@ export class IOServerConnection extends BaseConnection {
 	private keepsUp(): boolean {
 		if (this.unsentBytes <= IOServerConnection.maxUnsentBytes) return true;
 
-		this.notReading();
+		this.notReading(false);
 
 		return false;
 	}

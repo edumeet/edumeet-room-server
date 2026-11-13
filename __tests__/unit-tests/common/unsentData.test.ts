@@ -62,9 +62,13 @@ describe('a client that does not read', () => {
 	const stopReading = (client: ClientSocket) =>
 		(client.io.engine.transport as unknown as { ws: { _socket: { pause: () => void } } }).ws._socket.pause();
 
-	test('is cut once more than maxUnsentBytes wait', async () => {
+	// A slow receiver is not a misbehaving one: only a client that takes nothing at all is reported.
+	test('is cut once more than maxUnsentBytes wait, without being reported', async () => {
 		const { client, connection, socket } = await connect();
 		let reason = '';
+		let notReading = 0;
+
+		(connection as unknown as EventEmitter).on('notReading', () => notReading++);
 
 		socket.on('disconnect', (why: string) => {
 			reason = why;
@@ -79,6 +83,7 @@ describe('a client that does not read', () => {
 		// What a network failure gives: the peer has its reconnect window, as after any drop.
 		await until(() => reason !== '');
 		expect(reason).toMatch(/^transport (close|error)$/);
+		expect(notReading).toBe(0);
 		client.close();
 	});
 

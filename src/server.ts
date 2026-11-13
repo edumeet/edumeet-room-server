@@ -9,6 +9,7 @@ import { interactiveServer } from './interactiveServer';
 import { Logger } from 'edumeet-common';
 import MediaService from './MediaService';
 import { socketHandler } from './common/socketHandler';
+import { socketServerOptions } from './common/socketServerOptions';
 import { Peer } from './Peer';
 import Room from './Room';
 import ManagementService from './ManagementService';
@@ -121,16 +122,7 @@ if (config.tls?.cert && config.tls?.key) {
 webServer.listen({ port: config.listenPort, host: config.listenHost }, () =>
 	logger.debug('webServer.listen() [port: %s]', config.listenPort));
 
-const socketServer = new IOServer(webServer, {
-	cors: { origin: '*' },
-	cookie: false,
-	connectionStateRecovery: {
-		// the backup duration of the sessions and the packets
-		maxDisconnectionDuration: 5 * 60 * 1000,
-		// whether to skip middlewares upon successful recovery
-		skipMiddlewares: true,
-	}
-});
+const socketServer = new IOServer(webServer, socketServerOptions);
 
 socketServer.on('connection', socketHandler);
 

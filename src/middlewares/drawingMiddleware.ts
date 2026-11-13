@@ -105,6 +105,8 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 				if (!isValidCanvasAction(canvasAction)) throw new Error('invalid canvas object');
 
 				const { status } = canvasAction;
+				// What was checked and counted, and nothing else the client put next to it.
+				const action = { object: canvasAction.object, status };
 				const canvasObject = {
 					object: canvasAction.object,
 					objectId: canvasAction.object.id,
@@ -116,14 +118,14 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 				// The clients ignore changes to objects they do not have, as the room does.
 				const known = status == 'added' || index !== -1;
 
-				response.canvasAction = canvasAction;
+				response.canvasAction = action;
 				context.handled = true;
 
 				if (status == 'editing' || status == 'lock') {
 					// Sent on every pointer move while an object is dragged; the end of the drag comes
 					// as 'modified'. Out of date at once, so passed on less often and not kept for recovery.
 					if (known && peer.whiteboardMoves.pass(bytes))
-						room.notifyPeersOnce('updateCanvas', { action: canvasAction }, peer);
+						room.notifyPeersOnce('updateCanvas', { action }, peer);
 
 					break;
 				}
@@ -143,7 +145,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 
 					objectBytes.set(canvasObject, bytes);
 					room.drawing.canvasState.push(canvasObject);
-					room.notifyPeers('updateCanvas', { action: canvasAction }, peer);
+					room.notifyPeers('updateCanvas', { action }, peer);
 				} else if (status == 'modified') {
 					const previous = room.drawing.canvasState[index];
 
@@ -152,7 +154,7 @@ export const createDrawingMiddleware = ({ room }: { room: Room }): Middleware<Pe
 
 					objectBytes.set(canvasObject, bytes);
 					room.drawing.canvasState[index] = canvasObject;
-					room.notifyPeers('updateCanvas', { action: canvasAction }, peer);
+					room.notifyPeers('updateCanvas', { action }, peer);
 				} else {
 					const [ removed ] = room.drawing.canvasState.splice(index, 1);
 					// The clients remove by id, and the eraser strokes are most of an erased object.
