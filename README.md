@@ -496,8 +496,8 @@ Media nodes can be run by other organisations, which is why this is opt-in. It a
 | :--- | :--- | :--- | :--- |
 | `file` | `string` | | The file that the lines are appended to. Without it, the function is off. |
 | `windowSeconds` | `integer` | `300` | The length of the time window in which events are counted. |
-| `shortConnectionSeconds` | `integer` | `30` | A connection that received the state of a room and lasted less than this counts as short. |
-| `maxShortConnections` | `integer` | `50` | Short connections of one address in one window before it is written. |
+| `shortConnectionSeconds` | `integer` | `10` | A connection that received the state of a room and lasted less than this counts as short. |
+| `maxShortConnections` | `integer` | `200` | Short connections of one address in one window before it is written. |
 | `maxLimitHits` | `integer` | `10` | Refused requests, and connections closed because the client did not read, of one address in one window before it is written. |
 
 ```json
