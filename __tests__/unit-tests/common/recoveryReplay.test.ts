@@ -6,6 +6,9 @@ import { io as ioClient, Socket as ClientSocket } from 'socket.io-client';
 import { socketServerOptions } from '../../../src/common/socketServerOptions';
 import { IOServerConnection } from '../../../src/common/IOServerConnection';
 import { socketHandler } from '../../../src/common/socketHandler';
+import { ownSession, RecoveryAdapter } from '../../../src/common/recoveryAdapter';
+import { MAX_RECONNECTS_PER_MINUTE } from '../../../src/common/rateLimiter';
+import * as suspiciousClients from '../../../src/common/suspiciousClients';
 
 type Kept = { sessions: Map<string, unknown>; packets: Array<{ emittedAt: number }> };
 
@@ -14,6 +17,13 @@ describe('a recovered session', () => {
 	const maxUnsentBytes = IOServerConnection.maxUnsentBytes;
 	const stallBytes = IOServerConnection.stallBytes;
 	const stallMs = IOServerConnection.stallMs;
+	const addressBurstBytes = RecoveryAdapter.addressBurstBytes;
+	const addressBytesPerSecond = RecoveryAdapter.addressBytesPerSecond;
+	const serverManagerBefore = global.serverManager;
+	const ROOM_QUERY = { roomId: 'room', peerId: 'peer', reconnectKey: 'key' };
+	// The room server takes every connection for this peer, from this address.
+	const taken = (socket: Socket) => ownSession(socket, 'peer', address);
+	let address: string;
 	let httpServer: http.Server;
 	let server: Server;
 	let url: string;
@@ -27,7 +37,8 @@ describe('a recovered session', () => {
 		sockets = [];
 		clients = [];
 		connections = [];
-		onConnection = () => undefined;
+		address = '203.0.113.7';
+		onConnection = taken;
 		httpServer = http.createServer();
 		server = new Server(httpServer, socketServerOptions);
 		server.on('connection', (socket: Socket) => {
@@ -42,6 +53,10 @@ describe('a recovered session', () => {
 		IOServerConnection.maxUnsentBytes = maxUnsentBytes;
 		IOServerConnection.stallBytes = stallBytes;
 		IOServerConnection.stallMs = stallMs;
+		RecoveryAdapter.addressBurstBytes = addressBurstBytes;
+		RecoveryAdapter.addressBytesPerSecond = addressBytesPerSecond;
+		global.serverManager = serverManagerBefore;
+		jest.restoreAllMocks();
 		clients.forEach((client) => client.close());
 		server.close();
 		await new Promise((resolve) => httpServer.close(resolve));
@@ -62,24 +77,31 @@ describe('a recovered session', () => {
 	};
 
 	// A connection that gets notifications and then drops, leaving its session behind.
-	const dropped = async (notifications: string[]) => {
-		const first = client();
+	const dropped = async (notifications: string[], options: Record<string, unknown> = {}) => {
+		const count = sockets.length;
+		const first = client(options);
 		const offsets: string[] = [];
 
 		first.on('notification', (_n: unknown, offset: string) => offsets.push(offset));
-		await until(() => sockets.length === 1 && first.connected);
+		await until(() => sockets.length === count + 1 && first.connected);
 
 		const pid = (first as unknown as { _pid: string })._pid;
+		const socket = sockets[count];
 
-		notifications.forEach((data) => sockets[0].emit('notification', { method: 'note', data }));
+		notifications.forEach((data) => socket.emit('notification', { method: 'note', data }));
 		await until(() => offsets.length === notifications.length);
 
-		const gone = new Promise((resolve) => sockets[0].once('disconnect', resolve));
-
-		(first.io.engine as unknown as { close: () => void }).close();
-		await gone;
+		await drop({ socket, client: first });
 
 		return { pid, offsets };
+	};
+
+	// The client's transport fails; the server keeps the session of its socket.
+	const drop = async ({ socket, client: dropping }: { socket: Socket; client: ClientSocket }) => {
+		const gone = socket.connected ? new Promise((resolve) => socket.once('disconnect', resolve)) : undefined;
+
+		(dropping.io.engine as unknown as { close: () => void }).close();
+		await gone;
 	};
 
 	const recover = async (pid: string, offset: string, options: Record<string, unknown> = {}) => {
@@ -137,6 +159,99 @@ describe('a recovered session', () => {
 		expect(second.socket.recovered).toBe(false);
 	});
 
+	// A recovered socket keeps the id of its session and leaves the session behind again.
+	test('that drops again is handed nothing a second time, whatever offset its client names', async () => {
+		const { pid, offsets } = await dropped([ 'a', 'b', 'c' ]);
+		const first = await recover(pid, offsets[0]);
+
+		await until(() => first.received.length === 2);
+		expect(first.received).toEqual([ 'b', 'c' ]);
+		await drop(first);
+
+		const second = await recover(pid, offsets[0]);
+
+		expect(second.socket.recovered).toBe(true);
+		second.socket.emit('notification', { method: 'note', data: 'd' });
+		await until(() => second.received.length > 0);
+		expect(second.received).toEqual([ 'd' ]);
+		await drop(second);
+		server.to(second.socket.id).emit('notification', { method: 'note', data: 'e' });
+
+		// What was sent since the last restore is handed back, once.
+		const third = await recover(pid, offsets[0]);
+
+		await until(() => third.received.length === 2);
+		expect(third.received).toEqual([ 'd', 'e' ]);
+		await drop(third);
+
+		const fourth = await recover(pid, offsets[0]);
+
+		expect(fourth.socket.recovered).toBe(true);
+		fourth.socket.emit('notification', { method: 'note', data: 'f' });
+		await until(() => fourth.received.length > 0);
+		expect(fourth.received).toEqual([ 'f' ]);
+	});
+
+	test('is restored as often in a minute as a peer may reconnect, and then counts against its address', async () => {
+		const reported = jest.spyOn(suspiciousClients, 'limitHit').mockImplementation(() => undefined);
+		const { pid, offsets } = await dropped([ 'a', 'b' ]);
+
+		for (let i = 0; i < MAX_RECONNECTS_PER_MINUTE; i++) {
+			const again = await recover(pid, offsets[0]);
+
+			expect(again.socket.recovered).toBe(true);
+			await drop(again);
+		}
+
+		expect(reported).not.toHaveBeenCalled();
+
+		const refused = await recover(pid, offsets[0]);
+
+		expect(refused.socket.recovered).toBe(false);
+		expect(refused.received).toEqual([]);
+		expect(reported).toHaveBeenCalledWith(address);
+		expect(kept().sessions.has(pid)).toBe(false);
+	}, 20_000);
+
+	test('shares a budget of bytes with the other sessions of its address', async () => {
+		RecoveryAdapter.addressBurstBytes = 3_000;
+		RecoveryAdapter.addressBytesPerSecond = 1;
+
+		const reported = jest.spyOn(suspiciousClients, 'limitHit').mockImplementation(() => undefined);
+		const one = await dropped([ 'a', 'x'.repeat(2_000) ]);
+		const two = await dropped([ 'a', 'y'.repeat(2_000) ]);
+
+		address = '198.51.100.9';
+
+		const elsewhere = await dropped([ 'a', 'z'.repeat(2_000) ]);
+		const first = await recover(one.pid, one.offsets[0]);
+
+		await until(() => first.received.length === 1);
+		expect(first.socket.recovered).toBe(true);
+
+		const second = await recover(two.pid, two.offsets[0]);
+
+		expect(second.socket.recovered).toBe(false);
+		expect(second.received).toEqual([]);
+
+		const third = await recover(elsewhere.pid, elsewhere.offsets[0]);
+
+		await until(() => third.received.length === 1);
+		expect(third.socket.recovered).toBe(true);
+		// Everyone behind the address shares the budget: running out of it is no one's misuse.
+		expect(reported).not.toHaveBeenCalled();
+	});
+
+	test('of a connection the room server never took is not restored', async () => {
+		onConnection = () => undefined;
+
+		const { pid, offsets } = await dropped([ 'a', 'b' ]);
+		const recovered = await recover(pid, offsets[0]);
+
+		expect(recovered.socket.recovered).toBe(false);
+		expect(recovered.received).toEqual([]);
+	});
+
 	test('is not restored when what it would hand back is more than a connection may have waiting', async () => {
 		IOServerConnection.maxUnsentBytes = 2_000;
 
@@ -174,6 +289,79 @@ describe('a recovered session', () => {
 		expect(refused.ended.reason).toMatch(/^transport (close|error)$/);
 		await until(() => !kept().sessions.has(pid));
 		expect(kept().sessions.has(pid)).toBe(false);
+	});
+
+	describe('handed to the room server', () => {
+		let handleConnection: jest.Mock;
+
+		beforeEach(() => {
+			handleConnection = jest.fn(async () => undefined);
+			global.serverManager = { handleConnection } as unknown as typeof global.serverManager;
+			onConnection = socketHandler;
+		});
+
+		test('as the peer it belongs to, is kept and counts as a connection that was handed data', async () => {
+			const sent = jest.spyOn(suspiciousClients, 'replaySent');
+			const { pid, offsets } = await dropped([ 'a', 'b' ], { query: ROOM_QUERY });
+
+			expect(sent).not.toHaveBeenCalled();
+
+			const resumed = await recover(pid, offsets[0], { query: ROOM_QUERY });
+
+			await until(() => resumed.received.length === 1);
+			expect(resumed.socket.recovered).toBe(true);
+			expect(resumed.ended.reason).toBe('');
+			expect(handleConnection).toHaveBeenCalledTimes(2);
+			expect(handleConnection.mock.calls[1][0].recovered).toBe(true);
+			expect(handleConnection.mock.calls[1][1]).toBe('peer');
+			expect(sent).toHaveBeenCalledWith(handleConnection.mock.calls[1][0]);
+		});
+
+		// A peerId no one uses has no limit on reconnects, and another's is not this client's.
+		test('under another peerId, is cut and forgotten, and counts against its address', async () => {
+			const reported = jest.spyOn(suspiciousClients, 'limitHit').mockImplementation(() => undefined);
+			const { pid, offsets } = await dropped([ 'a', 'b' ], { query: ROOM_QUERY });
+			const refused = await recover(pid, offsets[0], { query: { ...ROOM_QUERY, peerId: 'other' } });
+
+			await until(() => refused.ended.reason !== '');
+
+			expect(refused.socket.recovered).toBe(true);
+			expect(refused.ended.reason).toMatch(/^transport (close|error)$/);
+			expect(handleConnection).toHaveBeenCalledTimes(1);
+			expect(reported).toHaveBeenCalledTimes(1);
+			await until(() => !kept().sessions.has(pid));
+
+			// The session is gone: asked for again, there is nothing to hand back.
+			const again = await recover(pid, offsets[0], { query: { ...ROOM_QUERY, peerId: 'other' } });
+
+			expect(again.socket.recovered).toBe(false);
+			expect(again.received).toEqual([]);
+		});
+
+		// Too many reconnects, or the peer has left meanwhile.
+		test('and refused there, is cut and forgotten', async () => {
+			const { pid, offsets } = await dropped([ 'a', 'b' ], { query: ROOM_QUERY });
+
+			let terminated: jest.SpyInstance | undefined;
+
+			handleConnection.mockImplementationOnce(async () => {
+				const { transport } = sockets[sockets.length - 1].conn as unknown as { transport: { socket: { terminate: () => void } } };
+
+				terminated = jest.spyOn(transport.socket, 'terminate');
+
+				throw new Error('Too many reconnects');
+			});
+
+			const refused = await recover(pid, offsets[0], { query: ROOM_QUERY });
+
+			await until(() => refused.ended.reason !== '');
+			await until(() => (refused.socket.conn as unknown as { readyState: string }).readyState === 'closed');
+
+			expect(refused.socket.recovered).toBe(true);
+			// Not a close that waits for the client to take what it was sent.
+			expect(terminated).toHaveBeenCalled();
+			expect(kept().sessions.has(pid)).toBe(false);
+		});
 	});
 
 	test('whose client does not read what is handed back is cut once nothing goes out for stallMs', async () => {

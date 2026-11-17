@@ -32,3 +32,27 @@ describe('ByteBudget', () => {
 		expect(budget.take(1, 1_000_000)).toBe(false);
 	});
 });
+
+describe('Keyed', () => {
+	test('gives each key its own limiter, the same one every time', async () => {
+		const { Keyed, RateLimiter: Limiter } = await import('../../../src/common/rateLimiter');
+		const limiters = new Keyed(() => new Limiter(1, 1000));
+
+		expect(limiters.for('a').take(0)).toBe(true);
+		expect(limiters.for('a').take(1)).toBe(false);
+		expect(limiters.for('b').take(1)).toBe(true);
+	});
+
+	test('keeps at most maxKeys, forgetting the one not asked for the longest', async () => {
+		const { Keyed, RateLimiter: Limiter } = await import('../../../src/common/rateLimiter');
+		const limiters = new Keyed(() => new Limiter(1, 1000), 2);
+
+		expect(limiters.for('a').take(0)).toBe(true);
+		expect(limiters.for('b').take(0)).toBe(true);
+		// 'a' is asked for again, so 'b' is the one that goes when 'c' comes
+		expect(limiters.for('a').take(1)).toBe(false);
+		expect(limiters.for('c').take(1)).toBe(true);
+		expect(limiters.for('a').take(2)).toBe(false);
+		expect(limiters.for('b').take(2)).toBe(true);
+	});
+});

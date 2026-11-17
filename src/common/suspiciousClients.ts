@@ -106,10 +106,16 @@ export const roomStateSent = (peer: Peer): void => {
 	for (const connection of peer.connections.items) stateSent.add(connection);
 };
 
+// A connection that recovered its session was handed what the session missed.
+export const replaySent = (connection: object): void => {
+	stateSent.add(connection);
+};
+
 /**
- * A connection has ended. It counts for its address when it was handed the state of a room
- * and lasted less than `shortConnectionSeconds`: people stay for a meeting, a network failure
- * ends long connections, and one that was refused before it got anything cost little.
+ * A connection has ended. It counts for its address when it was handed the state of a room, or
+ * the replay of a recovered session, and lasted less than `shortConnectionSeconds`: people stay
+ * for a meeting, a network failure ends long connections, and one that was refused before it got
+ * anything cost little.
  */
 export const connectionEnded = (connection: { address: ConnectionAddress }, durationMs: number, now = Date.now()): void => {
 	const active = settings();
