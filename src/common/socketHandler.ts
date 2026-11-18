@@ -6,27 +6,48 @@ import { asBotId } from './botProfile';
 import { isValidPeerId } from './textValidation';
 import { connectionEnded, limitHit } from './suspiciousClients';
 import { resolveClientIp } from './clientAddress';
+import { ownSession, sessionOwner } from './recoveryAdapter';
 
 const logger = new Logger('socketHandler');
 
-// A socket that recovered a session holds that session's replay already: refused, it is cut, so the
-// replay does not wait for a client that does not read, and the session it would leave on its drop
-// is forgotten, so the replay cannot be asked for again. Other refused sockets are told to leave.
-const refuse = (socket: Socket): void => {
+const addressOf = (socket: Socket): string | undefined =>
+	resolveClientIp({ address: socket.handshake.address, forwardedFor: socket.handshake.headers['x-forwarded-for'] });
+
+// Ends a socket at once, as a network failure does, and forgets the session it leaves behind.
+// Answers false where the WebSocket cannot be reached.
+const cut = (socket: Socket): boolean => {
 	const webSocket = (socket.conn as unknown as { transport?: { socket?: { terminate?: () => void } } })?.transport?.socket;
 
-	if (!socket.recovered || typeof webSocket?.terminate !== 'function') {
+	if (typeof webSocket?.terminate !== 'function') return false;
+
+	const { pid, nsp } = socket as unknown as { pid?: string; nsp?: { adapter?: { sessions?: Map<string, unknown> } } };
+	const forget = () => {
+		if (pid) nsp?.adapter?.sessions?.delete(pid);
+	};
+
+	// socket.io stores the session of a connected socket when it drops, before this runs.
+	socket.once('disconnect', forget);
+	forget();
+	webSocket.terminate();
+
+	return true;
+};
+
+// A socket that recovered a session holds that session's replay already: refused, it is cut, so the
+// replay does not wait for a client that does not read, and the session it would leave on its drop
+// is forgotten, so the replay cannot be asked for again. No client in normal use recovers a session
+// with a handshake the room server refuses, so it counts against the address. Other refused sockets
+// are told to leave.
+const refuse = (socket: Socket): void => {
+	if (!socket.recovered) {
 		socket.disconnect(true);
 
 		return;
 	}
 
-	const { pid, nsp } = socket as unknown as { pid?: string; nsp?: { adapter?: { sessions?: Map<string, unknown> } } };
+	limitHit(addressOf(socket));
 
-	socket.once('disconnect', () => {
-		if (pid) nsp?.adapter?.sessions?.delete(pid);
-	});
-	webSocket.terminate();
+	if (!cut(socket)) socket.disconnect(true);
 };
 
 export const socketHandler = (socket: Socket) => {
@@ -110,6 +131,16 @@ export const socketHandler = (socket: Socket) => {
 		return refuse(socket);
 	}
 
+	// What a recovered socket was handed is what the peer of its session missed. It is kept only as
+	// that peer: under another peerId it would be a new participant, or someone else's.
+	if (socket.recovered && sessionOwner(socket)?.peerId !== peerId) {
+		logger.warn('socketHandler() - recovered session of another peer [peerId: %s]', peerId);
+
+		return refuse(socket);
+	}
+
+	ownSession(socket, peerId as string, addressOf(socket));
+
 	const socketConnection = new IOServerConnection(socket);
 	const connectedAt = Date.now();
 
@@ -134,5 +165,8 @@ export const socketHandler = (socket: Socket) => {
 		logger.warn({ err: error }, 'socketHandler() - handleConnection()');
 
 		socketConnection.close();
+
+		// Not left to wait, with its replay, for a client that does not read.
+		if (socket.recovered) cut(socket);
 	});
 };

@@ -68,6 +68,36 @@ export class ByteBudget {
 	}
 }
 
+/**
+ * One limiter per key, for keys that come with the clients, such as an address. At most `maxKeys`
+ * are kept; the one that was not asked for the longest is forgotten first.
+ */
+export class Keyed<Limiter> {
+	readonly #limiters = new Map<string, Limiter>();
+	readonly #create: () => Limiter;
+	readonly #maxKeys: number;
+
+	constructor(create: () => Limiter, maxKeys = 100_000) {
+		this.#create = create;
+		this.#maxKeys = maxKeys;
+	}
+
+	public for(key: string): Limiter {
+		let limiter = this.#limiters.get(key);
+
+		if (limiter) this.#limiters.delete(key);
+		else {
+			if (this.#limiters.size >= this.#maxKeys) this.#limiters.delete(this.#limiters.keys().next().value as string);
+
+			limiter = this.#create();
+		}
+
+		this.#limiters.set(key, limiter);
+
+		return limiter;
+	}
+}
+
 // Erasing is what sends the most: every stroke sends each object it touches again. Twenty
 // strokes over a block of handwriting send 14 MB in 70 s, twelve fast ones 7 MB in 14 s.
 export const WHITEBOARD_BURST_BYTES = 10_000_000;

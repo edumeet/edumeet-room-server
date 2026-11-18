@@ -158,6 +158,11 @@ export class IOServerConnection extends BaseConnection {
 		return this.socket.id;
 	}
 
+	// The socket recovered a session: socket.io has written it what the session's peer missed.
+	public get recovered(): boolean {
+		return this.socket.recovered === true;
+	}
+
 	public get address(): clientAddress {
 		const address: clientAddress = {
 			address: this.socket.handshake.address,

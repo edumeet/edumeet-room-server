@@ -164,6 +164,10 @@ export default class ServerManager {
 			}
 		}
 
+		// A socket that recovered a session whose peer is gone joins as a new participant. After a
+		// network failure longer than the reconnect window, a whole lecture hall comes back this way.
+		// The adapter has already limited what such a session is handed back.
+
 		let botVerified = false;
 		let botCredentialId: number | undefined;
 		let botId: string | undefined;

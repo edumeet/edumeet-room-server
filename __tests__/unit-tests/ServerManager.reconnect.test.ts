@@ -67,8 +67,10 @@ const setup = () => {
 
 	makePeer(roomB, 'victim', 'vk');
 
-	const connect = (peerId: string, roomId: string, reconnectKey: string) =>
-		manager.handleConnection(makeConnection(), peerId, roomId, 'tenant.example.edu', reconnectKey, 'Name');
+	const connect = (peerId: string, roomId: string, reconnectKey: string, recovered = false) =>
+		manager.handleConnection(
+			Object.assign(makeConnection(), { recovered }), peerId, roomId, 'tenant.example.edu', reconnectKey, 'Name'
+		);
 
 	return { manager, rooms, roomA, roomB, attacker, peers, connect };
 };
@@ -118,6 +120,44 @@ describe('reconnect', () => {
 		expect(once.mock.calls[0][0].method).toBe('peerReconnected');
 		expect(once.mock.calls[0][0].data.chatHistory).toHaveLength(1);
 		expect((attacker.notify as jest.Mock).mock.calls.map(([ m ]) => m.method)).not.toContain('peerReconnected');
+	});
+
+	// socket.io has written such a socket what its session's peer missed.
+	test('on a socket that recovered a session resumes the peer', async () => {
+		const { roomA, attacker, connect } = setup();
+
+		jest.spyOn(roomA, 'reconnectPeer').mockImplementation(() => undefined);
+
+		await connect('attacker', 'a', 'ak', true);
+
+		expect(attacker.switchConnection).toHaveBeenCalledTimes(1);
+		expect(roomA.reconnectPeer).toHaveBeenCalledWith(attacker);
+	});
+
+	// After a network failure longer than the reconnect window, a whole lecture hall comes back so.
+	test('on a socket that recovered a session whose peer is gone joins as a new participant', async () => {
+		const { roomA, peers, connect } = setup();
+
+		await connect('newcomer', 'a', 'nk', true);
+
+		expect(peers.has('newcomer')).toBe(true);
+		expect(roomA.addPeer).toHaveBeenCalledWith(peers.get('newcomer'), false);
+
+		// a wrong key, or another room, is refused as for any socket
+		await expect(connect('attacker', 'a', 'wrong', true)).rejects.toThrow('Invalid reconnectKey');
+		await expect(connect('attacker', 'b', 'ak', true)).rejects.toThrow('Invalid reconnectKey');
+	});
+
+	test('on a socket that recovered a session counts as a reconnect of the peer', async () => {
+		const { roomA, connect } = setup();
+		const reported = jest.spyOn(suspiciousClients, 'limitHit').mockImplementation(() => undefined);
+
+		jest.spyOn(roomA, 'reconnectPeer').mockImplementation(() => undefined);
+
+		for (let i = 0; i < MAX_RECONNECTS_PER_MINUTE; i++) await connect('attacker', 'a', 'ak', true);
+
+		await expect(connect('attacker', 'a', 'ak', true)).rejects.toThrow('Too many reconnects');
+		expect(reported).toHaveBeenCalledWith('10.0.0.2');
 	});
 
 	test('refused too often is reported for the address it came from', async () => {
