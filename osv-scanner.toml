@@ -1,0 +1,35 @@
+# Advisories ignored by OSV-Scanner. Every entry must say why it does not
+# affect the server and carry an ignoreUntil date so it gets re-checked.
+#
+# None of glob, minimatch or picomatch is in the production dependency tree
+# (dependencies + edumeet-common). They come only from build, test, lint and
+# install tooling: jest, eslint, typescript-eslint, nodemon, and node-gyp (used
+# to build bufferutil/utf-8-validate). That tooling only ever matches patterns
+# from our own config and source tree, never input from clients.
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+# picomatch ReDoS via single-branch repeated extglobs. No patched version
+# exists (last_affected 4.0.7, which is the latest release).
+# Reached via nodemon > chokidar@3 > anymatch/readdirp, jest-haste-map,
+# jest-util, jest-message-util, and typescript-eslint/node-gyp > tinyglobby.
+# The runtime chokidar@5 dependency does not use picomatch.
+ignoreUntil = 2027-02-18
+reason = "picomatch has no fixed release; only reached via dev/install tooling (jest, nodemon, typescript-eslint, node-gyp) matching our own patterns, not in the production dependency tree."
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+# minimatch DoS via globparts amplification. Fixed only in minimatch 11, a new
+# major that eslint 10, typescript-eslint 8, nodemon 3 and glob 10/13 do not
+# accept yet. Drop this entry once they move to minimatch >= 11.0.1.
+ignoreUntil = 2027-02-18
+reason = "minimatch fix needs major 11, not yet accepted by eslint/typescript-eslint/nodemon/glob; only reached via dev tooling matching our own patterns, not in the production dependency tree."
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+# glob AbortSignal cancellation bypass. Fixed only in glob 14, a new major.
+# Reached via jest 30 (@jest/reporters, jest-config, jest-runtime) and
+# node-gyp > make-fetch-happen > cacache. We never pass an AbortSignal to glob.
+# Drop this entry once jest and cacache move to glob >= 14.0.2.
+ignoreUntil = 2027-02-18
+reason = "glob fix needs major 14, not yet accepted by jest 30 or node-gyp's cacache; only reached via test/install tooling, not in the production dependency tree."
