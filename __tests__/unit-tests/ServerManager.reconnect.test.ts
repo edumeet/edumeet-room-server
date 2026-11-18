@@ -134,12 +134,14 @@ describe('reconnect', () => {
 		expect(roomA.reconnectPeer).toHaveBeenCalledWith(attacker);
 	});
 
-	test('on a socket that recovered a session is refused when there is no peer to resume', async () => {
+	// After a network failure longer than the reconnect window, a whole lecture hall comes back so.
+	test('on a socket that recovered a session whose peer is gone joins as a new participant', async () => {
 		const { roomA, peers, connect } = setup();
 
-		await expect(connect('newcomer', 'a', 'nk', true)).rejects.toThrow('No peer to resume');
-		expect(peers.has('newcomer')).toBe(false);
-		expect(roomA.addPeer).not.toHaveBeenCalled();
+		await connect('newcomer', 'a', 'nk', true);
+
+		expect(peers.has('newcomer')).toBe(true);
+		expect(roomA.addPeer).toHaveBeenCalledWith(peers.get('newcomer'), false);
 
 		// a wrong key, or another room, is refused as for any socket
 		await expect(connect('attacker', 'a', 'wrong', true)).rejects.toThrow('Invalid reconnectKey');

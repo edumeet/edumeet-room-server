@@ -4,7 +4,7 @@ import { IOServerConnection } from './IOServerConnection';
 import { normalizeMeetingToken } from './meetingToken';
 import { asBotId } from './botProfile';
 import { isValidPeerId } from './textValidation';
-import { connectionEnded, limitHit, replaySent } from './suspiciousClients';
+import { connectionEnded, limitHit } from './suspiciousClients';
 import { resolveClientIp } from './clientAddress';
 import { ownSession, sessionOwner } from './recoveryAdapter';
 
@@ -143,9 +143,6 @@ export const socketHandler = (socket: Socket) => {
 
 	const socketConnection = new IOServerConnection(socket);
 	const connectedAt = Date.now();
-
-	// A replay costs the server as the state of a room does.
-	if (socket.recovered) replaySent(socketConnection);
 
 	socket.once('disconnect', () => connectionEnded(socketConnection, Date.now() - connectedAt));
 	socketConnection.once('notReading', () => limitHit(resolveClientIp(socketConnection.address)));

@@ -144,6 +144,9 @@ export class RecoveryAdapter extends SessionAwareAdapter {
 		// Not a limit hit: the budget is shared by everyone behind the address.
 		if (bytes > 0 && !this.addressBudgets.for(owner.address ?? '').take(bytes)) return null as never;
 
+		// Also when the socket drops again before the replay arrives: the state of the room it is
+		// sent on the reconnect covers what a room keeps, and only what a room does not keep, such as
+		// messages of end-to-end encryption, can be missed then.
 		owner.replayedThrough = packets[packets.length - 1].id;
 
 		return Promise.resolve({ ...session, missedPackets }) as ReturnType<SessionAwareAdapter['restoreSession']>;

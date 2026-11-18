@@ -300,12 +300,8 @@ describe('a recovered session', () => {
 			onConnection = socketHandler;
 		});
 
-		test('as the peer it belongs to, is kept and counts as a connection that was handed data', async () => {
-			const sent = jest.spyOn(suspiciousClients, 'replaySent');
+		test('as the peer it belongs to, is kept', async () => {
 			const { pid, offsets } = await dropped([ 'a', 'b' ], { query: ROOM_QUERY });
-
-			expect(sent).not.toHaveBeenCalled();
-
 			const resumed = await recover(pid, offsets[0], { query: ROOM_QUERY });
 
 			await until(() => resumed.received.length === 1);
@@ -314,7 +310,6 @@ describe('a recovered session', () => {
 			expect(handleConnection).toHaveBeenCalledTimes(2);
 			expect(handleConnection.mock.calls[1][0].recovered).toBe(true);
 			expect(handleConnection.mock.calls[1][1]).toBe('peer');
-			expect(sent).toHaveBeenCalledWith(handleConnection.mock.calls[1][0]);
 		});
 
 		// A peerId no one uses has no limit on reconnects, and another's is not this client's.
@@ -358,6 +353,8 @@ describe('a recovered session', () => {
 			await until(() => (refused.socket.conn as unknown as { readyState: string }).readyState === 'closed');
 
 			expect(refused.socket.recovered).toBe(true);
+			// Cut, not told to leave: a client told to leave does not reconnect.
+			expect(refused.ended.reason).toMatch(/^transport (close|error)$/);
 			// Not a close that waits for the client to take what it was sent.
 			expect(terminated).toHaveBeenCalled();
 			expect(kept().sessions.has(pid)).toBe(false);

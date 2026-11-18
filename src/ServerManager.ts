@@ -164,9 +164,9 @@ export default class ServerManager {
 			}
 		}
 
-		// A socket that recovered a session was handed what that session's peer missed. With the
-		// peer gone there is nothing to resume, and the socket is not taken for a new participant.
-		if ((connection as unknown as IOServerConnection).recovered) throw new Error('No peer to resume');
+		// A socket that recovered a session whose peer is gone joins as a new participant. After a
+		// network failure longer than the reconnect window, a whole lecture hall comes back this way.
+		// The adapter has already limited what such a session is handed back.
 
 		let botVerified = false;
 		let botCredentialId: number | undefined;

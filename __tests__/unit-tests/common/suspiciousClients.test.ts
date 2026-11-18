@@ -16,7 +16,7 @@ jest.mock('fs', () => ({
 	},
 }));
 
-import { connectionEnded, limitHit, replaySent, resetSuspiciousClients, roomStateSent, SUSPICIOUS_CLIENTS_DEFAULTS } from '../../../src/common/suspiciousClients';
+import { connectionEnded, limitHit, resetSuspiciousClients, roomStateSent, SUSPICIOUS_CLIENTS_DEFAULTS } from '../../../src/common/suspiciousClients';
 import type { Peer } from '../../../src/Peer';
 
 const FILE = '/usr/src/app/suspicious/suspicious-ips.log';
@@ -72,19 +72,6 @@ test('Connections that were not handed the state of a room do not count', () => 
 	for (let i = 0; i < 1000; i++) connectionEnded(connectionFrom('198.51.100.9', false), 100, T0);
 
 	expect(mockAppended).toEqual([]);
-});
-
-// A session recovered again and again: each time the server hands back what the session missed.
-test('Connections that recovered a session count like those that were handed the state of a room', () => {
-	for (let i = 0; i <= maxShortConnections; i++) {
-		const connection = connectionFrom('203.0.113.7', false);
-
-		replaySent(connection);
-		connectionEnded(connection, 100, T0);
-	}
-
-	expect(mockAppended).toHaveLength(1);
-	expect(mockAppended[0].line).toContain(`203.0.113.7 short_connections=${maxShortConnections + 1} limit_hits=0`);
 });
 
 test('The count starts again in a new window', () => {
