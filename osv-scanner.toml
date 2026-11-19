@@ -1,11 +1,14 @@
 # Advisories ignored by OSV-Scanner. Every entry must say why it does not
 # affect the server and carry an ignoreUntil date so it gets re-checked.
 #
-# None of glob, minimatch or picomatch is in the production dependency tree
-# (dependencies + edumeet-common). They come only from build, test, lint and
-# install tooling: jest, eslint, typescript-eslint, nodemon, and node-gyp (used
-# to build bufferutil/utf-8-validate). That tooling only ever matches patterns
-# from our own config and source tree, never input from clients.
+# The running server never loads glob, minimatch or picomatch. A production
+# install does contain them, but only as build tools: Yarn adds node-gyp to
+# compile the native addons bufferutil and utf-8-validate, and node-gyp brings
+# glob (via make-fetch-happen > cacache) with its minimatch, and picomatch (via
+# tinyglobby). They run only at install time, with node-gyp's own patterns. All
+# other users are build, test and lint tools (jest, eslint, typescript-eslint,
+# nodemon), which only match patterns from our own config and source tree,
+# never input from clients.
 
 [[IgnoredVulns]]
 id = "GHSA-fc5q-39xc-vjpf"
@@ -15,7 +18,7 @@ id = "GHSA-fc5q-39xc-vjpf"
 # jest-util, jest-message-util, and typescript-eslint/node-gyp > tinyglobby.
 # The runtime chokidar@5 dependency does not use picomatch.
 ignoreUntil = 2027-02-18
-reason = "picomatch has no fixed release; only reached via dev/install tooling (jest, nodemon, typescript-eslint, node-gyp) matching our own patterns, not in the production dependency tree."
+reason = "picomatch has no fixed release; used only by dev tools (jest, nodemon, typescript-eslint) matching our own patterns and, in a production install, by node-gyp at install time; never loaded at runtime."
 
 [[IgnoredVulns]]
 id = "GHSA-g3hv-75wg-m249"
@@ -23,7 +26,7 @@ id = "GHSA-g3hv-75wg-m249"
 # major that eslint 10, typescript-eslint 8, nodemon 3 and glob 10/13 do not
 # accept yet. Drop this entry once they move to minimatch >= 11.0.1.
 ignoreUntil = 2027-02-18
-reason = "minimatch fix needs major 11, not yet accepted by eslint/typescript-eslint/nodemon/glob; only reached via dev tooling matching our own patterns, not in the production dependency tree."
+reason = "minimatch fix needs major 11, not yet accepted by eslint/typescript-eslint/nodemon/glob; used only by dev tools matching our own patterns and, in a production install, by node-gyp's glob at install time; never loaded at runtime."
 
 [[IgnoredVulns]]
 id = "GHSA-3g3m-2fjr-6pw4"
@@ -32,4 +35,4 @@ id = "GHSA-3g3m-2fjr-6pw4"
 # node-gyp > make-fetch-happen > cacache. We never pass an AbortSignal to glob.
 # Drop this entry once jest and cacache move to glob >= 14.0.2.
 ignoreUntil = 2027-02-18
-reason = "glob fix needs major 14, not yet accepted by jest 30 or node-gyp's cacache; only reached via test/install tooling, not in the production dependency tree."
+reason = "glob fix needs major 14, not yet accepted by jest 30 or node-gyp's cacache; used only by test tools and, in a production install, by node-gyp at install time; never loaded at runtime."
