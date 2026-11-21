@@ -1,9 +1,10 @@
 import 'jest';
-import Room from '../../src/Room';
+import Room, { MEETING_ACTIVITY_INTERVAL } from '../../src/Room';
 import { Peer } from '../../src/Peer';
 import MediaService from '../../src/MediaService';
 import { updateRoom } from '../../src/common/authorization';
 import { ManagedRoom } from '../../src/common/types';
+import { MeetingTokenLookup } from '../../src/common/meetingToken';
 
 // eslint-disable-next-line no-unused-vars
 type Admission = { allowPeer: (peer: Peer) => void, parkPeer: (peer: Peer) => void };
@@ -15,7 +16,7 @@ const makeRoom = () => {
 	room.managedId = '7';
 	room.locked = false;
 	room.meetingsOnly = true;
-	room.validateMeetingToken = jest.fn(async (token: string) => token === 'GOOD');
+	room.validateMeetingToken = jest.fn(async (token: string) => ({ found: token === 'GOOD' }));
 	const allowPeer = jest.spyOn(admission, 'allowPeer').mockImplementation(() => undefined);
 	const parkPeer = jest.spyOn(admission, 'parkPeer').mockImplementation(() => undefined);
 
@@ -26,7 +27,7 @@ const makeRoom = () => {
 
 const created: Peer[] = [];
 
-const makePeer = (over: { meetingToken?: string, managedId?: string } = {}): Peer => {
+const makePeer = (over: { meetingToken?: string, managedId?: string, botVerified?: boolean } = {}): Peer => {
 	const peer = new Peer({ id: `p-${Math.random()}`, sessionId: 's', reconnectKey: 'k', ...over });
 
 	jest.spyOn(peer, 'notify').mockImplementation(() => undefined);
@@ -45,8 +46,8 @@ const pendingLookup = (room: Room) => {
 	let markStarted: () => void = () => undefined;
 	const started = new Promise<void>((resolve) => { markStarted = resolve; });
 
-	room.validateMeetingToken = () => new Promise<boolean>((resolve) => {
-		release = resolve;
+	room.validateMeetingToken = () => new Promise<MeetingTokenLookup>((resolve) => {
+		release = (valid: boolean) => resolve({ found: valid });
 		markStarted();
 	});
 
@@ -94,6 +95,19 @@ describe('Room.addPeer() in meetings-only mode', () => {
 
 		expect(peer.notify).toHaveBeenCalledWith({ method: 'meetingTokenRejected', data: { reason: 'invalid' } });
 		expect(allowPeer).not.toHaveBeenCalled();
+	});
+
+	it('refuses a token before the meeting opens, with its times, and closes the peer', async () => {
+		const { room, allowPeer } = makeRoom();
+		const peer = makePeer({ meetingToken: 'GOOD' });
+
+		room.validateMeetingToken = async () => ({ found: true, window: { state: 'early' as const, startsAt: 1000, endsAt: 2000 } });
+		await room.addPeer(peer);
+
+		expect(peer.notify).toHaveBeenCalledWith({ method: 'meetingTokenRejected', data: { reason: 'early', startsAt: 1000, endsAt: 2000 } });
+		expect(allowPeer).not.toHaveBeenCalled();
+		expect(peer.closed).toBe(true);
+		expect(room.activeMeetingToken).toBeUndefined();
 	});
 
 	it('admits a valid token and binds the room to that meeting', async () => {
@@ -150,6 +164,18 @@ describe('Room.addPeer() in meetings-only mode', () => {
 		await room.addPeer(peer, true);
 
 		expect(allowPeer).toHaveBeenCalledWith(peer);
+		expect(room.activeMeetingToken).toBe('GOOD');
+	});
+
+	it('lets a reconnect with a token back in after the meeting is over, since it was in the room', async () => {
+		const { room, allowPeer } = makeRoom();
+		const peer = makePeer({ meetingToken: 'GOOD' });
+
+		room.validateMeetingToken = async () => ({ found: true, window: { state: 'over', startsAt: 1000, endsAt: 2000 } });
+		await room.addPeer(peer, true);
+
+		expect(allowPeer).toHaveBeenCalledWith(peer);
+		expect(peer.notify).not.toHaveBeenCalled();
 		expect(room.activeMeetingToken).toBe('GOOD');
 	});
 
@@ -219,20 +245,34 @@ describe('updateRoom() applies the flag live', () => {
 		jest.restoreAllMocks();
 	});
 
-	it('switching off clears the binding so the next joiner needs no token', async () => {
+	it('switching off lets the next joiner in without a token, and back on keeps the meeting of the room', async () => {
 		const { room, allowPeer } = makeRoom();
+		const present = makePeer({ meetingToken: 'GOOD' });
 
-		await room.addPeer(makePeer({ meetingToken: 'GOOD' }));
+		await room.addPeer(present);
+		room.peers.add(present);
 		expect(room.activeMeetingToken).toBe('GOOD');
 
 		updateRoom(room, managed(false));
 
 		expect(room.meetingsOnly).toBe(false);
-		expect(room.activeMeetingToken).toBeUndefined();
 		const late = makePeer();
 
 		await room.addPeer(late);
 		expect(allowPeer).toHaveBeenCalledWith(late);
+
+		updateRoom(room, managed(true));
+		const validate = jest.fn(async () => ({ found: true }));
+
+		room.validateMeetingToken = validate;
+		const other = makePeer({ meetingToken: 'OTHER' });
+		const sameMeeting = makePeer({ meetingToken: 'GOOD' });
+
+		await room.addPeer(other);
+		await room.addPeer(sameMeeting);
+		expect(other.notify).toHaveBeenCalledWith({ method: 'meetingTokenRejected', data: { reason: 'invalid' } });
+		expect(allowPeer).toHaveBeenCalledWith(sameMeeting);
+		expect(validate).not.toHaveBeenCalled();
 	});
 
 	it('switching on leaves present peers alone and gates the next newcomer', async () => {
@@ -262,5 +302,93 @@ describe('updateRoom() applies the flag live', () => {
 		updateRoom(room, managed(true));
 
 		expect(notifyPeers).toHaveBeenCalledWith('roomUpdate', expect.objectContaining({ meetingsOnly: true }));
+	});
+});
+
+describe('meeting activity reported to management', () => {
+	const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+	const withReports = (report: () => Promise<unknown> | undefined = async () => undefined) => {
+		const made = makeRoom();
+		const reportMeetingActivity = jest.fn(report);
+
+		made.room.reportMeetingActivity = reportMeetingActivity;
+
+		return { ...made, reportMeetingActivity };
+	};
+
+	beforeEach(() => {
+		jest.useFakeTimers({ doNotFake: [ 'setImmediate' ] });
+	});
+
+	afterEach(() => {
+		jest.useRealTimers();
+		closeAllPeers();
+		jest.restoreAllMocks();
+	});
+
+	it('reports when the room binds, every five minutes while in use, and once more when it empties', async () => {
+		const { room, reportMeetingActivity } = withReports();
+
+		await room.addPeer(makePeer({ meetingToken: 'GOOD' }));
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(1);
+		expect(reportMeetingActivity).toHaveBeenLastCalledWith('GOOD');
+
+		await room.addPeer(makePeer({ meetingToken: 'GOOD' }));
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(1);
+
+		jest.advanceTimersByTime(MEETING_ACTIVITY_INTERVAL);
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(2);
+		jest.advanceTimersByTime(MEETING_ACTIVITY_INTERVAL);
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(3);
+
+		room.close();
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(4);
+		expect(reportMeetingActivity).toHaveBeenLastCalledWith('GOOD');
+
+		jest.advanceTimersByTime(3 * MEETING_ACTIVITY_INTERVAL);
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(4);
+	});
+
+	it('reports nothing for a refused token, a room that is not meetings only, or a verified bot', async () => {
+		const { room, reportMeetingActivity } = withReports();
+
+		await room.addPeer(makePeer({ meetingToken: 'BAD' }));
+		await room.addPeer(makePeer({ meetingToken: 'GOOD', botVerified: true }));
+		room.meetingsOnly = false;
+		await room.addPeer(makePeer());
+		jest.advanceTimersByTime(2 * MEETING_ACTIVITY_INTERVAL);
+		room.close();
+
+		expect(reportMeetingActivity).not.toHaveBeenCalled();
+	});
+
+	it('keeps reporting while the mode is switched off and on, as the room stays with its meeting', async () => {
+		const { room, reportMeetingActivity } = withReports();
+
+		await room.addPeer(makePeer({ meetingToken: 'GOOD' }));
+		updateRoom(room, managed(false));
+		jest.advanceTimersByTime(MEETING_ACTIVITY_INTERVAL);
+		updateRoom(room, managed(true));
+		jest.advanceTimersByTime(MEETING_ACTIVITY_INTERVAL);
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(3);
+
+		room.close();
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(4);
+		expect(reportMeetingActivity).toHaveBeenLastCalledWith('GOOD');
+	});
+
+	it('keeps admitting when management fails the report or is closed', async () => {
+		for (const report of [ async () => { throw new Error('mgmt down'); }, () => undefined ]) {
+			const { room, allowPeer, reportMeetingActivity } = withReports(report);
+			const peer = makePeer({ meetingToken: 'GOOD' });
+
+			await room.addPeer(peer);
+			jest.advanceTimersByTime(MEETING_ACTIVITY_INTERVAL);
+			room.close();
+			await flush();
+
+			expect(allowPeer).toHaveBeenCalledWith(peer);
+			expect(reportMeetingActivity).toHaveBeenCalledTimes(3);
+		}
 	});
 });

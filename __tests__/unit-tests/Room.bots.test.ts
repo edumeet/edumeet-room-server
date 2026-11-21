@@ -202,7 +202,7 @@ describe('a headless peer and the meeting token', () => {
 
 		room.managedId = '7';
 		room.meetingsOnly = true;
-		room.validateMeetingToken = jest.fn(async () => false);
+		room.validateMeetingToken = jest.fn(async () => ({ found: false }));
 		const allowPeer = jest.spyOn(admission, 'allowPeer').mockImplementation(() => undefined);
 
 		jest.spyOn(admission, 'parkPeer').mockImplementation(() => undefined);

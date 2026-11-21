@@ -517,8 +517,10 @@ export default class ServerManager {
 					room.maxActiveVideos = managedRoom.maxActiveVideos;
 					room.locked = managedRoom.locked;
 					room.meetingsOnly = Boolean(managedRoom.meetingsOnly);
-					if (managementService)
-						room.validateMeetingToken = (meetingToken) => managementService.hasMeetingToken(managedRoom.id, meetingToken);
+					if (managementService) {
+						room.validateMeetingToken = (meetingToken) => managementService.lookupMeetingToken(managedRoom.id, meetingToken);
+						room.reportMeetingActivity = (meetingToken) => managementService.reportMeetingActivity(managedRoom.id, meetingToken);
+					}
 					if (managedRoom.maxFileSize)
 						room.maxFileSize = managedRoom.maxFileSize;
 					// TODO remove after it is part of mgmt service
