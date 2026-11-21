@@ -211,10 +211,9 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 };
 
 export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
-	const meetingsOnly = Boolean(managedRoom.meetingsOnly);
-
-	if (room.meetingsOnly && !meetingsOnly) room.activeMeetingToken = undefined;
-	room.meetingsOnly = meetingsOnly;
+	// The room stays bound to its meeting while the flag is off: switched on again, it still
+	// admits that meeting's latecomers and keeps the meeting's token valid while in use.
+	room.meetingsOnly = Boolean(managedRoom.meetingsOnly);
 	room.locked = managedRoom.locked;
 	room.chatEnabled = managedRoom.chatEnabled;
 	room.filesharingEnabled = managedRoom.filesharingEnabled;

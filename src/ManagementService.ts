@@ -39,6 +39,7 @@ import {
 	updateRoomDefaultRole
 } from './common/authorization';
 import { safePromise } from './common/safePromise';
+import { MeetingTokenLookup, asTokenWindow } from './common/meetingToken';
 
 const config = getConfig();
 const logger = new Logger('ManagementService');
@@ -117,6 +118,7 @@ export default class ManagementService {
 	#rolePermissionsService: FeathersService;
 
 	#meetingsService: FeathersService;
+	#meetingActivityService: FeathersService;
 	#botVerifyService: FeathersService;
 	#botProvidersService: FeathersService;
 
@@ -158,6 +160,7 @@ export default class ManagementService {
 		this.#rolePermissionsService = this.#client.service('rolePermissions');
 
 		this.#meetingsService = this.#client.service('meetings');
+		this.#meetingActivityService = this.#client.service('meeting-activity');
 		this.#botVerifyService = this.#client.service('bot-verify');
 		this.#botProvidersService = this.#client.service('bot-providers');
 
@@ -261,8 +264,8 @@ export default class ManagementService {
 	}
 
 	@skipIfClosed
-	public async hasMeetingToken(roomId: number | string, meetingToken: string): Promise<boolean> {
-		logger.debug('hasMeetingToken() [roomId: %s]', roomId);
+	public async lookupMeetingToken(roomId: number | string, meetingToken: string): Promise<MeetingTokenLookup> {
+		logger.debug('lookupMeetingToken() [roomId: %s]', roomId);
 
 		const [ error ] = await this.ready;
 
@@ -271,8 +274,28 @@ export default class ManagementService {
 		const result = await this.runAuthenticated(
 			() => this.#meetingsService.find({ query: { roomId: Number(roomId), meetingToken, $limit: 1 } })
 		);
+		const meeting = (Array.isArray(result) ? result : result?.data ?? [])[0];
 
-		return Array.isArray(result) ? result.length > 0 : Number(result.total) > 0;
+		if (!meeting) return { found: false };
+
+		return { found: true, window: asTokenWindow(meeting.tokenWindow) };
+	}
+
+	@skipIfClosed
+	public async reportMeetingActivity(roomId: number | string, meetingToken: string): Promise<void> {
+		logger.debug('reportMeetingActivity() [roomId: %s]', roomId);
+
+		const [ error ] = await this.ready;
+
+		if (error) throw error;
+
+		try {
+			await this.runAuthenticated(() => this.#meetingActivityService.create({ roomId: Number(roomId), meetingToken }));
+		} catch (err) {
+			if ((err as { name?: string })?.name !== 'NotFound') throw err;
+
+			logger.debug('reportMeetingActivity() the management server takes no meeting activity');
+		}
 	}
 
 	@skipIfClosed

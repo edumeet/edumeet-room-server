@@ -29,7 +29,7 @@ import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import BotJobs, { MAX_ACTIVE_BOT_JOBS } from './BotJobs';
 import { Permission, ensureUnmanagedModerator, isAllowed, lobbyPermissions, updatePeerPermissions } from './common/authorization';
-import { MeetingTokenRejection, admitMeetingToken } from './common/meetingToken';
+import { MeetingTokenLookup, MeetingTokenRefusal, admitMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 import { Router } from './media/Router';
@@ -38,6 +38,10 @@ import { RtpCapabilities } from 'mediasoup/types';
 const logger = new Logger('Room');
 
 const ROUTER_RETRY_INTERVAL = 10_000;
+
+// The meeting token stays valid for an hour after the last report, so a report every five
+// minutes keeps it valid while the room is in use; the room reports once more when it empties.
+export const MEETING_ACTIVITY_INTERVAL = 5 * 60_000;
 
 interface RouterAssignment {
 	retry?: ReturnType<typeof setTimeout>;
@@ -144,7 +148,10 @@ export default class Room extends EventEmitter {
 	public meetingsOnly = false; // Possibly updated by the management service
 	public activeMeetingToken?: string;
 	// eslint-disable-next-line no-unused-vars
-	public validateMeetingToken?: (token: string) => Promise<boolean>;
+	public validateMeetingToken?: (token: string) => Promise<MeetingTokenLookup>;
+	// eslint-disable-next-line no-unused-vars
+	public reportMeetingActivity?: (token: string) => Promise<unknown> | undefined;
+	#meetingActivityTimer?: ReturnType<typeof setInterval>;
 	public tracker?: string; // Torrent tracker
 	public maxFileSize = 100_000_000; // Torrent tracker
 	public promoteOnHostJoin = false; // Possibly updated by the management service
@@ -303,6 +310,9 @@ export default class Room extends EventEmitter {
 		this.closed = true;
 		this.botJobs.close();
 
+		if (this.activeMeetingToken) this.sendMeetingActivity();
+		this.stopMeetingActivity();
+
 		// Copies: a close that removes its item from the list it is in would skip the next item.
 		[ ...this.pendingPeers.items ].forEach((p) => p.close());
 		[ ...this.peers.items ].forEach((p) => p.close());
@@ -427,9 +437,10 @@ export default class Room extends EventEmitter {
 
 			// A verified bot is the tenant's own infrastructure and needs no invitation.
 			if (!peer.botVerified && (!isReconnect || peer.meetingToken)) {
-				const rejection = await admitMeetingToken(this, peer.meetingToken);
+				const rejection = await admitMeetingToken(this, peer.meetingToken, isReconnect);
 
 				if (this.closed) throw new RoomClosedError('room closed');
+				this.trackMeetingActivity();
 				if (peer.closed) return;
 				if (rejection) return this.rejectMeetingToken(peer, rejection);
 			}
@@ -452,10 +463,35 @@ export default class Room extends EventEmitter {
 		}
 	}
 
-	private rejectMeetingToken(peer: Peer, reason: MeetingTokenRejection): void {
-		logger.info('rejectMeetingToken() [id: %s, peerId: %s, reason: %s]', this.id, peer.id, reason);
+	private trackMeetingActivity(): void {
+		if (!this.activeMeetingToken || this.#meetingActivityTimer) return;
 
-		peer.notify({ method: 'meetingTokenRejected', data: { reason } });
+		this.sendMeetingActivity();
+		this.#meetingActivityTimer = setInterval(() => this.sendMeetingActivity(), MEETING_ACTIVITY_INTERVAL);
+		this.#meetingActivityTimer.unref();
+	}
+
+	private sendMeetingActivity(): void {
+		const token = this.activeMeetingToken;
+
+		if (!token) return;
+
+		// A closed management service answers undefined rather than a promise.
+		Promise.resolve(this.reportMeetingActivity?.(token))
+			.catch((err) => logger.warn({ err }, 'sendMeetingActivity() failed [id: %s]', this.id));
+	}
+
+	private stopMeetingActivity(): void {
+		clearInterval(this.#meetingActivityTimer);
+		this.#meetingActivityTimer = undefined;
+	}
+
+	private rejectMeetingToken(peer: Peer, refusal: MeetingTokenRefusal): void {
+		logger.info('rejectMeetingToken() [id: %s, peerId: %s, reason: %s]', this.id, peer.id, refusal.reason);
+
+		const { reason, startsAt, endsAt } = refusal;
+
+		peer.notify({ method: 'meetingTokenRejected', data: startsAt === undefined ? { reason } : { reason, startsAt, endsAt } });
 		peer.close();
 	}
 
