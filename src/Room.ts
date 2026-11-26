@@ -978,10 +978,10 @@ export default class Room extends EventEmitter {
 		return Array.from(this.breakoutRooms.values());
 	}
 
-	public getPeerByManagedId(managedId: string): Peer | undefined {
-		return this.peers.items.find((p) => p.managedId === managedId) ??
-		this.pendingPeers.items.find((p) => p.managedId === managedId) ??
-		this.lobbyPeers.items.find((p) => p.managedId === managedId);
+	// Every session of a user in this room: one login may be here with several tabs or devices.
+	public getPeersByManagedId(managedId: string): Peer[] {
+		return [ ...this.peers.items, ...this.pendingPeers.items, ...this.lobbyPeers.items ]
+			.filter((p) => p.managedId === managedId);
 	}
 
 	public getPeersByGroupId(groupId: string): Peer[] {

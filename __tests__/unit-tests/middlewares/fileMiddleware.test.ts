@@ -12,6 +12,7 @@ const victimLink = `magnet:?xt=urn:btih:${HEX}&dn=report.pdf`;
 
 const createRoom = () => ({
 	sessionId: 'session',
+	filesharingEnabled: true,
 	fileHistory: [] as FileMessage[],
 	peers: { items: [] as { id: string }[] },
 	notifyPeers: jest.fn(),

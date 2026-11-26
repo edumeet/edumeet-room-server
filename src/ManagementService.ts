@@ -38,6 +38,7 @@ import {
 	removeRoomGroupRole,
 	removeRoomOwner,
 	removeRoomUserRole,
+	removeUser,
 	sameTenant,
 	updateRoom,
 	updateRoomDefaultRole
@@ -860,8 +861,13 @@ export default class ManagementService {
 				const key = String(user.id);
 				const set = this.#managedPeers.get(key);
 
+				this.#managedRooms.forEach((r) => removeUser(r, user));
+
 				if (set) {
-					for (const peer of set) {
+					// A copy: closing a peer takes it out of the set. Not admitted any more,
+					// so its rights are not kept for a reconnect (see ServerManager).
+					for (const peer of [ ...set ]) {
+						peer.admitted = false;
 						peer.close();
 					}
 				}

@@ -12,6 +12,7 @@ afterEach(() => {
 const createRoom = (recipient?: unknown) => ({
 	id: 'id',
 	sessionId: 'id1',
+	chatEnabled: true,
 	chatHistory: [],
 	notifyPeers: jest.fn(),
 	getPeerById: jest.fn(() => recipient)

@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 test('Should throw on peer not authorized', async () => {
-	const room = { id: 'id', chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -32,7 +32,7 @@ test('Should throw on peer not authorized', async () => {
 
 test('Should call next middleware on wrong session', async () => {
 	const spyThisSession = jest.spyOn(checkSessionId, 'thisSession');
-	const room = { id: 'id', sessionId: 'id1', chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, sessionId: 'id1', chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -57,7 +57,7 @@ test('Should call next middleware on wrong session', async () => {
 
 test('Should notify peers on authorized peer sending chat message', async () => {
 	const spyNotify = jest.fn();
-	const room = { id: 'id', notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
 	const chatHistory: ChatMessage[] = [];
 	const options = { room, chatHistory } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
@@ -88,7 +88,7 @@ test('Should notify peers on authorized peer sending chat message', async () => 
 
 test('Should throw on a message that is not a string', async () => {
 	const spyNotify = jest.fn();
-	const room = { id: 'id', notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -107,7 +107,7 @@ test('Should throw on a message that is not a string', async () => {
 });
 
 test('Should throw on an empty message', async () => {
-	const room = { id: 'id', notifyPeers: jest.fn(), chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, notifyPeers: jest.fn(), chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -125,7 +125,7 @@ test('Should throw on an empty message', async () => {
 
 test('Should throw on an over long message', async () => {
 	const spyNotify = jest.fn();
-	const room = { id: 'id', notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, notifyPeers: spyNotify, chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -144,7 +144,7 @@ test('Should throw on an over long message', async () => {
 });
 
 test('Should call next middleware if not chat message', async () => {
-	const room = { id: 'id', chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, chatHistory: [], fileHistory: [] } as unknown as Room;
 	const options = { room } as unknown as MiddlewareOptions;
 	const sut = createChatMiddleware(options);
 
@@ -167,7 +167,7 @@ test('Should call next middleware if not chat message', async () => {
 });
 
 test('Should clean control characters and broken surrogate pairs out of a message, and keep tab and line breaks', async () => {
-	const room = { id: 'id', notifyPeers: jest.fn(), chatHistory: [] as ChatMessage[], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, notifyPeers: jest.fn(), chatHistory: [] as ChatMessage[], fileHistory: [] } as unknown as Room;
 	const sut = createChatMiddleware({ room } as unknown as MiddlewareOptions);
 	const peer = { id: 'p', displayName: 'P', permissions: [], hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const send = (text: string) =>
@@ -194,7 +194,7 @@ test('Should clean control characters and broken surrogate pairs out of a messag
 });
 
 test('A message in the main room goes to the others without being kept for recovery', async () => {
-	const room = { id: 'id', notifyPeers: jest.fn(), notifyPeersOnce: jest.fn(), chatHistory: [], fileHistory: [] } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, notifyPeers: jest.fn(), notifyPeersOnce: jest.fn(), chatHistory: [], fileHistory: [] } as unknown as Room;
 	const sut = createChatMiddleware({ room, inReconnectState: true });
 	const peer = { id: 'p', displayName: 'P', permissions: [], hasPermission: jest.fn(() => true), chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 
@@ -217,7 +217,7 @@ test('A peer may send MAX_CHAT_MESSAGES_PER_MINUTE messages a minute, in rooms a
 	const suspiciousClients = await import('../../../src/common/suspiciousClients');
 	const reported = jest.spyOn(suspiciousClients, 'limitHit').mockImplementation(() => undefined);
 	const recipient = { id: 'q', notify: jest.fn() };
-	const room = { id: 'id', notifyPeers: jest.fn(), chatHistory: [] as ChatMessage[], fileHistory: [], getPeerById: () => recipient } as unknown as Room;
+	const room = { id: 'id', chatEnabled: true, notifyPeers: jest.fn(), chatHistory: [] as ChatMessage[], fileHistory: [], getPeerById: () => recipient } as unknown as Room;
 	const peer = { id: 'p', displayName: 'P', permissions: [], connections: { items: [] }, hasPermission: () => true, chatMessages: new RateLimiter(MAX_CHAT_MESSAGES_PER_MINUTE, 60_000) };
 	const chat = createChatMiddleware({ room });
 	const privately = createPrivateChatMiddleware({ room });

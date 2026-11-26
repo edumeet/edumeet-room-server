@@ -24,6 +24,9 @@ export const createPrivateChatMiddleware = ({ room }: { room: Room; }): Middlewa
 
 		switch (message.method) {
 			case 'privateChatMessage': {
+				if (!room.chatEnabled)
+					throw new Error('chat is disabled');
+
 				if (!peer.hasPermission(Permission.SEND_CHAT))
 					throw new Error('peer not authorized');
 
