@@ -69,7 +69,9 @@ export const AppConfigSchema = z.object({
 			hostname: z.string(),
 			port: z.number().int()
 				.positive(),
-			secret: z.string(),
+			// Never empty: without a secret the room server would connect to a media node that
+			// asks for none, and both would keep working with a media node open to anyone.
+			secret: z.string().min(1, 'the secret of a media node must not be empty (MEDIA_SECRET)'),
 			latitude: z.float64(),
 			longitude: z.float64(),
 			// TURN is optional: without turnHostname/turnports no ICE servers are sent to clients

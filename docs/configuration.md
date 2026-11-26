@@ -6,7 +6,7 @@
 | listenHost | IP address the server will listen on | `"string"` | Example: `"0.0.0.0"`; set explicitly |
 | trustedProxies | Addresses (IP or CIDR) of reverse proxies whose `X-Forwarded-For` is believed. The client address decides a bot credential's `allowedIps` and media node selection, so a client that reaches the room server directly must not be able to choose it | `array` | ``[ "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "::1/128", "fc00::/7", "fe80::/10" ]`` |
 | tls | TLS configuration for the server | `object` | ``{ "cert": "./certs/edumeet-demo-cert.pem", "key": "./certs/edumeet-demo-key.pem"}`` |
-| mediaNodes | Array of media nodes to use | `array` | ``[ { "hostname": "localhost", "port": 3000, "secret": "secret-shared-with-media-node", "latitude": 63.430481, "longitude": 10.394964, "country": "NO" } ]`` |
+| mediaNodes | Array of media nodes to use. Each needs a `secret` that is not empty, the one its media node was started with (`MEDIA_SECRET`); the room server does not start otherwise | `array` | ``[ { "hostname": "localhost", "port": 3000, "secret": "secret-shared-with-media-node", "latitude": 63.430481, "longitude": 10.394964, "country": "NO" } ]`` |
 | countryToRegion | Map media-node country codes to deployment-defined region labels | `object` | not set |
 | defaultAllowedMediaNodeRegions | Fallback region allowlist for tenants without their own restriction | `array` | ``[]`` (no restriction) |
 | managementService | Management service configuration | `object` | ``{	"host": "http://localhost:3030", "jwtPublicKeys": [	"REPLACE_WITH_THE_PUBLIC_KEY_OF_YOUR_MANAGEMENT_SERVER" ] }`` |
