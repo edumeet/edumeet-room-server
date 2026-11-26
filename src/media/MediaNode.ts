@@ -132,6 +132,10 @@ export class MediaNode extends EventEmitter {
 		super();
 		this.setMaxListeners(Infinity);
 
+		// Also checked in the config schema; this covers every other way a node is added.
+		if (typeof secret !== 'string' || secret === '')
+			throw new Error(`media node ${hostname}:${port}: no secret configured (MEDIA_SECRET)`);
+
 		this.tls = MediaNode.loadTls(hostname, port, ca, rejectUnauthorized);
 
 		if (!this.tls.rejectUnauthorized)
