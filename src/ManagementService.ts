@@ -346,7 +346,8 @@ export default class ManagementService {
 			// FALLBACK from Default if not set by room owner
 			room.defaultRoleFromTenant = !room.defaultRole && Boolean(fdata.defaultRole);
 			room.defaultRoleId = room.defaultRoleId || fdata.defaultRoleId || '';
-			room.defaultRole = room.defaultRole || fdata.defaultRole || [];
+			// No role at all is undefined, as everywhere else: an empty list is not a role.
+			room.defaultRole = room.defaultRole || fdata.defaultRole || undefined;
 			room.logo = room.logo || fdata.logo || '';
 			room.background = room.background || fdata.background || '';
 			room.tracker = room.tracker || fdata.tracker || config.defaultRoomSettings?.tracker || '';
@@ -371,7 +372,7 @@ export default class ManagementService {
 				owners: [],
 				groupRoles: [],
 				userRoles: [],
-				defaultRole: fdata.defaultRole || [],
+				defaultRole: fdata.defaultRole || undefined,
 				defaultRoleFromTenant: Boolean(fdata.defaultRole),
 				maxActiveVideos: 12,
 				disableUnmanaged: Boolean(fdata.disableUnmanaged),
