@@ -169,6 +169,9 @@ export default class Room extends EventEmitter {
 
 	public settings: RoomSettings = {};
 
+	// Set once the room has been set up from the management server: from then on managedId
+	// says whether it was opened as a managed room.
+	public initialized = false;
 	public resolveRoomReady!: () => void;
 	// eslint-disable-next-line no-unused-vars
 	public rejectRoomReady!: (error: Error) => void;
@@ -176,6 +179,7 @@ export default class Room extends EventEmitter {
 		this.resolveRoomReady = () => {
 			logger.debug('roomReady() "resolved" [id: %s, took: %d]', this.id, Date.now() - this.creationTimestamp);
 
+			this.initialized = true;
 			resolve();
 		};
 

@@ -210,6 +210,47 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 		peer.notify({ method: 'parkedPeers', data: { lobbyPeers: room.lobbyPeers.items.map((p) => (p.peerInfo)) } });
 };
 
+// An event for a managed room is applied only to a live room of the same tenant.
+export const sameTenant = (room: Room, managedRoom: Pick<ManagedRoom, 'tenantId'>): boolean =>
+	String(room.tenantId) === String(managedRoom.tenantId);
+
+/**
+ * A live room is opened as a managed or an unmanaged room and stays that. When the management
+ * server says something else now, the room is closed and the next connection opens it as
+ * what it is now:
+ * - an unmanaged room whose name a managed room has taken since. Its first participant is
+ *   moderator, and the managed room's lock, owners, roles and meeting tokens do not apply
+ *   to it, so whoever opened the name first would hold the managed room's meetings.
+ * - a managed room that was deleted. It would go on under the id of a room that is gone.
+ *
+ * managedId is the id of the managed room that has the live room's name now, undefined when
+ * there is none. Returns whether the room was closed.
+ */
+export const closeIfReclassified = (room: Room, managedId: string | undefined): boolean => {
+	if (room.closed || room.managedId === managedId) return false;
+
+	logger.debug('closeIfReclassified() closing [id: %s, was: %s, is: %s]', room.id, room.managedId, managedId);
+
+	// As when the last participant ends the meeting; those not in the room yet are disconnected.
+	room.notifyPeers('escapeMeeting', {});
+	room.close();
+
+	return true;
+};
+
+// rooms is ServerManager.rooms, with its keys.
+export const managedRoomCreated = (rooms: Map<string, Room>, managedRoom: Pick<ManagedRoom, 'id' | 'name' | 'tenantId'>): boolean => {
+	const room = rooms.get(`${managedRoom.tenantId}/${managedRoom.name}`);
+
+	return Boolean(room) && closeIfReclassified(room as Room, String(managedRoom.id));
+};
+
+export const managedRoomRemoved = (managedRooms: Map<string, Room>, managedRoom: Pick<ManagedRoom, 'id'>): boolean => {
+	const room = managedRooms.get(String(managedRoom.id));
+
+	return Boolean(room) && closeIfReclassified(room as Room, undefined);
+};
+
 export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
 	// The room stays bound to its meeting while the flag is off: switched on again, it still
 	// admits that meeting's latecomers and keeps the meeting's token valid while in use.
