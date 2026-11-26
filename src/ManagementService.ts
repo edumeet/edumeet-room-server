@@ -280,7 +280,8 @@ export default class ManagementService {
 		);
 		const meeting = (Array.isArray(result) ? result : result?.data ?? [])[0];
 
-		if (!meeting) return { found: false };
+		// A cancelled meeting admits nobody, like one that does not exist.
+		if (!meeting || meeting.status === 'CANCELLED') return { found: false };
 
 		return { found: true, window: asTokenWindow(meeting.tokenWindow) };
 	}
@@ -671,6 +672,7 @@ export default class ManagementService {
 		this.registerRoomOwnersServiceListeners();
 		this.registerRoomUserRolesServiceListeners();
 		this.registerRoomGroupRolesServiceListeners();
+		this.registerMeetingsServiceListeners();
 
 		// User related services
 		this.registerUsersServiceListeners();
@@ -705,6 +707,29 @@ export default class ManagementService {
 
 				updateRoom(room, managedRoom);
 				void updateRoomDefaultRole(room, managedRoom, (tenantId) => this.getTenantDefaultRole(tenantId));
+			});
+	}
+
+	// A room bound to a meeting compares tokens in memory, so it has to be told when that
+	// meeting is deleted or cancelled.
+	@skipIfClosed
+	private registerMeetingsServiceListeners(): void {
+		const release = (meeting: { id?: number; roomId?: number | string; meetingToken?: string }) => {
+			this.#managedRooms.get(String(meeting.roomId))?.releaseMeeting(meeting.meetingToken);
+		};
+
+		this.#meetingsService
+			.on('removed', (meeting: { id?: number; roomId?: number | string; meetingToken?: string }) => {
+				logger.debug('meetingsService "removed" event [meetingId: %s]', meeting.id);
+
+				release(meeting);
+			})
+			.on('patched', (meeting: { id?: number; roomId?: number | string; meetingToken?: string; status?: string }) => {
+				if (meeting.status !== 'CANCELLED') return;
+
+				logger.debug('meetingsService "patched" event, cancelled [meetingId: %s]', meeting.id);
+
+				release(meeting);
 			});
 	}
 

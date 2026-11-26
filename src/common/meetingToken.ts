@@ -51,8 +51,22 @@ export const normalizeMeetingToken = (raw: unknown): string | undefined => {
 const compareWithActive = (room: MeetingTokenGate, token: string): MeetingTokenRefusal | undefined =>
 	(room.activeMeetingToken === token ? undefined : { reason: 'invalid' });
 
-// A reconnecting peer was in this room before: its meeting binds the room whatever the time,
-// so nobody is sent out of a meeting that is still going on.
+// The meeting a room is bound to was deleted or cancelled: the room lets go of its token.
+// Whoever is in the room stays. The next token is looked up again, so the old link admits
+// nobody any more and the link of a meeting made in its place works. Returns whether the
+// room was bound to that token.
+export const releaseMeetingToken = (room: MeetingTokenGate, token: unknown): boolean => {
+	const released = normalizeMeetingToken(token);
+
+	if (!released || room.activeMeetingToken !== released) return false;
+
+	room.activeMeetingToken = undefined;
+
+	return true;
+};
+
+// A reconnecting peer was in this room before: it is let back in whatever the time of its
+// meeting, so nobody is sent out of a meeting that is still going on.
 export const admitMeetingToken = async (room: MeetingTokenGate, token?: string, reconnect = false): Promise<MeetingTokenRefusal | undefined> => {
 	if (!room.meetingsOnly) return;
 	if (!token) return { reason: 'required' };
@@ -67,7 +81,13 @@ export const admitMeetingToken = async (room: MeetingTokenGate, token?: string, 
 
 	const window = lookup.window;
 
-	if (window && window.state !== 'open' && !reconnect) return { reason: window.state, startsAt: window.startsAt, endsAt: window.endsAt };
+	if (window && window.state !== 'open') {
+		// Let back in, but the room is not bound: the token is the client's choice, and a room
+		// bound to a meeting outside its time refuses the invitees of the meeting that is on.
+		if (reconnect) return;
+
+		return { reason: window.state, startsAt: window.startsAt, endsAt: window.endsAt };
+	}
 
 	room.activeMeetingToken = token;
 };
