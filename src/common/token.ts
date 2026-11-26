@@ -14,7 +14,10 @@ const config = getConfig();
 // Never the key pair published with eduMeet (see publishedKeys.ts).
 const signingKeys = usableSigningKeys(config.managementService?.jwtPublicKeys);
 
-export const verifyPeer = (token?: string): string | undefined => {
+// tenantId: the tenant of the address the token is used at. The management server names the
+// user's tenant in the token (null for a user without one, a super admin). A token of another
+// tenant, or one without the claim (issued before tokens named their tenant), counts as none.
+export const verifyPeer = (token: string | undefined, tenantId: number): string | undefined => {
 	logger.debug('verifyPeer()');
 
 	if (!token) {
@@ -36,6 +39,12 @@ export const verifyPeer = (token?: string): string | undefined => {
 
 			if (typeof sub !== 'string' || sub.length === 0) {
 				logger.debug({ sub }, 'verifyPeer() - invalid sub');
+
+				return undefined;
+			}
+
+			if (payload.tenantId !== null && String(payload.tenantId) !== String(tenantId)) {
+				logger.debug({ sub, tokenTenantId: payload.tenantId, tenantId }, 'verifyPeer() - token of another tenant or without one');
 
 				return undefined;
 			}

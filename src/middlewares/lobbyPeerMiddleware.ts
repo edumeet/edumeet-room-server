@@ -60,7 +60,7 @@ export const createLobbyPeerMiddleware = ({ room }: { room: Room; }): Middleware
 
 			case 'updateToken': {
 				const { token } = message.data;
-				const managedId = token ? verifyPeer(token) : undefined;
+				const managedId = token ? verifyPeer(token, room.tenantId) : undefined;
 
 				peer.setManagedId(managedId);
 
