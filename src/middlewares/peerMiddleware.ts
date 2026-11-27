@@ -138,7 +138,7 @@ export const createPeerMiddleware = ({ room }: { room: Room; }): Middleware<Peer
 
 			case 'updateToken': {
 				const { token } = message.data;
-				const managedId = token ? verifyPeer(token) : undefined;
+				const managedId = token ? verifyPeer(token, room.tenantId) : undefined;
 
 				peer.setManagedId(managedId);
 

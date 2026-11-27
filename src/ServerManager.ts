@@ -128,7 +128,7 @@ export default class ServerManager {
 			'handleConnection() tenantId'
 		);
 
-		const managedId = token ? verifyPeer(token) : undefined;
+		const managedId = token ? verifyPeer(token, tenantId) : undefined;
 
 		logger.debug(
 			{ peerManagedId: managedId },
