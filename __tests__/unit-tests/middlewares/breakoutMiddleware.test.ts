@@ -58,6 +58,26 @@ afterEach(() => {
 	for (const peer of created.splice(0)) if (!peer.closed) peer.close();
 });
 
+describe('breakout rooms switched off during the meeting', () => {
+	test('none can be created, joined or filled, but people can be brought back and the room removed', async () => {
+		const { room, moderator, human, breakout } = setup();
+		const inMain = makePeer(room, { permissions: [ Permission.CHANGE_ROOM ] });
+
+		room.joinPeer(inMain);
+		room.breakoutsEnabled = false;
+
+		await expect(request(room, moderator, 'createBreakoutRoom', { name: 'c' })).rejects.toThrow('breakout rooms are disabled');
+		await expect(request(room, inMain, 'joinBreakoutRoom', { roomSessionId: breakout.sessionId })).rejects.toThrow('breakout rooms are disabled');
+		await expect(request(room, moderator, 'moveToBreakoutRoom', { roomSessionId: breakout.sessionId, roomPeerId: inMain.id })).rejects.toThrow('breakout rooms are disabled');
+
+		await request(room, moderator, 'moveToBreakoutRoom', { roomSessionId: room.sessionId, roomPeerId: human.id });
+		expect(human.sessionId).toBe(room.sessionId);
+
+		await request(room, moderator, 'removeBreakoutRoom', { roomSessionId: breakout.sessionId });
+		expect(room.breakoutRooms.size).toBe(0);
+	});
+});
+
 describe('closing a breakout room', () => {
 	test('moves the participants back and ends the bots', async () => {
 		const { room, moderator, human, bot, breakout } = setup();

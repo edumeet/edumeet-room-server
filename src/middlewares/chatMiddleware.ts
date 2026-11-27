@@ -1,5 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { Permission } from '../common/authorization';
+import { Permission, mainRoom } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { ChatMessage } from '../common/types';
 import { chatText } from '../common/textValidation';
@@ -32,6 +32,10 @@ export const createChatMiddleware = (
 		
 		switch (message.method) {
 			case 'chatMessage': {
+				// Checked with every message: chat may be switched off after the peer joined.
+				if (!mainRoom(room).chatEnabled)
+					throw new Error('chat is disabled');
+
 				if (!peer.hasPermission(Permission.SEND_CHAT))
 					throw new Error('peer not authorized');
 

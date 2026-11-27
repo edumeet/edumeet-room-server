@@ -31,6 +31,11 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 		
 		switch (message.method) {
 			case 'createBreakoutRoom': {
+				// Checked with every request: breakout rooms may be switched off after the
+				// peer joined. Leaving, emptying and removing one still work then.
+				if (!room.breakoutsEnabled)
+					throw new Error('breakout rooms are disabled');
+
 				if (!peer.hasPermission(Permission.CREATE_ROOM))
 					throw new Error('peer not authorized');
 
@@ -92,6 +97,9 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 			}
 
 			case 'joinBreakoutRoom': {
+				if (!room.breakoutsEnabled)
+					throw new Error('breakout rooms are disabled');
+
 				if (!peer.hasPermission(Permission.CHANGE_ROOM))
 					throw new Error('peer not authorized');
 
@@ -168,6 +176,9 @@ export const createBreakoutMiddleware = ({ room }: { room: Room; }): Middleware<
 				}
 
 				// Move to breakout room
+				if (!room.breakoutsEnabled)
+					throw new Error('breakout rooms are disabled');
+
 				const roomToBeMovedTo = room.breakoutRooms.get(roomSessionId);
 
 				if (!roomToBeMovedTo)

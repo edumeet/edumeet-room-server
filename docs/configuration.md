@@ -223,6 +223,13 @@ Every participant gets the permissions of this role. In an unmanaged room, every
 
 When the last participant holding `MODERATE_ROOM` leaves an unmanaged room, the participant who has been in the room longest becomes moderator the same way as the first one, so the room always has one. Everyone is told who the new moderator is.
 
+A room that is open stays what it was opened as, managed or unmanaged. The room server therefore ends a meeting when that changes in the management server:
+
+- A managed room is created under the name of an open unmanaged room. Otherwise whoever opened the name first would stay moderator, and the managed room's lock, owners, roles and meeting tokens would not apply.
+- A managed room is deleted while its meeting is running.
+
+The participants see that the meeting has ended. Whoever connects next opens the room as what it is now. After the room server has lost its connection to the management server, it compares every open room with the management server once, because changes made meanwhile are not sent again.
+
 | Field | Type | Description |
 |------|------|-------------|
 | `name` | `string` | Human-readable role name |

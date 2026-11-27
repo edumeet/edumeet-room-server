@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe('3.17 picture', () => {
-	const room = () => ({ sessionId: 's', notifyPeers: jest.fn(), notifyPeersWithPermission: jest.fn() }) as unknown as Room;
+	const room = () => ({ sessionId: 's', chatEnabled: true, notifyPeers: jest.fn(), notifyPeersWithPermission: jest.fn() }) as unknown as Room;
 
 	test.each(NOT_STRINGS)('changePicture with %p is refused in the room and in the lobby, and nobody is told', async (picture) => {
 		for (const create of [ createPeerMiddleware, createLobbyPeerMiddleware ]) {
@@ -103,7 +103,7 @@ describe('3.17 picture', () => {
 });
 
 describe('3.22 shared file link', () => {
-	const room = () => ({ sessionId: 's', fileHistory: [] as FileMessage[], notifyPeers: jest.fn() });
+	const room = () => ({ sessionId: 's', filesharingEnabled: true, fileHistory: [] as FileMessage[], notifyPeers: jest.fn() });
 
 	test.each([ ...NOT_STRINGS, undefined, '', 'https://example.org/file', 'magnet:?dn=no-hash', `${MAGNET}&x=${'a'.repeat(MAX_MAGNET_URI_LENGTH)}` ])(
 		'sendFile with %p is refused, not stored and not announced',

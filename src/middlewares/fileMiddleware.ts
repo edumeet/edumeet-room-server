@@ -1,5 +1,5 @@
 import { Logger, Middleware } from 'edumeet-common';
-import { Permission } from '../common/authorization';
+import { Permission, mainRoom } from '../common/authorization';
 import { thisSession } from '../common/checkSessionId';
 import { FileMessage } from '../common/types';
 import { isValidMagnetUri, magnetInfoHashes } from '../common/textValidation';
@@ -41,6 +41,10 @@ export const createFileMiddleware = ({ room }: { room: Room | BreakoutRoom; }): 
 		
 		switch (message.method) {
 			case 'sendFile': {
+				// Checked with every file: sharing may be switched off after the peer joined.
+				if (!mainRoom(room).filesharingEnabled)
+					throw new Error('file sharing is disabled');
+
 				if (!peer.hasPermission(Permission.SHARE_FILE))
 					throw new Error('peer not authorized');
 

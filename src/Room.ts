@@ -29,7 +29,7 @@ import { countryToRegions } from './common/regions';
 import BreakoutRoom from './BreakoutRoom';
 import BotJobs, { MAX_ACTIVE_BOT_JOBS } from './BotJobs';
 import { Permission, ensureUnmanagedModerator, isAllowed, lobbyPermissions, updatePeerPermissions } from './common/authorization';
-import { MeetingTokenLookup, MeetingTokenRefusal, admitMeetingToken } from './common/meetingToken';
+import { MeetingTokenLookup, MeetingTokenRefusal, admitMeetingToken, releaseMeetingToken } from './common/meetingToken';
 import { safePromise } from './common/safePromise';
 import { IceServer, getCredentials, getIceServers } from './common/turnCredentials';
 import { Router } from './media/Router';
@@ -169,6 +169,9 @@ export default class Room extends EventEmitter {
 
 	public settings: RoomSettings = {};
 
+	// Set once the room has been set up from the management server: from then on managedId
+	// says whether it was opened as a managed room.
+	public initialized = false;
 	public resolveRoomReady!: () => void;
 	// eslint-disable-next-line no-unused-vars
 	public rejectRoomReady!: (error: Error) => void;
@@ -176,6 +179,7 @@ export default class Room extends EventEmitter {
 		this.resolveRoomReady = () => {
 			logger.debug('roomReady() "resolved" [id: %s, took: %d]', this.id, Date.now() - this.creationTimestamp);
 
+			this.initialized = true;
 			resolve();
 		};
 
@@ -479,6 +483,16 @@ export default class Room extends EventEmitter {
 		// A closed management service answers undefined rather than a promise.
 		Promise.resolve(this.reportMeetingActivity?.(token))
 			.catch((err) => logger.warn({ err }, 'sendMeetingActivity() failed [id: %s]', this.id));
+	}
+
+	// The meeting this room is bound to was deleted or cancelled; see releaseMeetingToken.
+	public releaseMeeting(meetingToken: unknown): boolean {
+		if (!releaseMeetingToken(this, meetingToken)) return false;
+
+		logger.debug('releaseMeeting() [id: %s]', this.id);
+		this.stopMeetingActivity();
+
+		return true;
 	}
 
 	private stopMeetingActivity(): void {
@@ -964,10 +978,10 @@ export default class Room extends EventEmitter {
 		return Array.from(this.breakoutRooms.values());
 	}
 
-	public getPeerByManagedId(managedId: string): Peer | undefined {
-		return this.peers.items.find((p) => p.managedId === managedId) ??
-		this.pendingPeers.items.find((p) => p.managedId === managedId) ??
-		this.lobbyPeers.items.find((p) => p.managedId === managedId);
+	// Every session of a user in this room: one login may be here with several tabs or devices.
+	public getPeersByManagedId(managedId: string): Peer[] {
+		return [ ...this.peers.items, ...this.pendingPeers.items, ...this.lobbyPeers.items ]
+			.filter((p) => p.managedId === managedId);
 	}
 
 	public getPeersByGroupId(groupId: string): Peer[] {

@@ -28,6 +28,9 @@ import {
 	addRoomUserRole,
 	applyTenantDefaultRole,
 	changeDefaultRolePermission,
+	closeIfReclassified,
+	managedRoomCreated,
+	managedRoomRemoved,
 	removeGroup,
 	removeGroupUser,
 	removeRole,
@@ -35,6 +38,8 @@ import {
 	removeRoomGroupRole,
 	removeRoomOwner,
 	removeRoomUserRole,
+	removeUser,
+	sameTenant,
 	updateRoom,
 	updateRoomDefaultRole
 } from './common/authorization';
@@ -276,7 +281,8 @@ export default class ManagementService {
 		);
 		const meeting = (Array.isArray(result) ? result : result?.data ?? [])[0];
 
-		if (!meeting) return { found: false };
+		// A cancelled meeting admits nobody, like one that does not exist.
+		if (!meeting || meeting.status === 'CANCELLED') return { found: false };
 
 		return { found: true, window: asTokenWindow(meeting.tokenWindow) };
 	}
@@ -467,7 +473,9 @@ export default class ManagementService {
 
 		this.#socket.on('connect', () => {
 			logger.debug('Socket connected -> ensureAuthenticated()');
+			// The first connect has no rooms to compare; every later one is a reconnect.
 			this.ensureAuthenticated()
+				.then(() => this.reconcileRooms())
 				.catch((err) => logger.warn({ err }, 'ensureAuthenticated failed on connect.'));
 		});
 
@@ -666,6 +674,7 @@ export default class ManagementService {
 		this.registerRoomOwnersServiceListeners();
 		this.registerRoomUserRolesServiceListeners();
 		this.registerRoomGroupRolesServiceListeners();
+		this.registerMeetingsServiceListeners();
 
 		// User related services
 		this.registerUsersServiceListeners();
@@ -681,16 +690,82 @@ export default class ManagementService {
 	@skipIfClosed
 	private registerRoomsServiceListeners(): void {
 		this.#roomsService
+			.on('created', (managedRoom: ManagedRoom) => {
+				logger.debug('roomsService "created" event [roomId: %s]', managedRoom.id);
+
+				if (this.#rooms) managedRoomCreated(this.#rooms, managedRoom);
+			})
+			.on('removed', (managedRoom: ManagedRoom) => {
+				logger.debug('roomsService "removed" event [roomId: %s]', managedRoom.id);
+
+				managedRoomRemoved(this.#managedRooms, managedRoom);
+			})
 			.on('patched', (managedRoom: ManagedRoom) => {
 				logger.debug('roomsService "patched" event [roomId: %s]', managedRoom.id);
 
 				const room = this.#managedRooms.get(String(managedRoom.id));
 
-				if (!room) return;
+				if (!room || !sameTenant(room, managedRoom)) return;
 
 				updateRoom(room, managedRoom);
 				void updateRoomDefaultRole(room, managedRoom, (tenantId) => this.getTenantDefaultRole(tenantId));
 			});
+	}
+
+	// A room bound to a meeting compares tokens in memory, so it has to be told when that
+	// meeting is deleted or cancelled.
+	@skipIfClosed
+	private registerMeetingsServiceListeners(): void {
+		const release = (meeting: { id?: number; roomId?: number | string; meetingToken?: string }) => {
+			this.#managedRooms.get(String(meeting.roomId))?.releaseMeeting(meeting.meetingToken);
+		};
+
+		this.#meetingsService
+			.on('removed', (meeting: { id?: number; roomId?: number | string; meetingToken?: string }) => {
+				logger.debug('meetingsService "removed" event [meetingId: %s]', meeting.id);
+
+				release(meeting);
+			})
+			.on('patched', (meeting: { id?: number; roomId?: number | string; meetingToken?: string; status?: string }) => {
+				if (meeting.status !== 'CANCELLED') return;
+
+				logger.debug('meetingsService "patched" event, cancelled [meetingId: %s]', meeting.id);
+
+				release(meeting);
+			});
+	}
+
+	// Events sent while this server was not connected to the management server are not sent
+	// again, so a room created or deleted meanwhile would go unnoticed. After a reconnect
+	// every live room is compared with the management server once, one after the other.
+	#reconciling = false;
+
+	private async reconcileRooms(): Promise<void> {
+		if (this.#reconciling) return;
+
+		this.#reconciling = true;
+
+		try {
+			for (const room of this.allRooms) {
+				if (this.closed) return;
+				// A room that is still being set up reads the management server itself.
+				if (room.closed || !room.initialized || !(room.tenantId > 0)) continue;
+
+				try {
+					const { total, data } = await this.runAuthenticated(
+						() => this.#roomsService.find({ query: { name: room.id, tenantId: room.tenantId } })
+					);
+
+					if (closeIfReclassified(room, total === 1 ? String(data[0].id) : undefined))
+						logger.warn('reconcileRooms() closed a room that changed while disconnected [roomId: %s, tenantId: %s]', room.id, room.tenantId);
+				} catch (err) {
+					// No answer is no reason to close a meeting.
+					logger.warn({ err }, 'reconcileRooms() could not check a room [roomId: %s]', room.id);
+				}
+			}
+		} finally {
+			this.#reconciling = false;
+		}
 	}
 
 	// Every room of this server, managed or not.
@@ -787,8 +862,13 @@ export default class ManagementService {
 				const key = String(user.id);
 				const set = this.#managedPeers.get(key);
 
+				this.#managedRooms.forEach((r) => removeUser(r, user));
+
 				if (set) {
-					for (const peer of set) {
+					// A copy: closing a peer takes it out of the set. Not admitted any more,
+					// so its rights are not kept for a reconnect (see ServerManager).
+					for (const peer of [ ...set ]) {
+						peer.admitted = false;
 						peer.close();
 					}
 				}

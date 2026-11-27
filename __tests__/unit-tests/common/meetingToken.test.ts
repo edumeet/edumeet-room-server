@@ -1,5 +1,5 @@
 import 'jest';
-import { admitMeetingToken, asTokenWindow, normalizeMeetingToken, MeetingTokenGate, MeetingTokenLookup } from '../../../src/common/meetingToken';
+import { admitMeetingToken, asTokenWindow, normalizeMeetingToken, releaseMeetingToken, MeetingTokenGate, MeetingTokenLookup } from '../../../src/common/meetingToken';
 
 const gate = (over: Partial<MeetingTokenGate> = {}): MeetingTokenGate => ({
 	meetingsOnly: true,
@@ -109,8 +109,28 @@ describe('admitMeetingToken()', () => {
 		expect(room.activeMeetingToken).toBeUndefined();
 	});
 
-	it('binds the room for a reconnect whatever the time, since the peer was in the room before', async () => {
-		const room = gate({ validateMeetingToken: async () => ({ found: true, window: { state: 'over', startsAt: 1000, endsAt: 2000 } }) });
+	it.each([ 'over', 'early' ] as const)('lets a reconnect back in when its meeting is %s, since the peer was in the room before, but does not bind the room', async (state) => {
+		const room = gate({ validateMeetingToken: async () => ({ found: true, window: { state, startsAt: 1000, endsAt: 2000 } }) });
+
+		await expect(admitMeetingToken(room, 'STALE', true)).resolves.toBeUndefined();
+		expect(room.activeMeetingToken).toBeUndefined();
+	});
+
+	it('so the invitees of the meeting that is on are not refused after such a reconnect', async () => {
+		const windows: Record<string, MeetingTokenLookup> = {
+			STALE: { found: true, window: { state: 'over', startsAt: 1000, endsAt: 2000 } },
+			NOW: { found: true, window: { state: 'open', startsAt: 5000, endsAt: 6000 } },
+		};
+		const room = gate({ validateMeetingToken: async (token: string) => windows[token] ?? { found: false } });
+
+		await admitMeetingToken(room, 'STALE', true);
+		await expect(admitMeetingToken(room, 'NOW')).resolves.toBeUndefined();
+		expect(room.activeMeetingToken).toBe('NOW');
+		await expect(admitMeetingToken(room, 'STALE')).resolves.toEqual({ reason: 'invalid' });
+	});
+
+	it('binds the room for a reconnect when the meeting is open', async () => {
+		const room = gate({ validateMeetingToken: async () => ({ found: true, window: { state: 'open', startsAt: 1000, endsAt: 2000 } }) });
 
 		await expect(admitMeetingToken(room, 'GOOD', true)).resolves.toBeUndefined();
 		expect(room.activeMeetingToken).toBe('GOOD');
@@ -152,6 +172,51 @@ describe('admitMeetingToken()', () => {
 
 		await expect(admitMeetingToken(room, 'WHATEVER')).resolves.toBeUndefined();
 		expect(room.activeMeetingToken).toBeUndefined();
+	});
+});
+
+describe('releaseMeetingToken()', () => {
+	it('lets go of the token the room is bound to, so the next one is looked up again', async () => {
+		const valid = new Set([ 'OLD' ]);
+		const room = gate({ validateMeetingToken: jest.fn(async (token: string) => ({ found: valid.has(token) })) });
+
+		await admitMeetingToken(room, 'OLD');
+		expect(room.activeMeetingToken).toBe('OLD');
+
+		// The organizer deletes the meeting and makes a new one.
+		valid.delete('OLD');
+		valid.add('NEW');
+		expect(releaseMeetingToken(room, 'OLD')).toBe(true);
+		expect(room.activeMeetingToken).toBeUndefined();
+
+		await expect(admitMeetingToken(room, 'OLD')).resolves.toEqual({ reason: 'invalid' });
+		await expect(admitMeetingToken(room, 'NEW')).resolves.toBeUndefined();
+		expect(room.activeMeetingToken).toBe('NEW');
+	});
+
+	it('before it, the deleted meeting keeps admitting and its replacement is refused', async () => {
+		const valid = new Set([ 'OLD' ]);
+		const room = gate({ validateMeetingToken: jest.fn(async (token: string) => ({ found: valid.has(token) })) });
+
+		await admitMeetingToken(room, 'OLD');
+		valid.delete('OLD');
+		valid.add('NEW');
+
+		await expect(admitMeetingToken(room, 'OLD')).resolves.toBeUndefined();
+		await expect(admitMeetingToken(room, 'NEW')).resolves.toEqual({ reason: 'invalid' });
+	});
+
+	it('leaves a room bound to another meeting alone', async () => {
+		const room = gate({ activeMeetingToken: 'OTHER' });
+
+		expect(releaseMeetingToken(room, 'OLD')).toBe(false);
+		expect(room.activeMeetingToken).toBe('OTHER');
+	});
+
+	it('compares the token as the gate does, and ignores an event without one', () => {
+		expect(releaseMeetingToken(gate({ activeMeetingToken: 'OLD' }), ' old ')).toBe(true);
+		expect(releaseMeetingToken(gate({ activeMeetingToken: 'OLD' }), undefined)).toBe(false);
+		expect(releaseMeetingToken(gate(), undefined)).toBe(false);
 	});
 });
 

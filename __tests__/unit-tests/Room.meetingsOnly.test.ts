@@ -176,7 +176,8 @@ describe('Room.addPeer() in meetings-only mode', () => {
 
 		expect(allowPeer).toHaveBeenCalledWith(peer);
 		expect(peer.notify).not.toHaveBeenCalled();
-		expect(room.activeMeetingToken).toBe('GOOD');
+		// Let back in, but the room is not bound to a meeting outside its time.
+		expect(room.activeMeetingToken).toBeUndefined();
 	});
 
 	it('refuses a reconnect whose token belongs to another meeting than the room is bound to', async () => {
@@ -324,6 +325,30 @@ describe('meeting activity reported to management', () => {
 		jest.useRealTimers();
 		closeAllPeers();
 		jest.restoreAllMocks();
+	});
+
+	it('stops when the meeting is deleted, and starts again for the meeting that binds the room next', async () => {
+		const { room, reportMeetingActivity } = withReports();
+		const valid = new Set([ 'GOOD' ]);
+
+		room.validateMeetingToken = jest.fn(async (token: string) => ({ found: valid.has(token) }));
+
+		const staying = makePeer({ meetingToken: 'GOOD' });
+
+		await room.addPeer(staying);
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(1);
+
+		valid.delete('GOOD');
+		valid.add('NEXT');
+		expect(room.releaseMeeting('GOOD')).toBe(true);
+		expect(staying.closed).toBe(false);
+
+		jest.advanceTimersByTime(MEETING_ACTIVITY_INTERVAL);
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(1);
+
+		await room.addPeer(makePeer({ meetingToken: 'NEXT' }));
+		expect(reportMeetingActivity).toHaveBeenCalledTimes(2);
+		expect(reportMeetingActivity).toHaveBeenLastCalledWith('NEXT');
 	});
 
 	it('reports when the room binds, every five minutes while in use, and once more when it empties', async () => {

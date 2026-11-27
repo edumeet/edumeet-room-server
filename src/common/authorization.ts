@@ -44,6 +44,9 @@ export enum Permission {
 
 export const allPermissions = Object.values(Permission);
 
+// The room whose settings apply: a breakout room has those of the room it belongs to.
+export const mainRoom = (room: Room | { parent: Room }): Room => ('parent' in room ? room.parent : room);
+
 export const isAllowed = (room: Room, peer: Peer) => {
 	if (room.locked && !peer.hasPermission(Permission.BYPASS_ROOM_LOCK))
 		return false;
@@ -210,6 +213,47 @@ export const updatePeerPermissions = (room: Room, peer: Peer, inLobby = false, i
 		peer.notify({ method: 'parkedPeers', data: { lobbyPeers: room.lobbyPeers.items.map((p) => (p.peerInfo)) } });
 };
 
+// An event for a managed room is applied only to a live room of the same tenant.
+export const sameTenant = (room: Room, managedRoom: Pick<ManagedRoom, 'tenantId'>): boolean =>
+	String(room.tenantId) === String(managedRoom.tenantId);
+
+/**
+ * A live room is opened as a managed or an unmanaged room and stays that. When the management
+ * server says something else now, the room is closed and the next connection opens it as
+ * what it is now:
+ * - an unmanaged room whose name a managed room has taken since. Its first participant is
+ *   moderator, and the managed room's lock, owners, roles and meeting tokens do not apply
+ *   to it, so whoever opened the name first would hold the managed room's meetings.
+ * - a managed room that was deleted. It would go on under the id of a room that is gone.
+ *
+ * managedId is the id of the managed room that has the live room's name now, undefined when
+ * there is none. Returns whether the room was closed.
+ */
+export const closeIfReclassified = (room: Room, managedId: string | undefined): boolean => {
+	if (room.closed || room.managedId === managedId) return false;
+
+	logger.debug('closeIfReclassified() closing [id: %s, was: %s, is: %s]', room.id, room.managedId, managedId);
+
+	// As when the last participant ends the meeting; those not in the room yet are disconnected.
+	room.notifyPeers('escapeMeeting', {});
+	room.close();
+
+	return true;
+};
+
+// rooms is ServerManager.rooms, with its keys.
+export const managedRoomCreated = (rooms: Map<string, Room>, managedRoom: Pick<ManagedRoom, 'id' | 'name' | 'tenantId'>): boolean => {
+	const room = rooms.get(`${managedRoom.tenantId}/${managedRoom.name}`);
+
+	return Boolean(room) && closeIfReclassified(room as Room, String(managedRoom.id));
+};
+
+export const managedRoomRemoved = (managedRooms: Map<string, Room>, managedRoom: Pick<ManagedRoom, 'id'>): boolean => {
+	const room = managedRooms.get(String(managedRoom.id));
+
+	return Boolean(room) && closeIfReclassified(room as Room, undefined);
+};
+
 export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
 	// The room stays bound to its meeting while the flag is off: switched on again, it still
 	// admits that meeting's latecomers and keeps the meeting's token valid while in use.
@@ -276,10 +320,8 @@ export const updateRoom = (room: Room, managedRoom: ManagedRoom): void => {
 export const addRoomOwner = (room: Room, roomOwner: ManagedRoomOwner): void => {
 	room.owners.push(roomOwner);
 
-	// Check if the peer is already in the room, if so, notify it
-	const peer = room.getPeerByManagedId(roomOwner.userId);
-
-	if (peer) updatePeerPermissions(room, peer);
+	// Every session of the user in the room is recomputed.
+	room.getPeersByManagedId(roomOwner.userId).forEach((peer) => updatePeerPermissions(room, peer));
 };
 
 export const removeRoomOwner = (room: Room, roomOwner: ManagedRoomOwner): void => {
@@ -287,19 +329,15 @@ export const removeRoomOwner = (room: Room, roomOwner: ManagedRoomOwner): void =
 
 	room.owners = room.owners.filter((o) => o.id !== roomOwner.id);
 
-	// Check if the peer is already in the room, if so, notify it
-	const peer = room.getPeerByManagedId(roomOwner.userId);
-
-	if (peer) updatePeerPermissions(room, peer);
+	// Every session of the user in the room is recomputed.
+	room.getPeersByManagedId(roomOwner.userId).forEach((peer) => updatePeerPermissions(room, peer));
 };
 
 export const addRoomUserRole = (room: Room, roomUserRole: ManagedUserRole): void => {
 	room.userRoles.push(roomUserRole);
 
-	// Check if the peer is already in the room, if so, notify it
-	const peer = room.getPeerByManagedId(roomUserRole.userId);
-
-	if (peer) updatePeerPermissions(room, peer);
+	// Every session of the user in the room is recomputed.
+	room.getPeersByManagedId(roomUserRole.userId).forEach((peer) => updatePeerPermissions(room, peer));
 };
 
 export const removeRoomUserRole = (room: Room, roomUserRole: ManagedUserRole): void => {
@@ -307,10 +345,8 @@ export const removeRoomUserRole = (room: Room, roomUserRole: ManagedUserRole): v
 
 	room.userRoles = room.userRoles.filter((ur) => ur.id !== roomUserRole.id);
 
-	// Check if the peer is already in the room, if so, notify it
-	const peer = room.getPeerByManagedId(roomUserRole.userId);
-
-	if (peer) updatePeerPermissions(room, peer);
+	// Every session of the user in the room is recomputed.
+	room.getPeersByManagedId(roomUserRole.userId).forEach((peer) => updatePeerPermissions(room, peer));
 };
 
 export const addRoomGroupRole = (room: Room, roomGroupRole: ManagedGroupRole): void => {
@@ -349,33 +385,42 @@ export const removeGroup = (room: Room, group: ManagedGroup): void => {
 };
 
 export const addGroupUser = (room: Room, groupUser: ManagedGroupUser): void => {
-	// Check if the peer is already in the room, if so, notify it
-	const peer = room.getPeerByManagedId(groupUser.userId);
+	if (!room.groupRoles.some((gr) => gr.groupId === groupUser.groupId)) return;
 
-	if (peer) {
-		const groupRole = room.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
-
-		if (groupRole) {
-			peer.groupIds.push(groupUser.groupId);
-			updatePeerPermissions(room, peer);
-		}
+	// Every session of the user in the room.
+	for (const peer of room.getPeersByManagedId(groupUser.userId)) {
+		peer.groupIds.push(groupUser.groupId);
+		updatePeerPermissions(room, peer);
 	}
 };
 
 export const removeGroupUser = (room: Room, groupUser: ManagedGroupUser): void => {
 	room.permissionsRevision++;
 
-	// Check if the peer is already in the room, if so, notify it
-	const peer = room.getPeerByManagedId(groupUser.userId);
+	if (!room.groupRoles.some((gr) => gr.groupId === groupUser.groupId)) return;
 
-	if (peer) {
-		const groupRole = room.groupRoles.find((gr) => gr.groupId === groupUser.groupId);
-
-		if (groupRole) {
-			peer.groupIds = peer.groupIds.filter((id) => id !== groupUser.groupId);
-			updatePeerPermissions(room, peer);
-		}
+	// Every session of the user in the room.
+	for (const peer of room.getPeersByManagedId(groupUser.userId)) {
+		peer.groupIds = peer.groupIds.filter((id) => id !== groupUser.groupId);
+		updatePeerPermissions(room, peer);
 	}
+};
+
+/**
+ * A user was deleted. The database removes its owner and role rows with it, without an event
+ * for each, so they are taken out of the live room here. Otherwise the user's token, which
+ * stays valid until it expires, would still find them and give the rights back.
+ */
+export const removeUser = (room: Room, user: { id: number | string }): void => {
+	const userId = String(user.id);
+	const owners = room.owners.filter((o) => String(o.userId) !== userId);
+	const userRoles = room.userRoles.filter((ur) => String(ur.userId) !== userId);
+
+	if (owners.length === room.owners.length && userRoles.length === room.userRoles.length) return;
+
+	room.permissionsRevision++;
+	room.owners = owners;
+	room.userRoles = userRoles;
 };
 
 export const removeRole = (room: Room, role: ManagedRole): void => {
@@ -424,8 +469,10 @@ export const applyDefaultRole = (room: Room, role: ManagedRole | RoomRole | unde
 
 	for (const peer of peers) {
 		// The moderator of an unmanaged room has its rights for being moderator, as an owner has
-		// in a managed one, not from the default role.
-		const moderator = !room.managedId && peer.hasPermission(Permission.MODERATE_ROOM) && !lost.includes(Permission.MODERATE_ROOM);
+		// in a managed one, not from the default role. A default role that itself gave
+		// MODERATE_ROOM gave it to everyone: then nobody holds it for being moderator, and what
+		// the role loses is taken from all.
+		const moderator = !room.managedId && !before.has(Permission.MODERATE_ROOM) && peer.hasPermission(Permission.MODERATE_ROOM);
 
 		if (lost.length > 0 && !moderator)
 			peer.permissions = peer.permissions.filter((p) => !lost.includes(p));
@@ -497,9 +544,7 @@ export const addRolePermission = (room: Room, rolePermission: ManagedRolePermiss
 		if (ur.roleId === rolePermission.roleId) {
 			ur.role.permissions.push(rolePermission.permission);
 
-			const peer = room.getPeerByManagedId(ur.userId);
-
-			if (peer) updatePeerPermissions(room, peer);
+			room.getPeersByManagedId(ur.userId).forEach((peer) => updatePeerPermissions(room, peer));
 		}
 	});
 
@@ -521,9 +566,7 @@ export const removeRolePermission = (room: Room, rolePermission: ManagedRolePerm
 		if (ur.roleId === rolePermission.roleId) {
 			ur.role.permissions = ur.role.permissions.filter((p) => p.id !== rolePermission.permission.id);
 
-			const peer = room.getPeerByManagedId(ur.userId);
-
-			if (peer) updatePeerPermissions(room, peer);
+			room.getPeersByManagedId(ur.userId).forEach((peer) => updatePeerPermissions(room, peer));
 		}
 	});
 
